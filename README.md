@@ -22,7 +22,7 @@ Categorical models must also implement `predict_proba()`.
 pip install git+https://github.com/IBM/causallib.git
 ```
 
-##Usage
+## Usage
 In general, the package is imported using the name `causallib`. 
 For example, use 
 ```Python

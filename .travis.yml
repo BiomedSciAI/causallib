@@ -4,7 +4,12 @@ python:
 cache: pip
 install:
   - pip install -r requirements.txt
+  - pip install coverage
+  - pip install codeclimate-test-reporter
 script:
   - pip install -e .  # test that install is running properly
   - pip freeze
-  - pytest causallib/tests
+  - pytest --cov=causallib causallib/tests
+  - codeclimate-test-reporter --file .coverage
+after_success:
+  - codeclimate-test-reporter
