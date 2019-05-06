@@ -1,0 +1,10 @@
+language: python
+python:
+  - "3.6"
+cache: pip
+install:
+  - pip install -r requirements.txt
+script:
+  - pip install -e .  # test that install is running properly
+  - pip freeze
+  - pytest causallib/tests

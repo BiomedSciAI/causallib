@@ -1,0 +1,30 @@
+name: causal
+channels:
+- defaults
+dependencies:
+- certifi=2017.7.27.1=py27hf761292_0
+- colorama=0.3.9=py27hdfe4ae1_0
+- decorator=4.1.2=py27h383e199_0
+- icc_rt=2017.0.4=h97af966_0
+- intel-openmp=2018.0.0=hcd89f80_7
+- mkl=2018.0.0=h36b65af_4
+- networkx=1.10=py27_0
+- numpy=1.13.3=py27h9ac254c_0
+- pandas=0.20.3=py27he04484b_2
+- patsy=0.4.1=py27h5f67e4e_0
+- pip=9.0.1=py27hdaa76b4_4
+- py=1.4.34=py27h50228bf_1
+- pytest=3.2.1=py27h7cb0baa_1
+- python=2.7.14=h8c3f1cb_23
+- python-dateutil=2.6.1=py27hbdcc174_1
+- pytz=2017.2=py27haecbe8f_1
+- scikit-learn=0.19.1=py27he00e316_0
+- scipy=0.19.1=py27h069396b_3
+- setuptools=36.5.0=py27ha483b79_0
+- six=1.11.0=py27ha5e1701_1
+- statsmodels=0.8.0=py27hc77c1fc_0
+- vc=9=h7299396_1
+- vs2008_runtime=9.00.30729.1=hfaea7d5_1
+- wheel=0.29.0=py27hffb40b6_1
+- wincertstore=0.2=py27hf04cefb_0
+prefix: C:\Anaconda2\envs\causal
