@@ -1,6 +1,7 @@
 env:
   global:
     - CC_TEST_REPORTER_ID=$CODE_CLIMATE
+language: python
 python:
   - "3.6"
 cache: pip
