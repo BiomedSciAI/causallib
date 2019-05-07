@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/IBM/causallib.svg?&branch=master)](https://travis-ci.org/IBM/causallib)
+[![Test Coverage](https://api.codeclimate.com/v1/badges/db2562e44c4a9f7280dc/test_coverage)](https://codeclimate.com/github/IBM/causallib/test_coverage)
 # IBM Causal Inference Library
 A Python package for computational inference of causal effect.
 
