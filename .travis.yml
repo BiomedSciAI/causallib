@@ -1,6 +1,3 @@
-env:
-  global:
-    - CC_TEST_REPORTER_ID=$CODE_CLIMATE
 language: python
 python:
   - "3.6"
@@ -11,11 +8,11 @@ before_script:
   - ./cc-test-reporter before-build
 install:
   - pip install -r requirements.txt
-  - pip install pytest pytest-cov
+  - pip install --upgrade pytest pytest-cov
 script:
   - pip install -e .  # test that install is running properly
   - pip freeze
-  - pytest --cov=causallib causallib/tests
+  - pytest --cov-report= --cov=causallib causallib/tests
 after_success:
   - coverage xml
   - ./cc-test-reporter after-build
