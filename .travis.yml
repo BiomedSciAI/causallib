@@ -2,9 +2,17 @@ language: python
 python:
   - "3.6"
 cache: pip
+before_script:
+  - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+  - chmod +x ./cc-test-reporter
+  - ./cc-test-reporter before-build
 install:
   - pip install -r requirements.txt
+  - pip install --upgrade pytest pytest-cov
 script:
   - pip install -e .  # test that install is running properly
   - pip freeze
-  - pytest causallib/tests
+  - pytest --cov-report= --cov=causallib causallib/tests
+after_success:
+  - coverage xml
+  - ./cc-test-reporter after-build

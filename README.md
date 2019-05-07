@@ -1,4 +1,6 @@
 [![Build Status](https://travis-ci.org/IBM/causallib.svg?&branch=master)](https://travis-ci.org/IBM/causallib)
+[![Test Coverage](https://api.codeclimate.com/v1/badges/db2562e44c4a9f7280dc/test_coverage)](https://codeclimate.com/github/IBM/causallib/test_coverage)
+[![PyPI version](https://badge.fury.io/py/causallib.svg)](https://badge.fury.io/py/causallib)
 # IBM Causal Inference Library
 A Python package for computational inference of causal effect.
 
@@ -22,7 +24,7 @@ Categorical models must also implement `predict_proba()`.
 pip install git+https://github.com/IBM/causallib.git
 ```
 
-##Usage
+## Usage
 In general, the package is imported using the name `causallib`. 
 For example, use 
 ```Python

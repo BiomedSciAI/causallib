@@ -14,11 +14,13 @@ setup(name='causallib',
       url=GIT_URL,
       author='IBM Research Haifa Labs - Machine Learning for Healthcare and Life Sciences',
       # author_email=None,
-      # license=None,
+      license="Apache License 2.0",
       keywords="causal inference effect estimation causality",
       install_requires=open("requirements.txt", "r").read().splitlines(),
-      # extras_require={'test': ['coverage']},
-      # data_files=[('testS', ['data/ACIC challenge 2016/*', 'data/sim_res_prof/*'])],
       project_urls={'Bug Reports': GIT_URL + '/issues',
-                    'Source Code': GIT_URL}
+                    'Source Code': GIT_URL},
+      classifiers=[
+              "Programming Language :: Python :: 3.6",
+              "License :: OSI Approved :: Apache Software License",
+          ]
       )

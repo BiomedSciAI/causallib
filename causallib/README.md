@@ -1,4 +1,3 @@
-[![Build Status](https://travis.ibm.com/CausalDev/CausalInference.svg?token=syJBq9fcpyiyP7qQGAqi&branch=restructure)](https://travis.ibm.com/CausalDev/CausalInference)
 # Package `causallib`
 A package for estimating causal effect and counterfactual outcomes from observational data.
 
@@ -48,11 +47,6 @@ These can be used within a pipeline framework together with the models.
 ### `datasets`
 Several datasets are provided within the package in the `datasets` module:  
 * NHEFS study data on the effect of smoking cessation on weight gain.
-* One set of simulated data instances from the 2016 Atlantic Causal Inference 
-  Conference (ACIC) data challenge.  
-  (see [competition page](https://jenniferhill7.wixsite.com/acic-2016/competition), 
-       [code](https://github.com/vdorie/aciccomp/tree/master/2016), and 
-       [paper](https://arxiv.org/abs/1707.02641))
 * simulation module allows creating simulated data based on a causal graph
   depicting the connection between covariates, treatment assignment and outcomes.
 
