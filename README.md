@@ -21,7 +21,7 @@ Categorical models must also implement `predict_proba()`.
 
 ## Installation
 ```bash
-pip install git+https://github.com/IBM/causallib.git
+pip install causallib
 ```
 
 ## Usage
