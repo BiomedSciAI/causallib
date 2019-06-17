@@ -15,5 +15,8 @@ make html
 * [nbsphinx v0.4.2](https://nbsphinx.readthedocs.io): to support inclusion of Jupyter Notebooks inside the html 
   documentation
 
+`requirement.txt` is a requirement file necessary for [readthedocs.org](readthedocs.org) build.
+Specified from the readthedocs web-based settings: Admin > Advanced Setting > Requirements file
+
 The `source/conf.py` file also includes some arbitrary code for the automatic 
 inclusion of README files within the documentation.

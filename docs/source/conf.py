@@ -49,7 +49,8 @@ extensions = [
 	'sphinx.ext.coverage',
 	'sphinx.ext.viewcode',
 	'sphinx.ext.intersphinx',  # link to other documentations
-	'nbsphinx',  # work with jupyter notebook. requires pip install nbsphinx
+	# 'nbsphinx',  # work with jupyter notebook. requires pip install nbsphinx
+	# 'sphinx.ext.mathjax',		# required for math in Jupyter Notebook
 	'm2r',  # work with markdown files. requires pip install m2r
 	'sphinx.ext.napoleon',  # parse Google/numpy docstring
 	# 'sphinx.ext.autosummary',	# Automated index.rst toctree
@@ -96,7 +97,7 @@ exclude_patterns = [
 #
 on_rtd = os.environ.get('READTHEDOCS') == 'True'
 if on_rtd:
-	html_theme = 'default'
+	html_theme = 'sphinx_rtd_theme'
 else:
 	html_theme = 'classic'
 

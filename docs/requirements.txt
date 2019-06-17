@@ -1,0 +1,4 @@
+sphinx
+m2r
+# nbsphinx
+sphinx-rtd-theme
