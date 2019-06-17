@@ -16,7 +16,7 @@ make html
   documentation
 
 `requirement.txt` is a requirement file necessary for [readthedocs.org](readthedocs.org) build.
-Specified from the readthedocs web-based settings: Admin > Advanced Setting > Requirements file
+Pointed by `../.readthedocs.yml` configuration file.
 
 The `source/conf.py` file also includes some arbitrary code for the automatic 
 inclusion of README files within the documentation.
