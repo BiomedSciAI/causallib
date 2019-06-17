@@ -1,0 +1,23 @@
+# Documentation: https://docs.readthedocs.io/en/stable/config-file/v2.html
+
+# Configuration file version:
+version: 2
+
+# Build documentation in the docs/ directory with Sphinx
+sphinx:
+  configuration: null
+  builder: html
+
+# Additional documentation formats (pdf, etc.)
+formats: all
+
+# Python and requirements required to build your docs
+python:
+  version: 3.6
+  install:
+    - requirements: requirements.txt
+    - requirements: docs/requirements.txt
+#    - method: pip
+#      path: .
+#      extra_requirements:
+#        - docs

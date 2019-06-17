@@ -1,6 +1,7 @@
 [![Build Status](https://travis-ci.org/IBM/causallib.svg?&branch=master)](https://travis-ci.org/IBM/causallib)
 [![Test Coverage](https://api.codeclimate.com/v1/badges/db2562e44c4a9f7280dc/test_coverage)](https://codeclimate.com/github/IBM/causallib/test_coverage)
 [![PyPI version](https://badge.fury.io/py/causallib.svg)](https://badge.fury.io/py/causallib)
+[![Documentation Status](https://readthedocs.org/projects/causallib/badge/?version=latest)](https://causallib.readthedocs.io/en/latest/)
 # IBM Causal Inference Library
 A Python package for computational inference of causal effect.
 
@@ -32,3 +33,5 @@ from sklearn.linear_model import LogisticRegression
 from causallib.estimation import IPW 
 ipw = IPW(LogisticRegression())
 ```
+Comprehensive Jupyter Notebooks examples can be found in the [examples directory](examples).
+
