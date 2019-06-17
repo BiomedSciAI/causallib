@@ -9,11 +9,14 @@ sphinx:
   builder: html
 
 # Additional documentation formats (pdf, etc.)
- formats: all
+formats: all
 
 # Python and requirements required to build your docs
 python:
   version: 3.6
   install:
-    - requirements: requirements.txt        # Required for the entire package
-    - requirements: docs/requirements.txt   # Required for the documentation
+    - method: pip
+      path: .
+      requirements: requirements.txt        # Required for the entire package
+      extra_requirements:
+        - docs
