@@ -2,3 +2,4 @@ sphinx==2.1.0
 m2r
 # nbsphinx
 sphinx-rtd-theme
+-e ../causallib
