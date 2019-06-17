@@ -89,6 +89,9 @@ exclude_patterns = [
 	'*tests.*'					# remove tests from documentation
 ]
 
+# https://www.sphinx-doc.org/en/master/usage/configuration.html?highlight=master_doc#confval-master_doc
+master_doc = 'index'    # what file includes the root toctree. Needed explicitly for readthedocs.org
+
 
 # -- Options for HTML output -------------------------------------------------
 
