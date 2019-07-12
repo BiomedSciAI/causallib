@@ -10,7 +10,7 @@ with open(os.path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(name='causallib',
-      version="1.0.0",
+      version="0.5.0-beta",
       # version=cl_version
       # packages=find_packages(exclude=['scripts', 'data', 'tests']),
       packages=find_packages(),
@@ -24,11 +24,15 @@ setup(name='causallib',
       keywords="causal inference effect estimation causality",
       install_requires=open("requirements.txt", "r").read().splitlines(),
       extra_requires={'docs': open(os.path.join("docs", "requirements.txt"), "r").read().splitlines()},
-      project_urls={'Bug Reports': GIT_URL + '/issues',
-                    'Source Code': GIT_URL,
-                    'Documentation': 'causallib.readthedocs.io/en/latest/'},
+      project_urls={
+          'Documentation': 'https://causallib.readthedocs.io/en/latest/',
+          'Source Code': GIT_URL,
+          'Bug Tracker': GIT_URL + '/issues',
+      },
       classifiers=[
-              "Programming Language :: Python :: 3.6",
-              "License :: OSI Approved :: Apache Software License",
-          ]
+          "Programming Language :: Python :: 3.6",
+          "License :: OSI Approved :: Apache Software License",
+          "Development Status :: 4 - Beta",
+          "Topic :: Scientific/Engineering"
+      ]
       )
