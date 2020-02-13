@@ -33,7 +33,7 @@ class CS3TestCase(unittest.TestCase):
     def setUp(self):
         # DEFAULTS:
         Params = namedtuple("Params", ["topology", "var_types", "outcome_types", "link_types", "prob_cat", "snr",
-                                       "treatment_importance", "effect_sizes"], verbose=False)
+                                       "treatment_importance", "effect_sizes"])
 
         topology = np.zeros((4, 4), dtype=np.bool)  # topology[i,j] if node j is a parent of node i
         topology[1, 0] = topology[2, 0] = topology[2, 1] = topology[3, 1] = topology[3, 2] = True

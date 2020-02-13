@@ -19,6 +19,7 @@ Created on Aug 08, 2018
 
 import unittest
 from itertools import product
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -149,6 +150,41 @@ class TestDoublyRobustBase(unittest.TestCase):
                     self.estimator.estimate_individual_outcome(data["X"], data["a"])
                     self.assertTrue(True)  # Dummy assert for not thrown exception
 
+    def ensure_many_models(self):
+        from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+        from sklearn.neural_network import MLPRegressor
+        from sklearn.linear_model import ElasticNet, RANSACRegressor, HuberRegressor, PassiveAggressiveRegressor
+        from sklearn.neighbors import KNeighborsRegressor
+        from sklearn.svm import SVR, LinearSVR
+
+        from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
+        from sklearn.neural_network import MLPClassifier
+        from sklearn.neighbors import KNeighborsClassifier
+
+        from sklearn.exceptions import ConvergenceWarning
+        warnings.filterwarnings('ignore', category=ConvergenceWarning)
+
+        data = self.create_uninformative_ox_dataset()
+        for propensity_learner in [GradientBoostingClassifier(n_estimators=10),
+                                   RandomForestClassifier(n_estimators=100),
+                                   MLPClassifier(hidden_layer_sizes=(5,)),
+                                   KNeighborsClassifier(n_neighbors=20)]:
+            weight_model = IPW(propensity_learner)
+            propensity_learner_name = str(propensity_learner).split("(", maxsplit=1)[0]
+            for outcome_learner in [GradientBoostingRegressor(n_estimators=10), RandomForestRegressor(n_estimators=10),
+                                    MLPRegressor(hidden_layer_sizes=(5,)),
+                                    ElasticNet(), RANSACRegressor(), HuberRegressor(), PassiveAggressiveRegressor(),
+                                    KNeighborsRegressor(), SVR(), LinearSVR()]:
+                outcome_learner_name = str(outcome_learner).split("(", maxsplit=1)[0]
+                outcome_model = Standardization(outcome_learner)
+
+                with self.subTest("Test fit & predict using {} & {}".format(propensity_learner_name,
+                                                                            outcome_learner_name)):
+                    model = self.estimator.__class__(outcome_model, weight_model)
+                    model.fit(data["X"], data["a"], data["y"], refit_weight_model=False)
+                    model.estimate_individual_outcome(data["X"], data["a"])
+                    self.assertTrue(True)  # Fit did not crash
+
 
 class TestDoublyRobustVanilla(TestDoublyRobustBase):
     @classmethod
@@ -180,6 +216,9 @@ class TestDoublyRobustVanilla(TestDoublyRobustBase):
     def test_pipeline_learner(self):
         self.ensure_pipeline_learner()
 
+    def test_many_models(self):
+        self.ensure_many_models()
+
 
 class TestDoublyRobustJoffe(TestDoublyRobustBase):
     @classmethod
@@ -210,6 +249,51 @@ class TestDoublyRobustJoffe(TestDoublyRobustBase):
 
     def test_pipeline_learner(self):
         self.ensure_pipeline_learner()
+
+    def test_many_models(self):
+        from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+        from sklearn.neural_network import MLPRegressor
+        from sklearn.linear_model import ElasticNet, RANSACRegressor, HuberRegressor, PassiveAggressiveRegressor
+        from sklearn.neighbors import KNeighborsRegressor
+        from sklearn.svm import SVR, LinearSVR
+
+        from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
+        from sklearn.neural_network import MLPClassifier
+        from sklearn.neighbors import KNeighborsClassifier
+
+        from sklearn.exceptions import ConvergenceWarning
+        warnings.filterwarnings('ignore', category=ConvergenceWarning)
+
+        data = self.create_uninformative_ox_dataset()
+
+        for propensity_learner in [GradientBoostingClassifier(n_estimators=10),
+                                   RandomForestClassifier(n_estimators=100),
+                                   MLPClassifier(hidden_layer_sizes=(5,)),
+                                   KNeighborsClassifier(n_neighbors=20)]:
+            weight_model = IPW(propensity_learner)
+            propensity_learner_name = str(propensity_learner).split("(", maxsplit=1)[0]
+            for outcome_learner in [GradientBoostingRegressor(n_estimators=10),
+                                    RandomForestRegressor(n_estimators=10),
+                                    RANSACRegressor(), HuberRegressor(), SVR(), LinearSVR()]:
+                outcome_learner_name = str(outcome_learner).split("(", maxsplit=1)[0]
+                outcome_model = Standardization(outcome_learner)
+
+                with self.subTest("Test fit using {} & {}".format(propensity_learner_name, outcome_learner_name)):
+                    model = self.estimator.__class__(outcome_model, weight_model)
+                    model.fit(data["X"], data["a"], data["y"], refit_weight_model=False)
+                    self.assertTrue(True)  # Fit did not crash
+
+            for outcome_learner in [MLPRegressor(hidden_layer_sizes=(5,)), ElasticNet(),
+                                    PassiveAggressiveRegressor(), KNeighborsRegressor()]:
+                outcome_learner_name = str(outcome_learner).split("(", maxsplit=1)[0]
+                outcome_model = Standardization(outcome_learner)
+
+                with self.subTest("Test fit using {} & {}".format(propensity_learner_name, outcome_learner_name)):
+                    model = self.estimator.__class__(outcome_model, weight_model)
+                    with self.assertRaises(TypeError):
+                        # Joffe forces learning with sample_weights,
+                        # not all ML models support that and so calling should fail
+                        model.fit(data["X"], data["a"], data["y"], refit_weight_model=False)
 
 
 class TestDoublyRobustIPFeature(TestDoublyRobustBase):
@@ -249,3 +333,6 @@ class TestDoublyRobustIPFeature(TestDoublyRobustBase):
 
     def test_pipeline_learner(self):
         self.ensure_pipeline_learner()
+
+    def test_many_models(self):
+        self.ensure_many_models()

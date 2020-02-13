@@ -290,7 +290,7 @@ class WeightEvaluator(BaseEvaluator):
 
         # Rename keys (as will be presented as curve labels in legend)
         curve_data["Weights"] = curve_data.pop("unweighted")
-        curve_data["W-Weights"] = curve_data.pop("weighted")
+        curve_data["Weighted"] = curve_data.pop("weighted")
         return curve_data
 
 
@@ -359,7 +359,9 @@ class PropensityEvaluator(WeightEvaluator):
         propensity_by_treatment_assignment = robust_lookup(propensity_by_treatment_assignment, a)
 
         weight_prediction = super(PropensityEvaluator, self)._estimator_predict(X, a)
-        prediction = PropensityEvaluatorPredictions(weight_prediction.weight_by_treatment_assignment,
+        # Do not force stabilize=False as in WeightEvaluator:
+        weight_by_treatment_assignment = self.estimator.compute_weights(X, a)
+        prediction = PropensityEvaluatorPredictions(weight_by_treatment_assignment,
                                                     weight_prediction.weight_for_being_treated,
                                                     weight_prediction.treatment_assignment_pred,
                                                     propensity,
@@ -481,8 +483,8 @@ class PropensityEvaluator(WeightEvaluator):
 
         # Rename keys (as will be presented as curve labels in legend)
         curve_data["Propensity"] = curve_data.pop("unweighted")
-        curve_data["W-Propensity"] = curve_data.pop("weighted")
-        curve_data["E-Propensity"] = curve_data.pop("expected")
+        curve_data["Weighted"] = curve_data.pop("weighted")
+        curve_data["Expected"] = curve_data.pop("expected")
         return curve_data
 
 

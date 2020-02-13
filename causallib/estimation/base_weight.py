@@ -20,8 +20,9 @@ Created on Apr 25, 2018
 import abc
 
 import pandas as pd
+import numpy as np
 
-from ..utils.general_tools import create_repr_string
+from ..utils.general_tools import create_repr_string, get_iterable_treatment_values
 
 
 class WeightEstimator:
@@ -99,6 +100,42 @@ class WeightEstimator:
                           treatment.
         """
         raise NotImplementedError
+
+    @staticmethod
+    def _compute_stratified_weighted_aggregate(y, sample_weight=None,
+                                               stratify_by=None, treatment_values=None):
+        """
+        Calculates aggregation of `y` weighted by `sample_weights` stratified by `stratify_by` variable.
+
+        Args:
+            y (pd.Series): The variable to aggregate (num_subjects,).
+            sample_weight (pd.Series|None): Individual (sample) weights calculated.
+                                            Used to achieved unbiased average outcome.
+                                            If not provided, gives equal weights to every example.
+            stratify_by (pd.Series|None): Categorical variable to stratify according to (num_subjects,).
+                                          Namely, aggregate within subgroups sharing the same values.
+                                          If not provided, the aggregation is on the entire
+            treatment_values (Any): Subset of values to stratify on from `stratify_by`.
+                                    If not supplied, all available stratification values are used.
+
+        Returns:
+            pd.Series[Any, float]: Series which index are treatment values, and the values are numbers - the
+                                   aggregated outcome for the strata of people whose assigned treatment is the key.
+        """
+        if sample_weight is None:
+            sample_weight = pd.Series(data=1.0, index=y.index)
+        if treatment_values is None and stratify_by is None:
+            stratify_by = pd.Series(data=0, index=y.index)
+
+        treatment_values = get_iterable_treatment_values(treatment_values, stratify_by)
+
+        res = {}
+        for treatment_value in treatment_values:
+            subgroup_mask = stratify_by == treatment_value
+            aggregated_value = np.average(y[subgroup_mask], weights=sample_weight[subgroup_mask])
+            res[treatment_value] = aggregated_value
+        res = pd.Series(res)
+        return res
 
     def evaluate_balancing(self, X, a, y, w):
         pass  # TODO: implement: (1) table one with smd (2) gather lots of metric (ks, kl, smd) (3) plot CDF of each feature

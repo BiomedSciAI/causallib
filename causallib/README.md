@@ -47,7 +47,10 @@ These can be used within a pipeline framework together with the models.
 ### `datasets`
 Several datasets are provided within the package in the `datasets` module:  
 * NHEFS study data on the effect of smoking cessation on weight gain.
-* simulation module allows creating simulated data based on a causal graph
+  Adapted from [Hernán and Robins' Causal Inference Book](https://www.hsph.harvard.edu/miguel-hernan/causal-inference-book/)
+* A handful of simulation sets from the [2016 Atlantic Causal Inference 
+  Conference (ACIC) data challenge](https://jenniferhill7.wixsite.com/acic-2016/competition). 
+* Simulation module allows creating simulated data based on a causal graph
   depicting the connection between covariates, treatment assignment and outcomes.
 
 ### Additional folders

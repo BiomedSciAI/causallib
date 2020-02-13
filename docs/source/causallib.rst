@@ -7,6 +7,7 @@ Subpackages
 .. toctree::
 
    causallib.analysis
+   causallib.contrib
    causallib.datasets
    causallib.estimation
    causallib.evaluation

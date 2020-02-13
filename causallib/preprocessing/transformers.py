@@ -19,9 +19,16 @@ import warnings
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.preprocessing import Imputer as skImputer
+from sklearn.impute import SimpleImputer as skImputer
 
 from ..utils.stat_utils import which_columns_are_binary
+
+
+# TODO: Entire module might be redundant, now that scikit-learn supports missing values
+#       in its preprocessing: https://scikit-learn.org/stable/whats_new/v0.20.html#highlights
+#       The only support now needed is:
+#       1) Transforming from numpy-array to pandas DataFrame in a pipeline, before specifying a causal model.
+#       2) Possible generic support for causallib's additional `a` parameter, along with `X` and `y`.
 
 
 class StandardScaler(BaseEstimator, TransformerMixin):

@@ -6,7 +6,6 @@ Submodules
 
 .. toctree::
 
-   causallib.evaluation.evaluate
    causallib.evaluation.evaluator
    causallib.evaluation.outcome_evaluator
    causallib.evaluation.plots
