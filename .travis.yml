@@ -4,8 +4,13 @@ python:
   - "3.7"
   - "3.8"
 cache: pip
+before_script:
+  - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+  - chmod +x ./cc-test-reporter
+  - ./cc-test-reporter before-build
 install:
   - pip install -r requirements.txt
+  - pip install --upgrade pytest pytest-cov
 script:
   - pip install -e .  # test that install is running properly
   - pip freeze
