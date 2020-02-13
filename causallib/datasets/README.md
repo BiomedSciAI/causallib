@@ -29,11 +29,14 @@ The dataset was adapted from the data available at
 
 It can be loaded using 
 ```Python
-from causallib.datasets.data_loader import fetch_smoking_weight
-smoking = fetch_smoking_weight() 
+from causallib.datasets.data_loader import load_nhefs
+data = load_nhefs()
+covariates = data.X, 
+treatment_assignment = data.a, 
+observed_outcome = data.y 
 ``` 
 
-This loads an object in which `smoking.X`, `smoking.a`, and `smoking.y`
+This loads an object in which `data.X`, `data.a`, and `data.y`
 respectively hold the features for each individual,
 whether they stopped-smoking, 
 and their observed difference in weight between 1971 and 1983.
@@ -121,3 +124,11 @@ respectively.
 ### Additional examples
 A more elaborate example that includes using existing data 
 is available in the example notebook.
+
+## License
+Datasets are provided under [Community Data License Agreement (CDLA)](https://cdla.io/).  
+The ACIC16 dataset is provided under [CDLA-sharing](https://cdla.io/sharing-1-0/) license.  
+The NHEFS dataset is provided under [CDLA-permissive](https://cdla.io/permissive-1-0/) license.  
+Please see the full corresponding license within each directory.  
+
+We thank the authors for sharing their data within this package.

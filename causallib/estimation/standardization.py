@@ -18,6 +18,7 @@ Created on Apr 25, 2018
 """
 
 from typing import Mapping
+import inspect
 
 import pandas as pd
 from numpy import isscalar
@@ -62,18 +63,22 @@ def _standardization_predict(estimator, X, predict_proba):
     return prediction
 
 
-def _get_fit_params(estimator, sample_weight):
+def _add_sample_weight_fit_params(estimator, sample_weight):
     """Return fit params according to whether estimator is a simple estimator or a pipeline"""
     is_pipeline = hasattr(estimator, "steps")
     if is_pipeline:
         # Attribute the provided sample_weights to the final estimator in the pipeline.
         # Attribution is done by step name followed by dunder, see:
         # https://scikit-learn.org/stable/modules/generated/sklearn.pipeline.Pipeline.html
-        estimator_name = estimator.steps[-1][0]
+        estimator_name, estimator = estimator.steps[-1]
         fit_params = {"{}__sample_weight".format(estimator_name): sample_weight}
-
     else:
         fit_params = dict(sample_weight=sample_weight)
+
+    if "sample_weight" not in inspect.signature(estimator.fit).parameters and sample_weight is None:
+        # Estimator does not support "sample_weight" parameter and sample_weight is not provided
+        fit_params = {}
+
     return fit_params
 
 
@@ -160,7 +165,7 @@ class StratifiedStandardization(IndividualOutcomeEstimator):
             self.learner = self._clone_learner(a.unique())
 
         for cur_X, cur_y, cur_sw, treatment_value in self._prepare_data(X, a, y, sample_weight):
-            fit_params = _get_fit_params(self.learner[treatment_value], cur_sw)
+            fit_params = _add_sample_weight_fit_params(self.learner[treatment_value], cur_sw)
             self.learner[treatment_value] = self.learner[treatment_value].fit(cur_X, cur_y, **fit_params)
         return self
 
@@ -246,7 +251,7 @@ class Standardization(IndividualOutcomeEstimator):
             self.treatment_encoder_ = OneHotEncoder(sparse=False, categories="auto")
             self.treatment_encoder_.fit(a.values.reshape(-1, 1))
         X = self._prepare_data(X, a)
-        fit_params = _get_fit_params(self.learner, sample_weight)
+        fit_params = _add_sample_weight_fit_params(self.learner, sample_weight)
         self.learner.fit(X, y, **fit_params)
         return self
 

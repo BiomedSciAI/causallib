@@ -19,12 +19,10 @@ Created on Apr 25, 2018
 
 import warnings
 
-import numpy as np
 import pandas as pd
 
 from .base_estimator import PopulationOutcomeEstimator
 from .base_weight import PropensityEstimator
-from ..utils import general_tools as g_tools
 from ..utils.stat_utils import robust_lookup
 
 
@@ -201,20 +199,18 @@ class IPW(PropensityEstimator, PopulationOutcomeEstimator):
             y (pd.Series): Observed outcome of size (num_subjects,).
             w (pd.Series | None): Individual (sample) weights calculated. Used to achieved unbiased average outcome.
                                    If not provided, will be calculated on the data.
-            treatment_values (Any): Desired treatment value/s to stratify upon before aggregating individual into
-                                    population outcome.
+            treatment_values (Any): Desired treatment value/s to stratify upon.
+                                    Must be a subset of values found in `a`.
                                     If not supplied, calculates for all available treatment values.
 
         Returns:
             pd.Series[Any, float]: Series which index are treatment values, and the values are numbers - the
                                    aggregated outcome for the strata of people whose assigned treatment is the key.
         """
-        weights = w if w is not None else self.compute_weights(X, a)
-        treatment_values = g_tools.get_iterable_treatment_values(treatment_values, a)
-        res = {}
-        for treatment_value in treatment_values:
-            res[treatment_value] = np.average(y[a == treatment_value], weights=weights[a == treatment_value])
-        res = pd.Series(res)
+        if w is None:
+            w = self.compute_weights(X, a)
+        res = self._compute_stratified_weighted_aggregate(y, sample_weight=w, stratify_by=a,
+                                                          treatment_values=treatment_values)
         return res
 
     @staticmethod

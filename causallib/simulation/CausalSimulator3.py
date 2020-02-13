@@ -346,14 +346,14 @@ class CausalSimulator3(object):
         Args:
             values (Any): some property of some variable (e.g. 0.7 for treatment_importance or
                           "binary" for outcome_type)
-            keys (Sequence[Any]): The names\indices to map the given properties (values) (e.g. treatment_indices)
+            keys (Sequence[Any]): The names\\indices to map the given properties (values) (e.g. treatment_indices)
             var_type (str {"covariate", "hidden", "treatment", "outcome", "censor"}):  The type of variable the
                         properties being mapped to (e.g. "treatment", "outcome", "covariate")
             value_type (str): The name\type that the property belongs to. (e.g. the variable name in the python code),
                               so in case there's an error, it can display the python-variable that caused the error.
 
         Returns:
-            res (pd.Series): A map between the given keys (some covariate variable names\indices) to the given values
+            res (pd.Series): A map between the given keys (some covariate variable names\\indices) to the given values
 
         Raises:
             ValueError: When a Sequence is given as values (e.g. list of properties) but it does not match the length
@@ -364,7 +364,7 @@ class CausalSimulator3(object):
                          names. A warning is issued.
 
         Examples:
-            Where effect_sizes is a Sequence or a float, outcome_indices are the indices\ names of the outcome variables
+            Where effect_sizes is a Sequence or a float, outcome_indices are the indices\\names of the outcome variables
              in the graph. the variable type discussed is "outcome" (since it is effect-size). The python variable name
              is effect_size, thus the value_type is effect_size.
              map_properties_to_variables(values=effect_sizes, keys=self.outcome_indices, var_type="outcome",
@@ -392,7 +392,9 @@ class CausalSimulator3(object):
                                                                val=list(values.keys()), keys=keys), UserWarning)
             else:
                 res = dict(list(zip(keys, values)))
-        return pd.Series(res)
+        res = pd.Series(res, dtype=np.dtype(object))
+        res = res.infer_objects()
+        return res
 
     # ### Main functionality ### #
     def generate_data(self, X_given=None, num_samples=None, random_seed=None):
@@ -545,7 +547,7 @@ class CausalSimulator3(object):
         # if variable has no parents - just sample from normal Gaussian distribution:
         if X_parents.empty:
             X_new = pd.Series(np.random.normal(loc=0.0, scale=1.0, size=num_samples), index=X_parents.index)
-            beta = pd.Series()
+            beta = pd.Series(dtype=np.float64)
         else:
             # generate covariate column based on the parents' variables
             linking_method = self.G_LINKING_METHODS.get(link_type)
@@ -681,7 +683,7 @@ class CausalSimulator3(object):
                 X_covariates = X_covariates.drop(treatment_parent, axis="columns")  # type: pd.DataFrame
             except IndexError:  # len(treatment_parents) == 0 outcome variable is independent of treatment variables
                 treatment_parent = None
-                X_treatment = pd.Series()
+                X_treatment = pd.Series(dtype=np.float64)
         has_treatment_parent = not X_treatment.empty
         treatment_importance = treatment_importance or self.treatment_importances.get(treatment_parent)
 
@@ -1567,7 +1569,7 @@ def generate_random_topology(n_covariates, p, n_treatments=1, n_outcomes=1, n_ce
     for outcome_idx, censoring_idx in matches:
         topology.loc[outcome_idx, censoring_idx] = True
 
-    generated_types = pd.Series(index=generated_vars)
+    generated_types = pd.Series(index=generated_vars, dtype=np.object)
     generated_types[covariates] = COVARIATE
     generated_types[treatments] = TREATMENT
     generated_types[outcomes] = OUTCOME

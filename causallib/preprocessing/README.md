@@ -27,11 +27,11 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.pipeline import make_pipeline
 from causallib.estimation import IPW
-from causallib.datasets import load_smoking_weight
+from causallib.datasets import load_nhefs
 from causallib.preprocessing.transformers import MinMaxScaler
 
 pipeline = make_pipeline(MinMaxScaler(), VarianceThreshold(0.1), LogisticRegression())
-data = load_smoking_weight()
+data = load_nhefs()
 ipw = IPW(pipeline)
 ipw.fit(data.X, data.a)
 ipw.estimate_population_outcome(data.X, data.a, data.y)

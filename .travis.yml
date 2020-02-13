@@ -1,6 +1,8 @@
 language: python
 python:
   - "3.6"
+  - "3.7"
+  - "3.8"
 cache: pip
 before_script:
   - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
@@ -12,6 +14,7 @@ install:
 script:
   - pip install -e .  # test that install is running properly
   - pip freeze
+  - pytest causallib/contrib/tests
   - pytest --cov-report= --cov=causallib causallib/tests
 after_success:
   - coverage xml

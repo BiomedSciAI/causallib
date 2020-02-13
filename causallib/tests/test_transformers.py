@@ -20,6 +20,7 @@ import abc
 import unittest
 
 import pandas as pd
+import numpy as np
 
 from causallib.preprocessing.transformers import StandardScaler, MinMaxScaler
 
@@ -45,8 +46,8 @@ class TestTransformers:
 class TestStandardScaler(TestTransformers, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.data = pd.DataFrame({"binary": [4, 5, 5, pd.np.nan],
-                                 "continuous": [0, 2, 4, pd.np.nan]})
+        cls.data = pd.DataFrame({"binary": [4, 5, 5, np.nan],
+                                 "continuous": [0, 2, 4, np.nan]})
         cls.transformer = StandardScaler(with_mean=True, with_std=True, ignore_nans=True)
         cls.transformer.fit(cls.data)
 
@@ -76,7 +77,7 @@ class TestStandardScaler(TestTransformers, unittest.TestCase):
             pd.testing.assert_series_equal(self.data["binary"], transformed["binary"])
 
         with self.subTest("Result is right on the transformed column"):
-            pd.testing.assert_series_equal(transformed["continuous"], pd.Series([-1.0, 0.0, 1.0, pd.np.nan]),
+            pd.testing.assert_series_equal(transformed["continuous"], pd.Series([-1.0, 0.0, 1.0, np.nan]),
                                            check_names=False)
 
     def test_inverse_transform(self):
@@ -87,8 +88,8 @@ class TestStandardScaler(TestTransformers, unittest.TestCase):
 class TestMinMaxScaler(TestTransformers, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.data = pd.DataFrame({"binary": [4, 5, 5, pd.np.nan],
-                                 "continuous": [0, 2, 4, pd.np.nan]})
+        cls.data = pd.DataFrame({"binary": [4, 5, 5, np.nan],
+                                 "continuous": [0, 2, 4, np.nan]})
         cls.transformer = MinMaxScaler(only_binary_features=True, ignore_nans=True)
         cls.transformer.fit(cls.data)
 
@@ -125,7 +126,7 @@ class TestMinMaxScaler(TestTransformers, unittest.TestCase):
             pd.testing.assert_series_equal(self.data["continuous"], transformed["continuous"])
 
         with self.subTest("Result is right on the transformed column"):
-            pd.testing.assert_series_equal(transformed["binary"], pd.Series([0.0, 1.0, 1.0, pd.np.nan]),
+            pd.testing.assert_series_equal(transformed["binary"], pd.Series([0.0, 1.0, 1.0, np.nan]),
                                            check_names=False)
 
     def test_inverse_transform(self):

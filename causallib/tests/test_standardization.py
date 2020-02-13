@@ -80,6 +80,27 @@ class TestStandardizationCommon(unittest.TestCase):
             self.estimator.estimate_individual_outcome(self.data_lin["X"], self.data_lin["a"])
             self.assertTrue(True)  # Dummy assert for not thrown exception
 
+    def ensure_many_models(self):
+        from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+        from sklearn.neural_network import MLPRegressor
+        from sklearn.linear_model import ElasticNet, RANSACRegressor, HuberRegressor, PassiveAggressiveRegressor
+        from sklearn.neighbors import KNeighborsRegressor
+        from sklearn.svm import SVR, LinearSVR
+
+        import warnings
+        from sklearn.exceptions import ConvergenceWarning
+        warnings.filterwarnings('ignore', category=ConvergenceWarning)
+
+        for learner in [GradientBoostingRegressor, RandomForestRegressor, MLPRegressor,
+                        ElasticNet, RANSACRegressor, HuberRegressor, PassiveAggressiveRegressor,
+                        KNeighborsRegressor, SVR, LinearSVR]:
+            learner = learner()
+            learner_name = str(learner).split("(", maxsplit=1)[0]
+            with self.subTest("Test fit using {learner}".format(learner=learner_name)):
+                model = self.estimator.__class__(learner)
+                model.fit(self.data_lin["X"], self.data_lin["a"], self.data_lin["y"])
+                self.assertTrue(True)  # Fit did not crash
+
 
 class TestStandardization(TestStandardizationCommon):
     @classmethod
@@ -118,6 +139,9 @@ class TestStandardization(TestStandardizationCommon):
 
     def test_pipeline_learner(self):
         self.ensure_pipeline_learner()
+
+    def test_many_models(self):
+        self.ensure_many_models()
 
 
 class TestStandardizationStratified(TestStandardizationCommon):
@@ -176,6 +200,9 @@ class TestStandardizationStratified(TestStandardizationCommon):
 
     def test_pipeline_learner(self):
         self.ensure_pipeline_learner()
+
+    def test_many_models(self):
+        self.ensure_many_models()
 
 
 class TestStandardizationClassification(TestStandardizationCommon):

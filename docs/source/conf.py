@@ -35,7 +35,8 @@ copyright = '2019, IBM Research Haifa Labs - MLHLS'
 author = grep_value_from_setup('author')
 
 # The full version, including alpha/beta/rc tags
-release = grep_value_from_setup('version')
+from causallib import __version__
+release = __version__
 
 
 # -- General configuration ---------------------------------------------------

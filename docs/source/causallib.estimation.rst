@@ -10,8 +10,8 @@ Submodules
    causallib.estimation.base_weight
    causallib.estimation.doubly_robust
    causallib.estimation.ipw
+   causallib.estimation.marginal_outcome
    causallib.estimation.standardization
-   causallib.estimation.uncorrected_estimator
 
 Module contents
 ---------------
