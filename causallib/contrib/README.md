@@ -17,6 +17,13 @@ Currently contributed methods are:
    [Adversarial Balancing for Causal Inference](https://arxiv.org/abs/1810.07406).
    ```python
    from causallib.contrib.adversarial_balancing import AdversarialBalancing
+   ```
+1. Interpretable Subgroup Discovery in Treatment Effect Estimation: 
+   implementing the heterogeneous effect mixture model (HEMM) presented in 
+   [Interpretable Subgroup Discovery in Treatment Effect Estimation with Application to Opioid Prescribing Guidelines](https://arxiv.org/pdf/1905.03297.pdf) 
+   ```python
+   from causallib.contrib.hemm import HEMM
+   ```
 
 ## Dependencies
 Each model might have slightly different requirements.  
