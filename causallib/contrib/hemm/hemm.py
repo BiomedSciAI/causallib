@@ -25,6 +25,7 @@ from torch import logsumexp as logsumexp  # pylint: disable=E0611
 from sklearn.metrics import roc_auc_score, average_precision_score
 
 from .hemm_metrics import wass, mmd2_lin, mmd2_rbf
+from copy import deepcopy
 
 
 class HEMM(torch.nn.Module):
@@ -35,7 +36,7 @@ class HEMM(torch.nn.Module):
     
     Args:
         D_in: the size of the features of the data
-        K: number of components to discover. (specifcy K-1: eg. For 2 components use K=1)
+        K: number of components to discover.
         homo:
         mu: initialize the components with means of the training data.
         std: initialize the components with std dev of the training data.
@@ -43,20 +44,21 @@ class HEMM(torch.nn.Module):
         lamb: strength of the beta(0.5, 0.5) prior on the bernoulli variables
         spread: how far should the components be initialized from there means.
         outcomeModel: 'linear' to specify a linear outcome function. Or pass another Torch.model as the outcome model.
+        sep_heads: Setting false will force the adjustment of Confounding to be same independent of treatment assignment.
     """
 
-    def __init__(self, D_in, K, homo=True, mu=None, std=None, bc=0, lamb=0.0001, spread=0.1, outcomeModel='linear'):
+    def __init__(self, D_in, K, homo=True, mu=None, std=None, bc=0, lamb=0.0001, spread=0.1, outcomeModel='linear', sep_heads=True):
 
         super(HEMM, self).__init__()
         self.bc = bc
         self.lamb = lamb
         self.homo = homo
-        self.K = K + 1
-
+        self.K = K 
+        self.sep_heads = sep_heads
+        
+        self.tc = None
+        
         lindim = D_in
-
-        if self.homo is False:
-            lindim += 1
 
         if outcomeModel == 'linear':
             outcomeModel = nn.Linear(lindim, 2)
@@ -86,9 +88,9 @@ class HEMM(torch.nn.Module):
         treat = torch.abs(torch.rand(self.K))
         self.treat = nn.Parameter(treat.double())
         if homo:
-            expert = [outcomeModel for i in range(1)]
+            expert = [deepcopy(outcomeModel) for i in range(1)]
         else:
-            expert = [outcomeModel for i in range(self.K)]
+            expert = [deepcopy(outcomeModel) for i in range(self.K)]
 
         self.expert = nn.ModuleList(expert)
 
@@ -125,10 +127,15 @@ class HEMM(torch.nn.Module):
         cost = cost.sum()
 
         return -lamb * cost
-
+    
     def forward(self, x, t, soft=True, infer=True, response='bin'):
-        selecter = torch.zeros_like(t).cpu().data.numpy().astype('int').tolist()
-        selecter2 = range(len(selecter))
+        
+        if self.sep_heads:
+            selector = t.cpu().data.numpy().astype('int').tolist()
+        else:
+            selector = torch.zeros_like(t).cpu().data.numpy().astype('int').tolist()
+            
+        selector2 = range(len(selector))
 
         gate_output = []
 
@@ -154,49 +161,30 @@ class HEMM(torch.nn.Module):
         cs = self.treat.shape[0]  # size of K  # TODO: why not use self.K instead?
         treat = self.treat.expand((rs, cs))
 
-        if self.homo is False:
-            xaug = torch.cat((x, t.unsqueeze(1)), dim=1)
-        else:
-            xaug = x
-
         # TODO: Consider splitting outcome-prediction task and subgroup-discovery task into two different sub-functions.
         # TODO: Consider renaming `infer` to a more informative variable name.
-        if not infer:
-            expert_output = []
-            for i in range(self.K):
-                # calculate teffect (main effect due to treatment and coefficient) and add to output of outcomeModel
-                teffect = torch.mul(t, treat[:, i])
-                if self.homo:
-                    cur_expert = self.expert[0]
-                else:
-                    cur_expert = self.expert[i]
-                cur_expert_output = cur_expert(xaug)[selecter2, selecter] + teffect
-                expert_output.append(cur_expert_output)
-            expert_output = torch.stack(expert_output, 1)
 
-            # TODO: note that `expert_output` might not be needed for subgroup discovery
-            #       lines 165-175 that are duplicated below might be removed entirely
-            return gate_output_, lgate_output, expert_output
-
-        else:  # if infer
-            expert_output = []
-            for i in range(self.K):
-                teffect = torch.mul(t, treat[:, i])
-                # cur_expert = self.expert[0] if self.homo else self.expert[i]
-                if self.homo:
-                    cur_expert = self.expert[0]
-                else:
-                    cur_expert = self.expert[i]
-                cur_expert_output = cur_expert(xaug)[selecter2, selecter] + teffect
-                # TODO: are those `selectors` redundant? They are constant and they seem to indicate
-                #       'all rows' (`selector2`) and '0-th columns' (`selector`). Unless I'm missing some things.
+        expert_output = []
+        for i in range(self.K):
+            # calculate teffect (main effect due to treatment and coefficient) and add to output of outcomeModel
+            teffect = torch.mul(t, treat[:, i])
+            if self.homo:
+                cur_expert = self.expert[0]
+            else:
+                cur_expert = self.expert[i]
+            cur_expert_output = cur_expert(x)[selector2, selector] + teffect
+            if infer:
                 if response == 'bin':
                     cur_expert_output = nn.Sigmoid()(cur_expert_output)
-                expert_output.append(cur_expert_output)
-            expert_output = torch.stack(expert_output, 1)
-            # TODO: note that lines 182-196 are almost duplicates of lines 164-174, except for applying sigmoid on
-            #       logits, in case output is binary, that can also be applied post-processing after stacking.
 
+            expert_output.append(cur_expert_output)
+        expert_output = torch.stack(expert_output, 1)
+        
+        if not infer:
+            
+            return gate_output_, lgate_output, expert_output
+        
+        else:
             if soft:
                 # TODO: consider vectorized math below: `gate_output.mul(expert_output).sum(dim=1)`
                 output = torch.zeros_like(x[:, 0])
@@ -260,6 +248,8 @@ class HEMM(torch.nn.Module):
                 optimizer.step()
 
             losses.append(float(tcost) / x.shape[0])
+            #print (losses[-1], lr, wd,batch_size)
+
 
             if dev is not None:
                 output = self.forward(xdev, tdev, response=response)
@@ -285,10 +275,12 @@ class HEMM(torch.nn.Module):
                 if newdevcost < devcost:
                     greaters += 1
 
-                if greaters >= 1:
+                if greaters > 3:
                     break
 
             devcost = newdevcost
+            
+            #print(epoch, devcost)
 
         return losses
 
@@ -354,7 +346,7 @@ class HEMM(torch.nn.Module):
                 raise ValueError("supported imb_fun values are ['wass', 'wass2', 'mmd2_lin', 'mmd2_rbf'], "
                                  "got '{}' instead".format(imb_fun))
 
-            cost -= imb_error
+            cost += imb_error
         else:
             output = self.forward(x_, t_)
             cost = loss(output, y_)

@@ -33,14 +33,14 @@ class HEMM(IndividualOutcomeEstimator):
 
     def __init__(self,
                  D_in, K, homo=True, mu=None, std=None, bc=0, lamb=1e-4, spread=0.1, outcome_model='linear',
-                 epochs=100, batch_size=10, learning_rate=1e-3, weight_decay=0.1, elbo_loss=True, metric='AP',
-                 response='bin', use_p_correction=True, imb_fun='mmd2_lin', p_alpha=1e-4):
+                 sep_heads=True, epochs=100, batch_size=10, learning_rate=1e-3, weight_decay=0.1, elbo_loss=True,
+                 metric='AP', response='bin', use_p_correction=True, imb_fun='mmd2_lin', p_alpha=1e-4):
         """Instantiate estimator.
 
         Args:
             D_in (int): Size of the features of the data
             K (int): Number of components to discover. (specifcy K-1: eg. For 2 components use K=1)
-            homo:
+            homo: 
             mu (float): Initialize the components with means of the training data.
             std (float): Initialize the components with std dev of the training data.
             bc (int): The first bc components are considered bernoulli variables.
@@ -73,7 +73,9 @@ class HEMM(IndividualOutcomeEstimator):
         self._use_p_correction = use_p_correction
         self._imb_fun = imb_fun
         self._p_alpha = p_alpha
-        model = HEMMTorch(D_in, K, homo, mu, std, bc, lamb, spread=spread, outcomeModel=outcome_model)
+        self._sep_heads = sep_heads
+        self._homo = homo
+        model = HEMMTorch(D_in, K, homo, mu, std, bc, lamb, spread=spread, outcomeModel=outcome_model, sep_heads=sep_heads)
         model = model.double()
         super(HEMM, self).__init__(learner=model)
 
