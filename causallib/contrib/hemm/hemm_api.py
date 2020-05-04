@@ -34,7 +34,7 @@ class HEMM(IndividualOutcomeEstimator):
     def __init__(self,
                  D_in, K, homo=True, mu=None, std=None, bc=0, lamb=1e-4, spread=0.1, outcome_model='linear',
                  sep_heads=True, epochs=100, batch_size=10, learning_rate=1e-3, weight_decay=0.1, elbo_loss=True,
-                 metric='AP', response='bin', use_p_correction=True, imb_fun='mmd2_lin', p_alpha=1e-4):
+                 metric='AP', response='bin', use_p_correction=True, imb_fun='mmd2_lin', p_alpha=1e-4, random_seed=0):
         """Instantiate estimator.
 
         Args:
@@ -62,6 +62,8 @@ class HEMM(IndividualOutcomeEstimator):
             use_p_correction (bool): Whether to use population size p(treated) in imbalance penalty (IPM).
             imb_fun (str): Which imbalance penalty to use ('mmd2_lin', 'wass').
             p_alpha (float): Imbalance regularization parameter.
+            random_seed (float): Random Seed to initialize model parameters.
+
         """
         self._epochs = epochs
         self._batch_size = batch_size
@@ -75,6 +77,10 @@ class HEMM(IndividualOutcomeEstimator):
         self._p_alpha = p_alpha
         self._sep_heads = sep_heads
         self._homo = homo
+        self._random_seed = random_seed
+        
+        torch.manual_seed(random_seed)
+
         model = HEMMTorch(D_in, K, homo, mu, std, bc, lamb, spread=spread, outcomeModel=outcome_model, sep_heads=sep_heads)
         model = model.double()
         super(HEMM, self).__init__(learner=model)
@@ -116,7 +122,7 @@ class HEMM(IndividualOutcomeEstimator):
         groups = pd.Series(groups)
         return groups
 
-    def get_groups_proba(self, X, a, log=False):
+    def get_groups_proba(self, X, log=False):
         """Return soft assignment of probability of each sample to be part of each group.
 
         Args:
@@ -128,7 +134,9 @@ class HEMM(IndividualOutcomeEstimator):
             z_pred (np.array): probability of group membership given X P(Z|X),
                                size = (num_covariates, num_components+1).
         """
+        a = np.ones(X.shape[0])
         X, a = self._as_tensor(X), self._as_tensor(a)
+        
         groups = self.learner.get_groups_proba(X, a, log=log)
         groups = pd.DataFrame(groups)
         return groups
