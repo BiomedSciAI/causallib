@@ -23,7 +23,7 @@ writing example notebooks.
 
 import numpy as np
 import os
-def generateData():
+def loadIHDPData():
     #Taken From Fredrik Johansson's personal webiste: http://fredrikjo.com 
     if os.path.exists('IHDP'):
         
