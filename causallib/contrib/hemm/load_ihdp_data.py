@@ -23,29 +23,82 @@ writing example notebooks.
 
 import numpy as np
 import os
-def loadIHDPData():
-    #Taken From Fredrik Johansson's personal webiste: http://fredrikjo.com 
-    if os.path.exists('IHDP'):
-        
-        print ("IHDP Data exists")
+import urllib.request
+import zipfile
 
-    else:
-        print ("IHDP Does not exist, Downloading... ")
-        
-        os.system("mkdir IHDP")
-        os.system("wget http://www.fredjo.com/files/ihdp_npci_1-1000.train.npz.zip")
-        os.system("wget http://www.fredjo.com/files/ihdp_npci_1-1000.test.npz.zip") 
-        os.system("mv ihdp_npci_1-1000.train.npz.zip IHDP/")
-        os.system("mv ihdp_npci_1-1000.test.npz.zip  IHDP/") 
-        os.system("unzip IHDP/ihdp_npci_1-1000.train.npz.zip -d IHDP")
-        os.system("unzip IHDP/ihdp_npci_1-1000.test.npz.zip -d IHDP")
 
-       
-    
-    import numpy as np
-    dat = {}
-    
-    dat['TRAIN'] = dict(np.load("IHDP/ihdp_npci_1-1000.train.npz"))
-    dat['TEST']  = dict(np.load("IHDP/ihdp_npci_1-1000.test.npz"))
-    
-    return dat
+def __download_data(url_path, local_path, verbose=0):
+    if not os.path.exists(local_path):
+        if verbose:
+            print(f"Downloading data from {url_path} to {local_path}")
+        req = urllib.request.urlretrieve(url=url_path, filename=local_path)
+        return req[0]
+    return local_path
+
+
+def loadIHDPData(cache_dir=None, verbose=0, delete_extracted=True):
+    """Downloads and loads IHDP-1000 dataset.
+    Taken From Fredrik Johansson's website: http://www.fredjo.com/
+
+    Args:
+        cache_dir (str): Directory to which files will be downloaded
+            If None: files will be downloaded to ~/causallib-data/.
+        verbose (int): Controls the verbosity: the higher, the more messages.
+        delete_extracted (bool): Delete extracted files from disk once loaded
+
+    Returns:
+        dict[str, dict[str, np.ndarray]]: "TRAIN" and "TEST" sets as keys.
+            Values are dictionaries with `'x', 't', 'yf', 'ycf', 'mu0', 'mu1'` keys standing for
+            covariates, treatment, factual outcome, counterfactual outcome, and noiseless potential outcomes
+
+    Notes:
+        Requires internet connection in case local data files do not already exist.
+        Will save a local copy of the download
+
+    """
+    base_remote_url = "http://www.fredjo.com/files/"
+    file_name = "ihdp_npci_1-1000.{phase}.npz.zip"
+
+    # Set local download location:
+    if cache_dir is None:
+        cache_dir = os.path.join("~", 'causallib-data')
+        cache_dir = os.path.expanduser(cache_dir)  # Expand ~ component to full path
+        cache_dir = os.path.join(cache_dir, "IHDP")
+    # cache_dir = cache_dir.replace("/", os.sep)
+    os.makedirs(cache_dir, exist_ok=True)
+
+    data = {}
+    for phase in ["train", "test"]:
+        # Obtain local copy of the data:
+        phase_file_name = file_name.format(phase=phase)
+        file_path = __download_data(
+            url_path=base_remote_url + phase_file_name,
+            local_path=os.path.join(cache_dir, phase_file_name),
+            verbose=verbose
+        )
+
+        # Extract zipped data:
+        npz_file_path = file_path.rsplit(".", maxsplit=1)[0]  # Remove ".zip" extension
+        if not os.path.exists(npz_file_path):
+            with zipfile.ZipFile(file_path) as zf:
+                if verbose:
+                    print(f"Extracting file into {npz_file_path}")
+                zf.extractall(path=cache_dir)
+
+        # Load data:
+        phase_data = np.load(npz_file_path)
+        phase_data = dict(phase_data)  # Load into memory, avoid lazy-loading
+        data[phase.upper()] = phase_data
+
+        # # In-memory extraction, works only in python>=3.7 https://github.com/python/cpython/pull/4966
+        # with zipfile.ZipFile(file_path) as zf:
+        #     internal_file_name = phase_file_name.rsplit(".", maxsplit=1)[0]  # Remove ".zip" extension
+        #     with zf.open(internal_file_name, 'r') as npz_file:
+        #         data[phase.upper()] = dict(np.load(npz_file))
+
+        if delete_extracted:
+            if verbose:
+                print(f"Deleting extracted file {npz_file_path}")
+            os.remove(npz_file_path)
+
+    return data
