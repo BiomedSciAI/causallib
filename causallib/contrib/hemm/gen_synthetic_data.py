@@ -30,6 +30,7 @@ def gen_outcomes(X, T, seed=0):
     Args:
         X: input covariates
         T: treatment assignment
+        seed (int): seed to fix the random number generator
     
     Returns:
         y: observed outcomes

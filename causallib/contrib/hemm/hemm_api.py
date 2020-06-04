@@ -43,7 +43,8 @@ class HEMM(IndividualOutcomeEstimator):
             homo: 
             mu (float): Initialize the components with means of the training data.
             std (float): Initialize the components with std dev of the training data.
-            bc (int): The first bc components are considered bernoulli variables.
+            bc (int): The first feature in `x` being a bernoulli variables.
+                    Columns 0 up to `bc` should be continuous (gaussian)
             lamb (float): Strength of the beta(0.5, 0.5) prior on the bernoulli variables.
             spread (float): How far should the components be initailized from there means.
             outcome_model (str): 'linear' to specify a linear outcome function.
@@ -62,8 +63,7 @@ class HEMM(IndividualOutcomeEstimator):
             use_p_correction (bool): Whether to use population size p(treated) in imbalance penalty (IPM).
             imb_fun (str): Which imbalance penalty to use ('mmd2_lin', 'wass').
             p_alpha (float): Imbalance regularization parameter.
-            random_seed (float): Random Seed to initialize model parameters.
-
+            random_seed (int): Random Seed to initialize model parameters.
         """
         self._epochs = epochs
         self._batch_size = batch_size

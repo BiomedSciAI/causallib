@@ -137,13 +137,12 @@ class HEMM(torch.nn.Module):
             
         selector2 = range(len(selector))
 
-        gate_output = []
-
         # TODO: Consider a slightly more general binary-variable mask vector indicated which columns are binary,
         #       rather than force certain structure on the input.
         xg, xb = x[:, :self.bc], x[:, self.bc:]
 
         # compute q(Z)
+        gate_output = []
         for i in range(self.K):
             z_i = self.gaussian_pdf(xg, self.mu[i], self.std[i])
             z_i += self.bernoulli_pdf(xb, self.p[i])
@@ -161,7 +160,6 @@ class HEMM(torch.nn.Module):
         cs = self.treat.shape[0]  # size of K  # TODO: why not use self.K instead?
         treat = self.treat.expand((rs, cs))
 
-        # TODO: Consider splitting outcome-prediction task and subgroup-discovery task into two different sub-functions.
         # TODO: Consider renaming `infer` to a more informative variable name.
 
         expert_output = []
@@ -181,7 +179,6 @@ class HEMM(torch.nn.Module):
         expert_output = torch.stack(expert_output, 1)
         
         if not infer:
-            
             return gate_output_, lgate_output, expert_output
         
         else:
@@ -208,8 +205,8 @@ class HEMM(torch.nn.Module):
             lr: Learning rate for the optimizer.
             wd (float): Weight decay
             ltype: 'log' for the ELBO.
-            dev: Tuple of the dev set eg: torch tensors (x_, t_, Y_). If provided, early-stopping criterua using
-                 `metric` will be applied.
+            dev: Tuple of validation dataset i.e.: torch tensors (x_, t_, Y_).
+                If provided, early-stopping criteria using `metric` will be applied.
             metric (str): 'AP' mean average precision, 'AuROC': area under roc curve, 'MSE':mean squared error.
                           If not specified it uses the optimizer cost as the metric.
                           The specified this metric is computed for the training set (or dev set if it is specified)
@@ -248,8 +245,6 @@ class HEMM(torch.nn.Module):
                 optimizer.step()
 
             losses.append(float(tcost) / x.shape[0])
-            #print (losses[-1], lr, wd,batch_size)
-
 
             if dev is not None:
                 output = self.forward(xdev, tdev, response=response)
@@ -279,9 +274,6 @@ class HEMM(torch.nn.Module):
                     break
 
             devcost = newdevcost
-            
-            #print(epoch, devcost)
-
         return losses
 
     def lcost(self, x_, t_, y_, ltype="log", response='bin', use_p_correction=True, imb_fun=None, p_alpha=1e-4,
@@ -289,7 +281,9 @@ class HEMM(torch.nn.Module):
         """Implements ELBO as the objective function (eq 12 in paper).
 
         Args:
-            x_, t_, Y_: torch tensors of the input feeatures, treatment and outcome
+            x_ (torch.Tensor): Covariate matrix of size (num_subjects, num_features).
+            t_ (torch.Tensor): Treatment assignment of size (num_subjects,).
+            y_ (torch.Tensor): Outcome of size (num_subjects,).
             ltype: 'log' specifies ELBO
             response: specifies whether outcome `y` is binary ('bin') or continuous ('cont').
             use_p_correction (bool): whether to use population size p(treated) in imbalance penalty (IPM)
@@ -393,7 +387,7 @@ class HEMM(torch.nn.Module):
 
         Args:
             X (torch.Tensor): Covariate matrix of size (num_subjects, num_features).
-            a (torch.Tensor): Treatment assignment of size (num_subjects,).
+            T (torch.Tensor): Treatment assignment of size (num_subjects,).
 
         Returns:
             groups (np.ndarray): Most probable group assignment of each sample, size = (num_samples,)
@@ -409,7 +403,7 @@ class HEMM(torch.nn.Module):
 
         Args:
             X (torch.Tensor): Covariate matrix of size (num_subjects, num_features).
-            a (torch.Tensor): Treatment assignment of size (num_subjects,).
+            T (torch.Tensor): Treatment assignment of size (num_subjects,).
             log (bool): If True returns log probabilities
 
         Returns:

@@ -5,8 +5,8 @@ import unittest
 
 from causallib.contrib.hemm import HEMM
 from causallib.contrib.hemm.hemm_utilities import genSplits, returnIndices, getMeanandStd
-from causallib.contrib.hemm.outcome_models import genMLPModule, genLinearModule, BalancedNet
-from causallib.contrib.hemm.datagen import gen_montecarlo
+from causallib.contrib.hemm.hemm_outcome_models import genMLPModule, genLinearModule, BalancedNet
+from causallib.contrib.hemm.gen_synthetic_data import gen_montecarlo
 
 
 class TestHemmEstimator(unittest.TestCase):
