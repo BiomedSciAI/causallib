@@ -15,6 +15,8 @@
 # limitations under the License.
 #
 # Created on Sept 25, 2019
+# Big thanks to Akanksha Atrey <aatrey@cs.umass.edu> for original 
+# implementation of this module. 
 
 import torch
 import numpy as np
