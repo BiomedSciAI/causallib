@@ -40,7 +40,8 @@ class HemmEstimator(IndividualOutcomeEstimator):
         Args:
             D_in (int): Size of the features of the data
 	        K (int): Number of components to discover. (specifcy K-1: eg. For 2 components use K=1)
-	        homo:
+            homo (bool): Flag to specify if the final outcome model is same for each discovered subgroup.
+                        Default is True ie. same outcome model is used for each subgroup.  
 	        mu (float): Initialize the components with means of the training data.
 	        std (float): Initialize the components with std dev of the training data.
 	        bc (int): The first bc components are considered bernoulli variables.

@@ -37,7 +37,8 @@ class HEMM(torch.nn.Module):
     Args:
         D_in: the size of the features of the data
         K: number of components to discover.
-        homo:
+        homo (bool): Flag to specify if the final outcome model is same for each discovered subgroup.
+                    Default is True ie. same outcome model is used for each subgroup.          
         mu: initialize the components with means of the training data.
         std: initialize the components with std dev of the training data.
         bc: the first bc components are considered bernoulli variables
