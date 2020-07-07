@@ -114,14 +114,11 @@ class HEMM(IndividualOutcomeEstimator):
 
         Args:
             X (torch.Tensor | pd.DataFrame | np.ndarray): Covariate matrix of size (num_subjects, num_features).
-            a (torch.Tensor | pd.Series | np.ndarray): Treatment assignment of size (num_subjects,).
 
         Returns:
             groups (pd.Series): Most probable group assignment of each sample, size = (num_samples,)
         """
-        
-        a = np.ones(X.shape[0])
-        groups = self.learner.get_groups(self._as_tensor(X), self._as_tensor(a))
+        groups = self.learner.get_groups(self._as_tensor(X))
         groups = pd.Series(groups)
         return groups
 
@@ -130,17 +127,14 @@ class HEMM(IndividualOutcomeEstimator):
 
         Args:
             X (torch.Tensor): Covariate matrix of size (num_subjects, num_features).
-            a (torch.Tensor): Treatment assignment of size (num_subjects,).
             log (bool): If True returns log probabilities
 
         Returns:
             z_pred (np.array): probability of group membership given X P(Z|X),
                                size = (num_covariates, num_components+1).
         """
-        a = np.ones(X.shape[0])
-        X, a = self._as_tensor(X), self._as_tensor(a)
-        
-        groups = self.learner.get_groups_proba(X, a, log=log)
+        X = self._as_tensor(X)
+        groups = self.learner.get_groups_proba(X, log=log)
         groups = pd.DataFrame(groups)
         return groups
 
@@ -149,15 +143,14 @@ class HEMM(IndividualOutcomeEstimator):
         group_effect = self.learner.get_groups_effect()
         return group_effect
 
-    def group_sizes(self, X, a):
+    def group_sizes(self, X):
         """Return underlying treatment groups sizes.
         Args:
             X (torch.Tensor | pd.DataFrame | np.ndarray): Covariate matrix of size (num_subjects, num_features).
-            a (torch.Tensor | pd.Series | np.ndarray): Treatment assignment of size (num_subjects,).
 
         Returns: collection.Counter giving size for each group
         """
-        return self.learner.group_sizes(self._as_tensor(X), self._as_tensor(a))
+        return self.learner.group_sizes(self._as_tensor(X))
 
     def fit(self, X, a, y, sample_weight=None, validation_data=None):
         """Trains a causal model from observed data.

@@ -349,17 +349,16 @@ class HEMM(torch.nn.Module):
 
         return cost
 
-    def group_sizes(self, X, T):
+    def group_sizes(self, X):
         """Returns the number of data points assigned to each subgroup.
         
         Args:
             X (torch.Tensor): Covariate matrix of size (num_subjects, num_features).
-            T (torch.Tensor): Treatment assignment of size (num_subjects,).
 
         Returns: 
             collections.Counter: giving size for each group
         """
-        group = self.get_groups(X, T)
+        group = self.get_groups(X)
         counter = Counter(group)
         return counter
 
@@ -383,35 +382,34 @@ class HEMM(torch.nn.Module):
         # return [self.forward(X, torch.full_like(T, t), response=response, soft=soft)
         #         for t in torch.unique(T, sorted=True)]
 
-    def get_groups(self, X, T):
+    def get_groups(self, X):
         """Return hard assignment of groups for each sample
 
         Args:
             X (torch.Tensor): Covariate matrix of size (num_subjects, num_features).
-            T (torch.Tensor): Treatment assignment of size (num_subjects,).
 
         Returns:
             groups (np.ndarray): Most probable group assignment of each sample, size = (num_samples,)
         """
         # groups = self.forward(X, T, infer=False)[0].data.numpy()
         # groups = np.exp(groups) / np.exp(groups).sum(axis=1).reshape(-1, 1)
-        groups = self.get_groups_proba(X, T)
+        groups = self.get_groups_proba(X)
         groups = np.argmax(groups, axis=1)
         return groups
 
-    def get_groups_proba(self, X, T, log=False):
+    def get_groups_proba(self, X, log=False):
         """Return soft assignment of probability of each sample to be part of each group.
 
         Args:
             X (torch.Tensor): Covariate matrix of size (num_subjects, num_features).
-            T (torch.Tensor): Treatment assignment of size (num_subjects,).
             log (bool): If True returns log probabilities
 
         Returns:
             z_pred (np.array): probability of group membership given X P(Z|X),
                                size = (num_covariates, num_components+1).
         """
-        z_pred = self.forward(X, T, infer=False)[1].cpu().data.numpy()
+        a = torch.ones(X.shape[0], dtype=torch.float64)
+        z_pred = self.forward(X, a, infer=False)[1].cpu().data.numpy()
         if not log:
             z_pred = np.exp(z_pred)
         return z_pred

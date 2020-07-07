@@ -86,7 +86,7 @@ class TestHemmEstimator(unittest.TestCase):
         group_effect = estimator.get_groups_effect(Xte, Tte)
         self.assertEqual(group_effect.shape, (comp,))
 
-        group_sizes = estimator.group_sizes(Xte, Tte)
+        group_sizes = estimator.group_sizes(Xte)
         self.assertEqual(len(group_sizes.keys()), comp)
 
         return in_estimations, out_estimations
@@ -96,6 +96,3 @@ class TestHemmEstimator(unittest.TestCase):
         in_estimations, out_estimations = self.experiment(data, 1, 3, 'cont', 'CF', 1e-3, 10)
         self.assertEqual(in_estimations.shape, (data['TRAIN']['x'][:, :, 1].shape[0], 2))
         self.assertEqual(out_estimations.shape, (data['TEST']['x'][:, :, 1].shape[0], 2))
-
-if __name__ == '__main__':
-    unittest.main()
