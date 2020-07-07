@@ -27,10 +27,11 @@ Currently contributed methods are:
 
 ## Dependencies
 Each model might have slightly different requirements.  
-Refer to the documentation of each model for the additional packages it requires.
+Refer to the documentation of each model for the additional packages it requires.  
   
-Requirements for `contrib` models will be concentrated in `contrib/requirements.txt` and should be
-automatically installed using the extra-requirements `contrib` flag:  
+Requirements for `contrib` models are concentrated in `contrib/requirements.txt` 
+and can be automatically installed using the extra-requirements `contrib` flag:  
 ```shell script
-pip install causallib[contrib]
-```   
+pip install causallib[contrib] -f https://download.pytorch.org/whl/torch_stable.html
+```  
+The `-f` find-links option is required to install PyTorch dependency.

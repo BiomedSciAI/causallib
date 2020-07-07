@@ -24,11 +24,12 @@ from causallib.contrib.hemm.hemm import HEMM as HEMMTorch
 
 class HEMM(IndividualOutcomeEstimator):
     """Causal model implementing an heterogeneous effect mixture model (HEMM). 
-    
-    Note: HEMM causality model PyTorch v1.2.0 as a dependency.
-    
+
     For further details, see `Interpretable Subgroup Discovery in Treatment Effect 
     Estimation with Application to Opioid Prescribing Guidelines <https://arxiv.org/pdf/1905.03297.pdf>`_ paper.
+
+    Notes:
+        **Requires PyTorch** >= 1.2.0 (tested on 1.2.0)
     """
 
     def __init__(self,

@@ -14,6 +14,13 @@ def get_lines(filename):
         return f.read().splitlines()
 
 
+def get_valid_packages_from_requirement_file(file_path):
+    lines = get_lines(file_path)
+    # Filter out non-package lines that are legal for `pip install -r` but fail for setuptools' `require`:
+    pkg_list = [p for p in lines if p.lstrip()[0].isalnum()]
+    return pkg_list
+
+
 def get_version(filename):
     with open(filename, 'r') as f:
         for line in f.readlines():
@@ -36,10 +43,10 @@ setup(name='causallib',
       # author_email=None,
       license="Apache License 2.0",
       keywords="causal inference effect estimation causality",
-      install_requires=get_lines("requirements.txt"),
+      install_requires=get_valid_packages_from_requirement_file("requirements.txt"),
       extras_require={
-          'contrib': get_lines(os.path.join("causallib", "contrib", "requirements.txt")),
-          'docs': get_lines(os.path.join("docs", "requirements.txt"))
+          'contrib': get_valid_packages_from_requirement_file(os.path.join("causallib", "contrib", "requirements.txt")),
+          'docs': get_valid_packages_from_requirement_file(os.path.join("docs", "requirements.txt"))
       },
       # include_package_data=True,
       package_data={
