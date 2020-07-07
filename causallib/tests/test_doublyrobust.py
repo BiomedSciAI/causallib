@@ -283,7 +283,8 @@ class TestDoublyRobustJoffe(TestDoublyRobustBase):
                     model.fit(data["X"], data["a"], data["y"], refit_weight_model=False)
                     self.assertTrue(True)  # Fit did not crash
 
-            for outcome_learner in [MLPRegressor(hidden_layer_sizes=(5,)), ElasticNet(),
+            for outcome_learner in [MLPRegressor(hidden_layer_sizes=(5,)),
+                                    # ElasticNet(),  # supports sample_weights since v0.23, remove to support v<0.23
                                     PassiveAggressiveRegressor(), KNeighborsRegressor()]:
                 outcome_learner_name = str(outcome_learner).split("(", maxsplit=1)[0]
                 outcome_model = Standardization(outcome_learner)

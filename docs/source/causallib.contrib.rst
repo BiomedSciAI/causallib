@@ -7,6 +7,7 @@ Subpackages
 .. toctree::
 
    causallib.contrib.adversarial_balancing
+   causallib.contrib.hemm
 
 Module contents
 ---------------

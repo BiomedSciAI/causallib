@@ -10,11 +10,13 @@ before_script:
   - ./cc-test-reporter before-build
 install:
   - pip install -r requirements.txt
+  - pip install -r causallib/contrib/requirements.txt
   - pip install --upgrade pytest pytest-cov
 script:
   - pip install -e .  # test that install is running properly
+  - pip install -e .[contrib]  # test optional install
   - pip freeze
-  - pytest causallib/contrib/tests
+  - pytest causallib/contrib/tests  # -k 'not test_hemm'
   - pytest --cov-report= --cov=causallib causallib/tests
 after_success:
   - coverage xml
