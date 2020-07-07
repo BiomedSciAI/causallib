@@ -109,7 +109,7 @@ class HEMM(IndividualOutcomeEstimator):
             ys = ys[treatment_values]
         return ys
 
-    def get_groups(self, X, a):
+    def get_groups(self, X):
         """Return hard assignment of groups for each sample
 
         Args:
@@ -119,6 +119,8 @@ class HEMM(IndividualOutcomeEstimator):
         Returns:
             groups (pd.Series): Most probable group assignment of each sample, size = (num_samples,)
         """
+        
+        a = np.ones(X.shape[0])
         groups = self.learner.get_groups(self._as_tensor(X), self._as_tensor(a))
         groups = pd.Series(groups)
         return groups
