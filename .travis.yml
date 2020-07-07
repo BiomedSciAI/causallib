@@ -10,7 +10,7 @@ before_script:
   - ./cc-test-reporter before-build
 install:
   - pip install -r requirements.txt
-  - pip install -r contrib/requirements.txt
+  - pip install -r causallib/contrib/requirements.txt
   - pip install --upgrade pytest pytest-cov
 script:
   - pip install -e .  # test that install is running properly
