@@ -1,1 +1,1 @@
-torch==1.2.0
+torch==1.2.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
