@@ -20,8 +20,15 @@ which allows for a more "honest"<sup>1</sup> effect estimation.
 The package also includes an evaluation suite. 
 Since most causal-models utilize machine learning models internally, 
 we can diagnose poor-performing models by re-interpreting known ML evaluations from  a causal perspective.
-See [arXiv:1906.00442](https://arxiv.org/abs/1906.00442) for more details on how.
-
+If you use it in scientific context, please consider citing [Shimoni et al., 2019](https://arxiv.org/abs/1906.00442):
+```bibtex
+@article{causalevaluations,
+  title={An Evaluation Toolkit to Guide Model Selection and Cohort Definition in Causal Inference},
+  author={Shimoni, Yishai and Karavani, Ehud and Ravid, Sivan and Bak, Peter and Ng, Tan Hung and Alford, Sharon Hensley and Meade, Denise and Goldschmidt, Yaara},
+  journal={arXiv preprint arXiv:1906.00442},
+  year={2019}
+}
+```
 
 -------------
 <sup>1</sup> Borrowing [Wager & Athey](https://arxiv.org/abs/1510.04342) terminology of avoiding overfit.  
