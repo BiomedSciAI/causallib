@@ -2,6 +2,7 @@
 [![Test Coverage](https://api.codeclimate.com/v1/badges/db2562e44c4a9f7280dc/test_coverage)](https://codeclimate.com/github/IBM/causallib/test_coverage)
 [![PyPI version](https://badge.fury.io/py/causallib.svg)](https://badge.fury.io/py/causallib)
 [![Documentation Status](https://readthedocs.org/projects/causallib/badge/?version=latest)](https://causallib.readthedocs.io/en/latest/)
+[![Slack channel](https://img.shields.io/badge/support-slack-slack.svg?logo=slack)](https://causallib.slack.com/)
 # Causal Inference 360
 A Python package for inferring causal effects from observational data.
 
@@ -58,6 +59,13 @@ potential_outcomes = ipw.estimate_population_outcome(data.X, data.a, data.y)
 effect = ipw.estimate_effect(potential_outcomes[1], potential_outcomes[0])
 ```
 Comprehensive Jupyter Notebooks examples can be found in the [examples directory](examples).
+
+### Community support
+We use the Slack workspace at [causallib.slack.com](https://causallib.slack.com/) for informal communication.  
+We encourage you to ask questions regarding causal-inference modelling or 
+usage of causallib that don't necessarily merit opening an issue on Github.  
+
+Use this [invite link to join causallib on Slack](https://join.slack.com/t/causallib/shared_invite/zt-mwxnwe1t-htEgAXr3j3T2UeZj61gP6g). 
 
 ### Approach to causal-inference
 Some key points on how we address causal-inference estimation
