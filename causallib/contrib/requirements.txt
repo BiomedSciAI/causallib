@@ -1,2 +1,2 @@
--f https://download.pytorch.org/whl/torch_stable.html  # To support torch installation
-torch>=1.2.0+cpu
+-f https://download.pytorch.org/whl/cpu/  # To support cpu torch installation
+torch>=1.2.0
