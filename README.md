@@ -1,7 +1,8 @@
-[![Build Status](https://travis-ci.org/IBM/causallib.svg?&branch=master)](https://travis-ci.org/IBM/causallib)
+[![Build Status](https://travis-ci.com/IBM/causallib.svg?&branch=master)](https://travis-ci.org/IBM/causallib)
 [![Test Coverage](https://api.codeclimate.com/v1/badges/db2562e44c4a9f7280dc/test_coverage)](https://codeclimate.com/github/IBM/causallib/test_coverage)
 [![PyPI version](https://badge.fury.io/py/causallib.svg)](https://badge.fury.io/py/causallib)
 [![Documentation Status](https://readthedocs.org/projects/causallib/badge/?version=latest)](https://causallib.readthedocs.io/en/latest/)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/IBM/causallib/HEAD)
 [![Slack channel](https://img.shields.io/badge/support-slack-slack.svg?logo=slack)](https://causallib.slack.com/)
 # Causal Inference 360
 A Python package for inferring causal effects from observational data.
