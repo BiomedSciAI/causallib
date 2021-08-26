@@ -49,7 +49,7 @@ class IPW(PropensityEstimator, PopulationOutcomeEstimator):
         self.__check_truncation_value_is_legal(truncate_eps)
         self.truncate_eps = truncate_eps
 
-    def fit(self, X, a):
+    def fit(self, X, a, y=None):
         if self.use_stabilized:
             self.treatment_prevalence_ = a.value_counts(normalize=True, sort=False)
         self.learner.fit(X, a)

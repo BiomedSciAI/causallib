@@ -29,7 +29,7 @@ The methods that are currently available are:
     `causallib.estimation.DoublyRobustVanilla` 
 
 
-### Example: Inverse Probabilty Weighting (IPW)
+### Example: Inverse Probability Weighting (IPW)
 An IPW model can be run, for example, using
 ```Python
 from sklearn.linear_model import LogisticRegression

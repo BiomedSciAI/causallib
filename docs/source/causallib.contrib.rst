@@ -8,6 +8,14 @@ Subpackages
 
    causallib.contrib.adversarial_balancing
    causallib.contrib.hemm
+   causallib.contrib.tests
+
+Submodules
+----------
+
+.. toctree::
+
+   causallib.contrib.faissknn
 
 Module contents
 ---------------

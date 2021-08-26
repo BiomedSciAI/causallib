@@ -157,7 +157,7 @@ def chi2_test(X, y):
         y (np.ndarray): Binary response vector
 
     Returns:
-        np.array: A vector of p-values, one for every feature.
+        np.ndarray: A vector of p-values, one for every feature.
     """
     X0 = 1 - X
     if hasattr(y, "values"):
@@ -179,7 +179,7 @@ def chi2_test(X, y):
 
 
 def calc_weighted_standardized_mean_differences(x, y, wx, wy, weighted_var=False):
-    """
+    r"""
     Standardized mean difference: frac{\mu_1 - \mu_2 }{\sqrt{\sigma_1^2 + \sigma_2^2}}
 
     References:
@@ -231,24 +231,23 @@ def calc_weighted_ks2samp(x, y, wx, wy):
 
 def robust_lookup(df, indexer):
     """
-    Robust way to apply pandas lookup
-     (https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.lookup.html)
-     when indices are not unique
+    Robust way to apply pandas lookup when indices are not unique
 
     Args:
         df (pdDataFrame):
-        indexer (pdSeries): A Series with indexes either same or a subset of `df`
-                            (BUT SHOULD NOT contain any index not found in `df`),
+        indexer (pdSeries): A Series whose index is either same or a subset of `df.index`
                             and whose values are values from `df.columns`.
+                            If `a.index` contains values not in `df.index` 
+                            they will have NaN values.
 
     Returns:
-        pdSeries
+        pdSeries: a vector where (logically) `extracted[i] = df.loc[indexer.index[i], indexer[i]]`. 
+            In most cases, when `indexer.index == df.index` this translates to 
+            `extracted[i] = df.loc[i, indexer[i]]`
     """
-    try:
-        extracted = df.lookup(indexer.index, indexer)
-    except InvalidIndexError:
-        # Indices are not unique, fallback to using numpy-based indexing.
-        # This assumes indexer's values are integers starting from 0.
-        extracted = df.values[indexer.index, indexer]
+    # Convert the index into 
+    idx, col = indexer.factorize()  # convert text labels into integers
+    extracted = df.reindex(col, axis=1).reindex(indexer.index, axis=0)  # make sure the columns exist and the indeces are the same
+    extracted = extracted.to_numpy()[range(len(idx)), idx]  # numpy accesses by location, not by named index
     extracted = pdSeries(extracted, index=indexer.index)
     return extracted

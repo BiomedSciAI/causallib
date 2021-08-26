@@ -24,6 +24,15 @@ Currently contributed methods are:
    ```python
    from causallib.contrib.hemm import HEMM
    ```
+1. Matching Estimation/Transform using `faiss`.
+
+   Implemented a nearest neighbors search with API that matches `sklearn.NearestNeighbors`
+   but is powered by [faiss](https://github.com/facebookresearch/faiss) for GPU
+   support and much faster search on CPU as well.
+   
+   ```python
+   from causallib.contrib.faissknn import FaissNearestNeighbors
+   ```
 
 ## Dependencies
 Each model might have slightly different requirements.  

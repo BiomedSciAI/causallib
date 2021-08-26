@@ -21,9 +21,10 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker
 import numpy as np
 import pandas as pd
-import seaborn as sns
 import statsmodels.api as sm
 from scipy import interp as scipy_interp
+from scipy.stats import gaussian_kde
+import warnings
 from sklearn import metrics
 
 
@@ -475,16 +476,27 @@ def plot_propensity_score_distribution(propensity, treatment, reflect=True, kde=
     """
     # assert propensity.index.symmetric_difference(a.index).size == 0
     ax = ax or plt.gca()
-
-    # bins = _calculate_mutual_bins(propensity, treatment)
+    if kde and not norm_hist:
+        warnings.warn("kde=True and norm_hist=False is not supported. Forcing norm_hist from False to True.")
+        norm_hist=True
     bins = np.histogram(propensity, bins="auto")[1]
-    plot_params = dict(bins=bins, kde=kde, axlabel=False, norm_hist=norm_hist, ax=ax,
-                       hist_kws=dict(cumulative=cumulative), kde_kws=dict(cumulative=cumulative))
+    plot_params = dict(bins=bins,  density=norm_hist, alpha=0.5, cumulative=cumulative)
+
     unique_treatments = np.sort(np.unique(treatment))
     for treatment_value in unique_treatments:
         cur_propensity = propensity.loc[treatment == treatment_value]
-        sns.distplot(cur_propensity, label='treatment={}'.format(treatment_value), **plot_params)
-
+        cur_color = "C{}".format(treatment_value)
+        ax.hist(cur_propensity, label = "treatment = {}".format(treatment_value), color=cur_color,**plot_params)
+        if kde:
+            cur_kde = gaussian_kde(cur_propensity)
+            min_support = max(0,cur_propensity.values.min() - cur_kde.factor)
+            max_support = min(1, cur_propensity.values.max() +  cur_kde.factor)
+            X_plot = np.linspace(min_support,max_support,200)
+            if cumulative:
+                density = np.array([cur_kde.integrate_box_1d(X_plot[0], x_i) for x_i in X_plot])
+                ax.plot(X_plot,density,color=cur_color,)
+            else:    
+                ax.plot(X_plot,cur_kde.pdf(X_plot),color=cur_color,)
     if reflect:
         if len(unique_treatments) != 2:
             raise ValueError("Reflecting density across X axis can only be done for two groups. "
@@ -495,7 +507,7 @@ def plot_propensity_score_distribution(propensity, treatment, reflect=True, kde=
             last_line.set_ydata(-1 * last_line.get_ydata())
         # Update histogram bars:
         idx_of_first_hist_rect = \
-            [patch.get_label() for patch in ax.patches].index('treatment={}'.format(unique_treatments[-1]))
+            [patch.get_label() for patch in ax.patches].index('treatment = {}'.format(unique_treatments[-1]))
         for patch in ax.patches[idx_of_first_hist_rect:]:
             patch.set_height(-1 * patch.get_height())
 
@@ -506,7 +518,7 @@ def plot_propensity_score_distribution(propensity, treatment, reflect=True, kde=
         ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda x, pos: str(x) if x >= 0 else str(-x)))
 
     ax.legend(loc="best")
-    x_type = "Propensity" if propensity.between(0, 1, inclusive=True).all() else "Weights"
+    x_type = "Propensity" if propensity.between(0, 1, inclusive="both").all() else "Weights"
     ax.set_xlabel(x_type)
     y_type = "Probability density" if norm_hist else "Counts"
     ax.set_ylabel(y_type)

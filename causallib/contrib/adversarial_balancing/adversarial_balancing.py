@@ -84,13 +84,14 @@ class AdversarialBalancing(WeightEstimator, PopulationOutcomeEstimator):
         self.verbose = verbose
         self.use_stabilized = use_stabilized
 
-    def fit(self, X, a, w_init=None, **select_kwargs):
+    def fit(self, X, a, y=None, w_init=None, **select_kwargs):
         """
         Trains an Adversarial Balancing model.
 
         Args:
             X (pd.DataFrame): Covariate matrix of size (num_subjects, num_features).
             a (pd.Series): Treatment assignment of size (num_subjects,).
+            y: IGNORED.
             w_init (pd.Series): Initial sample weights. If not provided, assumes uniform.
             select_kwargs: keywords argument to past into select_classifier.
                            relevant only if model was initialized with list of classifiers in `learner`.
@@ -154,7 +155,7 @@ class AdversarialBalancing(WeightEstimator, PopulationOutcomeEstimator):
             # To simplify the task (learning weights) we ensure both target and source populations have the same
             # importance by reweighting classes by their frequency
             y_0_1 = LabelEncoder().fit_transform(y)  # Encode -1 ==> 0  and  1 ==>1
-            class_weight = compute_class_weight('balanced', np.unique(y), y)[y_0_1]
+            class_weight = compute_class_weight(class_weight='balanced', classes=np.unique(y), y=y)[y_0_1]
 
             sample_weight = np.ones((X_augm.shape[0]))
             sample_weight[target_pop_mask] = w[A == a]  # Weights from initialization

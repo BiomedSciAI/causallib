@@ -85,7 +85,7 @@ def _select_classifier_from_grid(estimator, X, A, param_grid, n_splits=5, seed=1
 def _select_classifier_from_list(candidates, X, A, n_splits=5, seed=None, loss_type='01'):
     accuracies = np.zeros(len(candidates))
 
-    class_weight = compute_class_weight('balanced', np.unique(A), A)[LabelEncoder().fit_transform(A)]
+    class_weight = compute_class_weight(class_weight='balanced', classes=np.unique(A), y=A)[LabelEncoder().fit_transform(A)]
 
     if n_splits >= 2:
         cv = KFold(n_splits=n_splits, shuffle=True, random_state=seed)

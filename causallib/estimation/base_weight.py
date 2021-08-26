@@ -42,13 +42,14 @@ class WeightEstimator:
         self.use_stabilized = use_stabilized
 
     @abc.abstractmethod
-    def fit(self, X, a):
+    def fit(self, X, a, y=None):
         """
         Trains a model to predict treatment assignment given the covariates: Pr[A|X].
 
         Args:
             X (pd.DataFrame): Covariate matrix of size (num_subjects, num_features).
             a (pd.Series): Treatment assignment of size (num_subjects,).
+            y: IGNORED.
 
         Returns:
             WeightEstimator: A causal weight model with an inner learner fitted.

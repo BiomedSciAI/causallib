@@ -2,6 +2,7 @@
 .DS_store
 .project
 .pydevproject
+.vscode
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

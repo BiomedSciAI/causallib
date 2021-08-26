@@ -14,6 +14,7 @@
 #
 # Created on Oct 24, 2019
 
+from causallib.utils.stat_utils import robust_lookup
 import os
 import pandas as pd
 from sklearn.utils import Bunch
@@ -28,7 +29,7 @@ def load_data_file(file_name, data_dir_name, sep=","):
     return data
 
 
-def load_nhefs(raw=False, restrict=True):
+def load_nhefs(raw=False, restrict=True, augment=True, onehot=True):
     """Loads the NHEFS smoking-cessation and weight-loss dataset.
 
     Data was gathered during an observational study conducted by the NHANS
@@ -48,6 +49,14 @@ def load_nhefs(raw=False, restrict=True):
                     If True, returns a (pd.DataFrame, pd.Series) tuple (data and description).
         restrict (bool): Whether to apply exclusion criteria on missing data or not.
                          Note: if False - data will have censored (NaN) outcomes.
+        augment (bool): Whether to add augmented (squared) features
+                    If False, only original data returned.
+                    If True, squares continuous valued columns ['age', 'wt71', 'smokeintensity', 'smokeyrs']
+                    and joins to data frame with suffix '^2'
+        onehot (bool): Whether to one-hot encode categorical data.
+                    If False, categorical data ["active", "education", "exercise"], will be returned
+                    in individual columns with categorical values.
+                    If True, extra columns with the categorical value one-hot encoded.
 
     Returns:
         Bunch: dictionary-like object
@@ -75,9 +84,12 @@ def load_nhefs(raw=False, restrict=True):
     y = data.pop("wt82_71")
     X = data[confounders]
     descriptors = descriptors[confounders + ["qsmk", "wt82_71"]]
-
-    X = pd.get_dummies(X, columns=["active", "education", "exercise"], drop_first=True)
-    X = X.join(X[['age', 'wt71', 'smokeintensity', 'smokeyrs']] ** 2, rsuffix="^2")
+    if onehot:
+        X = pd.get_dummies(
+            X, columns=["active", "education", "exercise"], drop_first=True)
+    if augment:
+        X = X.join(X[['age', 'wt71', 'smokeintensity', 'smokeyrs']]
+                   ** 2, rsuffix="^2")
 
     data = Bunch(X=X, a=a, y=y, descriptors=descriptors)
     return data
@@ -132,8 +144,7 @@ def load_acic16(instance=1, raw=False):
     # # Extract observed outcome:
     y = zymu[["y0", "y1"]]
     y = y.rename(columns=lambda x: int(x.strip("y")))  # remove 'y' prefix to allow lookup
-    y = y.lookup(y.index, a)  # Choose the outcome based on the treatment assignment
-    y = pd.Series(y, index=a.index)  # `lookup` return ndarray, convert back to Series
+    y = robust_lookup(y, a)
     # # Potential outcomes:
     po = zymu[["mu0", "mu1"]]
     po = po.rename(columns=lambda x: x.strip("mu"))

@@ -25,6 +25,9 @@ import numpy as np
 import pandas as pd
 import scipy.stats as stats
 
+from ..utils.stat_utils import robust_lookup
+
+
 # TODO: support categorical (non-numeric) data predecessors.
 
 COVARIATE = "covariate"
@@ -303,7 +306,7 @@ class CausalSimulator3(object):
         """
         Converts scalars (e.g. float, int, str, etc.) into vectors. Mapping between variable names to the desired value.
         In context: If arguments given to the class init are scalar (i.e. float, int, str, etc.), converts them into
-                    vector shape - mapping every variable to the given value\s
+                    vector shape - mapping every variable to the given value
 
         Args:
             x (Any): the value wished to map to the variables.
@@ -314,7 +317,7 @@ class CausalSimulator3(object):
                           so in case there is an error, it can display the python-variable that caused the error.
 
         Returns:
-            x (pd.Series): A Series mapping between variable name and a some wanted value\s.
+            x (pd.Series): A Series mapping between variable name and a some wanted value.
 
         Raises:
             ValueError: If a sequence is given, but its length doesn't match the number of variables in topology.
@@ -346,14 +349,14 @@ class CausalSimulator3(object):
         Args:
             values (Any): some property of some variable (e.g. 0.7 for treatment_importance or
                           "binary" for outcome_type)
-            keys (Sequence[Any]): The names\\indices to map the given properties (values) (e.g. treatment_indices)
+            keys (Sequence[Any]): The names indices to map the given properties (values) (e.g. treatment_indices)
             var_type (str {"covariate", "hidden", "treatment", "outcome", "censor"}):  The type of variable the
                         properties being mapped to (e.g. "treatment", "outcome", "covariate")
-            value_type (str): The name\type that the property belongs to. (e.g. the variable name in the python code),
+            value_type (str): The name type that the property belongs to. (e.g. the variable name in the python code),
                               so in case there's an error, it can display the python-variable that caused the error.
 
         Returns:
-            res (pd.Series): A map between the given keys (some covariate variable names\\indices) to the given values
+            res (pd.Series): A map between the given keys (some covariate variable names indices) to the given values
 
         Raises:
             ValueError: When a Sequence is given as values (e.g. list of properties) but it does not match the length
@@ -364,7 +367,7 @@ class CausalSimulator3(object):
                          names. A warning is issued.
 
         Examples:
-            Where effect_sizes is a Sequence or a float, outcome_indices are the indices\\names of the outcome variables
+            Where effect_sizes is a Sequence or a float, outcome_indices are the indices names of the outcome variables
              in the graph. the variable type discussed is "outcome" (since it is effect-size). The python variable name
              is effect_size, thus the value_type is effect_size.
              map_properties_to_variables(values=effect_sizes, keys=self.outcome_indices, var_type="outcome",
@@ -1377,7 +1380,7 @@ class CausalSimulator3(object):
             beta.loc[X_covariates.columns, :] = covariates_coefs
 
         cf = X_parents.dot(beta)  # type: pd.DataFrame
-        x_outcome = pd.Series(cf.lookup(row_labels=cf.index, col_labels=X_treatment), index=X_treatment.index)
+        x_outcome = robust_lookup(cf, X_treatment)
         return x_outcome, cf, beta
 
     # ### SAVING DATASET ### #
@@ -1569,7 +1572,7 @@ def generate_random_topology(n_covariates, p, n_treatments=1, n_outcomes=1, n_ce
     for outcome_idx, censoring_idx in matches:
         topology.loc[outcome_idx, censoring_idx] = True
 
-    generated_types = pd.Series(index=generated_vars, dtype=np.object)
+    generated_types = pd.Series(index=generated_vars, dtype=object)
     generated_types[covariates] = COVARIATE
     generated_types[treatments] = TREATMENT
     generated_types[outcomes] = OUTCOME
