@@ -24,6 +24,7 @@ import warnings
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression, LinearRegression
+from warnings import simplefilter, catch_warnings
 
 from causallib.estimation import DoublyRobustVanilla, DoublyRobustIpFeature, DoublyRobustJoffe
 from causallib.estimation import IPW
@@ -51,9 +52,11 @@ class TestDoublyRobustBase(unittest.TestCase):
 
     def fit_and_predict_all_learners(self, data, estimator):
         estimator.fit(data["X"], data["a"], data["y"])
-        doubly_res = estimator.estimate_population_outcome(data["X"], data["a"], data["y"])
-        std_res = estimator.outcome_model.estimate_population_outcome(data["X"], data["a"])
-        ipw_res = estimator.weight_model.estimate_population_outcome(data["X"], data["a"], data["y"])
+        with catch_warnings():
+            simplefilter(action='ignore', category=UserWarning)  # for some of the models using y throws a UserWarning
+            doubly_res = estimator.estimate_population_outcome(data["X"], data["a"], data["y"])
+            std_res = estimator.outcome_model.estimate_population_outcome(data["X"], data["a"])
+            ipw_res = estimator.weight_model.estimate_population_outcome(data["X"], data["a"], data["y"])
         return doubly_res, std_res, ipw_res
 
     def ensure_uninformative_tx_leads_to_std_like_results(self, estimator):

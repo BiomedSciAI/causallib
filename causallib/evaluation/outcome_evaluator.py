@@ -125,8 +125,7 @@ class OutcomeEvaluator(BaseEvaluator):
         # # Extract prediction on actual treatment
         prediction_strata = robust_lookup(prediction.prediction, a_true)
         if y_is_binary:
-            prediction_prob_strata = prediction.prediction_event_prob.lookup(a_true.index, a_true)
-            prediction_prob_strata = pd.Series(prediction_prob_strata, index=a_true.index)
+            prediction_prob_strata = robust_lookup(prediction.prediction_event_prob, a_true)
         else:
             prediction_prob_strata = None
         score = self._score_single(y_true, prediction_strata, prediction_prob_strata,

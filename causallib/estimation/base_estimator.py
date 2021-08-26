@@ -19,9 +19,9 @@ Created on Apr 16, 2018
 A module defining the various hierarchy of causal models interface.
 Causal models have two main tasks - predicting counterfactual outcomes and predicting effect based on these estimated
 outcomes.
-On top if it there are two resolutions we can work on: the individual level (i.e. outcome and effect for each individual
+On top of it there are two resolutions we can work on: the individual level (i.e. outcome and effect for each individual
 in the dataset) and population level (i.e. some aggregation on the sample level).
-This module defines it it all with:
+This module defines it all with:
 * EffectEstimator - can estimate both individual and population level effect
 * PopulationOutcomeEstimator - estimates aggregated outcomes on different sub-groups in the dataset.
 * IndividualOutcomeEstimator - estimates individual level outcomes.
@@ -175,7 +175,7 @@ class IndividualOutcomeEstimator(PopulationOutcomeEstimator, EffectEstimator):
                                       and values are the corresponding computed effect.
                                       A DataFrame if individual effect (input is a vector) where columns are effects
                                       types and rows are effect in each individual.
-                                      Always: Value type is same is outcome_1 and outcome_2 type.
+                                      Always: Value type is the same as outcome_1 and outcome_2 type.
         """
         if agg == "population":
             outcome1 = self._aggregate_population_outcome(outcome1)

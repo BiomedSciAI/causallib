@@ -20,8 +20,8 @@ import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.impute import SimpleImputer as skImputer
-
 from ..utils.stat_utils import which_columns_are_binary
+from causallib.estimation import Matching
 
 
 # TODO: Entire module might be redundant, now that scikit-learn supports missing values
@@ -236,5 +236,289 @@ class MinMaxScaler(BaseEstimator, TransformerMixin):
 class Imputer(skImputer):
     def transform(self, X):
         X_transformed = super().transform(X.values)
-        X_transformed = pd.DataFrame(X_transformed, index=X.index, columns=X.columns)
+        X_transformed = pd.DataFrame(
+            X_transformed, index=X.index, columns=X.columns)
         return X_transformed
+
+
+class PropensityTransformer(BaseEstimator, TransformerMixin):
+
+    def __init__(self, learner, include_covariates=False):
+        """Transform covariates by adding/replacing with the propensity score.
+    
+        Args:
+            learner (sklearn.estimator) : A learner implementing `fit` and 
+                `predict_proba` to use for predicting the propensity score.
+            include_covariates (bool) : Whether to return the original
+                covariates alongside the "propensity" column.
+
+        """
+        self.include_covariates = include_covariates
+        self.learner = learner
+
+    def fit(self, X, a):
+        self.learner.fit(X, a)
+        return self
+
+    def transform(self, X, treatment_values=None):
+        """Append propensity or replace covariates with propensity.
+
+        Args:
+            X (pd.DataFrame): A DataFrame of samples to transform. This will be
+                input to the learner trained by fit. If the columns are 
+                different, the results will not be valid.
+            treatment_values (Any | None): A desired value/s to extract
+                propensity to (i.e. probabilities to what treatment value
+                should be calculated). If not specified, then the maximal
+                treatment value is chosen. This is since the usual case is of
+                treatment (A=1) control (A=0) setting.
+            
+        Returns:
+            pd.DataFrame : DataFrame with a "propensity" column. 
+            If "include_covariates" is `True`, it will include all of the 
+            original features plus "propensity", else it will only have the 
+            "propensity" column.
+
+        """
+        treatment_values = 1 if treatment_values is None else treatment_values
+
+        res = self.learner.predict_proba(X)[:, treatment_values]
+        res = pd.DataFrame(res, index=X.index, columns=["propensity"])
+        if self.include_covariates:
+            res = X.join(res)
+        return res
+
+
+class MatchingTransformer(object):
+
+    def __init__(
+        self,
+        propensity_transform=None,
+        caliper=None,
+        with_replacement=True,
+        n_neighbors=1,
+        matching_mode="both",
+        metric="mahalanobis",
+        knn_backend="sklearn",
+    ):
+        """Transform data by removing poorly matched samples.
+
+        Args:
+            propensity_transform (causallib.transformers.PropensityTransformer):
+                an object for data preprocessing which adds the propensity
+                score as a feature (default: None)
+            caliper (float) : maximal distance for a match to be accepted. If
+                not defined, all matches will be accepted. If defined, some
+                samples may not be matched and their outcomes will not be
+                estimated. (default: None)
+            with_replacement (bool): whether samples can be used multiple times
+                for matching. If set to False, the matching process will optimize
+                the linear sum of distances between pairs of treatment and
+                control samples and only `min(N_treatment, N_control)` samples
+                will be estimated. Matching with no replacement does not make
+                use of the `fit` data and is therefore not implemented for
+                out-of-sample data (default: True)
+            n_neighbors (int) : number of nearest neighbors to include in match.
+                Must be 1 if `with_replacement` is `False.` If larger than 1, the
+                estimate is calculated using the `regress_agg_function` or 
+                `classify_agg_function` across the `n_neighbors`. Note that when
+                the `caliper` variable is set, some samples will have fewer than
+                `n_neighbors` matches. (default: 1).
+            matching_mode (str) : Direction of matching: `treatment_to_control`,
+                `control_to_treatment` or `both` to indicate which set should
+                be matched to which. All sets are cross-matched in `match`
+                and when `with_replacement` is `False` all matching modes 
+                coincide. With replacement there is a difference.
+            metric (str) : Distance metric string for calculating distance
+                between samples. Note: if an external built `knn_backend`
+                object with a different metric is supplied, `metric` needs to
+                be changed to reflect that, because `Matching` will set its 
+                inverse covariance matrix if "mahalanobis" is set. (default: 
+                "mahalanobis", also supported: "euclidean")
+            knn_backend (str or callable) : Backend to use for nearest neighbor
+                search. Options are "sklearn"  or a callable  which returns an 
+                object implementing `fit`, `kneighbors` and `set_params` 
+                like the sklearn `NearestNeighbors` object. (default: "sklearn"). 
+
+        """
+        self.matching = Matching(
+            propensity_transform=propensity_transform,
+            caliper=caliper,
+            with_replacement=with_replacement,
+            n_neighbors=n_neighbors,
+            matching_mode=matching_mode,
+            metric=metric,
+            knn_backend=knn_backend,
+        )
+
+    def fit(self, X, a, y):
+        """Fit data to transform
+
+        This function loads the data for matching and must be called before
+        `transform`. For convenience, consider using `fit_transform`.
+
+        Args:
+            X (pd.DataFrame): DataFrame of shape (n,m) containing m covariates
+                for n samples.
+            a (pd.Series): Series of shape (n,) containing discrete treatment
+                values for the n samples.
+            y (pd.Series): Series of shape (n,) containing outcomes for
+                the n samples.
+
+        Returns:
+            self (MatchingTransformer) : Fitted object
+        """
+        self.matching.fit(X, a, y)
+
+        return self
+
+    def transform(self, X, a, y):
+        """Transform data by restricting it to samples which are matched
+
+        Following a matching process, not all of the samples will find matches.
+        Transforming the data by only allowing samples in treatment that have
+        close matches in control, or in control that have close matches in
+        treatment can make other causal methods more effective. This function 
+        will call `match` on the underlying Matching object.
+
+        The attribute `matching_mode` changes the behavior of this function.
+        If set to `control_to_treatment` each control will attempt to find a
+        match among the treated, hence the transformed data will have a maximum
+        size of N_c + min(N_c,N_t).
+        If set to `treatment_to_control`, each treatment will attempt to find a
+        match among the control and the transformed data will have a maximum
+        size of N_t + min(N_c,N_t).
+        If set to `both`, both matching operations will be executed and if a
+        sample succeeds in either direction it will be included, hence the
+        maximum size of the transformed data will be `len(X)`.
+
+        If `with_replacement` is `False`, `matching_mode` does not change the
+        behavior. There will be up to `min(N_c,N_t)` samples in
+        the returned DataFrame, regardless.
+
+        Args:
+            X (pd.DataFrame): DataFrame of shape (n,m) containing m covariates
+                for n samples.
+            a (pd.Series): Series of shape (n,) containing discrete treatment
+                values for the n samples.
+            y (pd.Series): Series of shape (n,) containing outcomes for
+                the n samples.
+
+        Raises:
+            NotImplementedError: Raised if a value of attribute `matching_mode`
+            other than the supported values is set.
+
+        Returns:
+            Xm (pd.DataFrame): Covariates of samples that were matched
+            am (pd.Series): Treatment values of samples that were matched
+            ym (pd.Series): Outcome values of samples that were matched
+
+        """
+        self.matching.match(X, a, use_cached_result=True)
+        matched_sample_indices = self.find_indices_of_matched_samples(X, a)
+        X = X.loc[matched_sample_indices]
+        a = a.loc[matched_sample_indices]
+        y = y.loc[matched_sample_indices]
+        return X, a, y
+
+    def find_indices_of_matched_samples(self, X, a):
+        """Find indices of samples which matched successfully.
+
+        Given a DataFrame of samples `X` and treatment assignments `a`, return
+        a list of indices of samples which matched successfully.
+
+        Args:
+            X (pd.DataFrame): Covariates of samples
+            a (pd.Series): Treatment assignments
+
+        Returns:
+            pd.Series: indices of matched samples to be passed to `X.loc` 
+        """
+
+        matching_weights = self.matching.matches_to_weights()
+        matches_mask = self._filter_matching_weights_by_mode(matching_weights)
+        return matches_mask
+
+    def _filter_matching_weights_by_mode(self, matching_weights):
+        if self.matching.matching_mode == "control_to_treatment":
+            matches_mask = matching_weights.control_to_treatment
+        elif self.matching.matching_mode == "treatment_to_control":
+            matches_mask = matching_weights.treatment_to_control
+        elif self.matching.matching_mode == "both":
+            matches_mask = matching_weights.sum(axis=1)
+        else:
+            raise NotImplementedError("Matching mode {} not supported".format(
+                    self.matching.matching_mode))
+        matches_mask = matches_mask.astype(bool)
+        return matches_mask
+
+    def fit_transform(self, X, a, y):
+        """Match data and return matched subset.
+
+        This is a convenience method, calling `fit` and `transform` at once.
+        For details, see documentation of each function.
+
+        Args:
+            X (pd.DataFrame): DataFrame of shape (n,m) containing m covariates
+                for n samples.
+            a (pd.Series): Series of shape (n,) containing discrete treatment
+                values for the n samples.
+            y (pd.Series): Series of shape (n,) containing outcomes for
+                the n samples.
+
+        Returns:
+            Xm (pd.DataFrame): Covariates of samples that were matched
+            am (pd.Series): Treatment values of samples that were matched
+            ym (pd.Series): Outcome values of samples that were matched
+        """
+        self.fit(X, a, y)
+        return self.transform(X, a, y)
+
+    def set_params(self, **kwargs):
+        """Set parameters of matching engine. Supported parameters are:
+
+        Keyword Args:
+            propensity_transform (causallib.transformers.PropensityTransformer):
+                an object for data preprocessing which adds the propensity
+                score as a feature (default: None)
+            caliper (float) : maximal distance for a match to be accepted
+                (default: None)
+            with_replacement (bool): whether samples can be used multiple times
+                for matching (default: True)
+            n_neighbors (int) : number of nearest neighbors to include in match.
+                Must be 1 if `with_replacement` is False (default: 1).
+            matching_mode (str) : Direction of matching: `treatment_to_control`,
+                `control_to_treatment` or `both` to indicate which set should
+                be matched to which. All sets are cross-matched in `match`
+                and without replacement there is no difference in outcome,
+                but with replacement there is a difference and it impacts
+                the results of `transform`.
+            metric (str) : Distance metric string for calculating
+                distance between samples (default: "mahalanobis",
+                    also supported: "euclidean")
+            knn_backend (str or callable) : Backend to use for nearest neighbor
+                search. Options are "sklearn"  or a callable  which returns an 
+                object implementing `fit`, `kneighbors` and `set_params` like
+                the sklearn `NearestNeighbors` object. (default: "sklearn"). 
+
+
+        Returns:
+            self: (MatchingTransformer) object with new parameters set
+
+        """
+        supported_params = [
+            "propensity_transform",
+            "caliper",
+            "n_neighbors",
+            "metric",
+            "with_replacement",
+            "matching_mode",
+            "knn_backend",
+        ]
+        for key, value in kwargs.items():
+            if key in supported_params:
+                self.matching.__setattr__(key, value)
+            else:
+                warnings.warn(
+                    "Received unsupported parameter: {}. Nothing done.".format(key))
+        return self

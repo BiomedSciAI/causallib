@@ -11,6 +11,8 @@ Submodules
    causallib.estimation.doubly_robust
    causallib.estimation.ipw
    causallib.estimation.marginal_outcome
+   causallib.estimation.matching
+   causallib.estimation.overlap_weights
    causallib.estimation.standardization
 
 Module contents

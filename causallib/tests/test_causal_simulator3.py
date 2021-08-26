@@ -35,7 +35,7 @@ class CS3TestCase(unittest.TestCase):
         Params = namedtuple("Params", ["topology", "var_types", "outcome_types", "link_types", "prob_cat", "snr",
                                        "treatment_importance", "effect_sizes"])
 
-        topology = np.zeros((4, 4), dtype=np.bool)  # topology[i,j] if node j is a parent of node i
+        topology = np.zeros((4, 4), dtype=np.bool_)  # topology[i,j] if node j is a parent of node i
         topology[1, 0] = topology[2, 0] = topology[2, 1] = topology[3, 1] = topology[3, 2] = True
         self.no_X = Params(topology=topology, var_types=["hidden", "covariate", "treatment", "outcome"],
                            outcome_types=["continuous"], link_types=['linear'] * 4,
@@ -46,7 +46,7 @@ class CS3TestCase(unittest.TestCase):
 
         self.X_GIVEN = pd.DataFrame(np.random.RandomState(0).normal(size=(self.X_NUM_SAMPLES, 5)),
                                     columns=["x{}".format(i) for i in range(5)])
-        topology = np.zeros((5 + 4, 5 + 4), dtype=np.bool)  # topology[i,j] if node j is a parent of node i
+        topology = np.zeros((5 + 4, 5 + 4), dtype=np.bool_)  # topology[i,j] if node j is a parent of node i
         topology[1, 0] = topology[2, 0] = topology[2, 1] = topology[3, 1] = topology[3, 2] = True
         topology[1, 4] = topology[2, 4] = topology[2, 6] = topology[3, 6] = topology[3, 7] = True
         var_names = pd.Index(list(range(4))).append(self.X_GIVEN.columns)
@@ -138,7 +138,7 @@ class CS3TestCase(unittest.TestCase):
         """
         Tests to see what happens when supplying parameters of different types (lists, dicts, arrays, etc.)
         """
-        topology = np.zeros((5, 5), dtype=np.bool)  # topology[i,j] if node j is a parent of node i
+        topology = np.zeros((5, 5), dtype=np.bool_)  # topology[i,j] if node j is a parent of node i
         topology[1, 0] = topology[2, 0] = topology[2, 1] = topology[3, 1] = topology[3, 2] = topology[3, 4] = True
         var_types = ["hidden", "covariate", "treatment", "outcome", "covariate"]
         sim = CS3(topology=topology, var_types=var_types, prob_categories=self.no_X.prob_cat + [None],
@@ -253,7 +253,7 @@ class CS3TestCase(unittest.TestCase):
                       link_types=self.no_X.link_types, treatment_importances=self.no_X.treatment_importance,
                       outcome_types=self.no_X.outcome_types, snr=self.no_X.snr, effect_sizes=self.no_X.effect_sizes,
                       treatment_methods=treatment_method)
-            n = self.NUM_SAMPLES * 10
+            n = self.NUM_SAMPLES * 50
             X, prop, cf = sim.generate_data(num_samples=n)
             np.testing.assert_array_almost_equal(prop.sum(axis="columns"), np.ones(n),
                                                  err_msg="multi-categorical preopensities of treatment method {method} "
@@ -344,7 +344,7 @@ class CS3TestCase(unittest.TestCase):
         var_types = ["covariate", "treatment", "outcome"]
         snr = 1
         prob_cat = [None, [0.5, 0.5], None]
-        treatment_importance = 0.5
+        treatment_importance = None
         sim = CS3(topology=topology, var_types=var_types, prob_categories=prob_cat,
                   link_types="linear", treatment_importances=treatment_importance,
                   outcome_types=self.no_X.outcome_types, snr=snr, effect_sizes=self.no_X.effect_sizes)
@@ -429,7 +429,7 @@ class CS3TestCase(unittest.TestCase):
         prob_cat[3] = [0.2, 0.8]
         outcome_type = "survival"
         snr = 0.95
-        treatment_importance = 0.5
+        treatment_importance = None
         treatment_method = "logistic"
         survival_distribution = "expon"
         survival_baseline = 0.8
@@ -452,7 +452,7 @@ class CS3TestCase(unittest.TestCase):
         prob_cat = [None, None, [0.2, 0.8], [0.85, 0.15], None]
         outcome_type = "survival"
         snr = 0.95
-        treatment_importance = 0.5
+        treatment_importance = None
         treatment_method = "logistic"
         survival_distribution = "expon"
         survival_baseline = 0.8
@@ -474,7 +474,7 @@ class CS3TestCase(unittest.TestCase):
         prob_cat = [None, None, [0.2, 0.8], [0.85, 0.15], None]
         outcome_type = "continuous"
         snr = 0.95
-        treatment_importance = 0.5
+        treatment_importance = None
         treatment_method = "logistic"
         sim = CS3(topology=topology, var_types=var_types, prob_categories=prob_cat, link_types=link_types,
                   snr=snr, treatment_importances=treatment_importance,
@@ -494,7 +494,7 @@ class CS3TestCase(unittest.TestCase):
         prob_cat = [None, None, [0.2, 0.8], [0.85, 0.15], None]
         outcome_type = "continuous"
         snr = 0.95
-        treatment_importance = 0.5
+        treatment_importance = None
         treatment_method = "logistic"
         survival_distribution = "expon"
         survival_baseline = 0.8
@@ -516,7 +516,7 @@ class CS3TestCase(unittest.TestCase):
         prob_cat = [None, None, [0.2, 0.8], [0.85, 0.15], None]
         outcome_type = "survival"
         snr = 0.95
-        treatment_importance = 0.5
+        treatment_importance = None
         treatment_method = "logistic"
         survival_distribution = "expon"
         survival_baseline = 0.8
