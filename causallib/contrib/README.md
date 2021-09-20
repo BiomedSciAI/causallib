@@ -44,3 +44,9 @@ and can be automatically installed using the extra-requirements `contrib` flag:
 pip install causallib[contrib] -f https://download.pytorch.org/whl/torch_stable.html
 ```  
 The `-f` find-links option is required to install PyTorch dependency.
+
+## References
+
+Ozery-Flato, M., Thodoroff, P., Ninio, M., Rosen-Zvi, M., & El-Hay, T. (2018). [Adversarial balancing for causal inference.](https://arxiv.org/abs/1810.07406) arXiv preprint arXiv:1810.07406.
+
+Nagpal, C., Wei, D., Vinzamuri, B., Shekhar, M., Berger, S. E., Das, S., & Varshney, K. R. (2020, April). [Interpretable subgroup discovery in treatment effect estimation with application to opioid prescribing guidelines.](https://arxiv.org/pdf/1905.03297.pdf) In Proceedings of the ACM Conference on Health, Inference, and Learning (pp. 19-29).
