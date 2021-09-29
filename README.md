@@ -8,7 +8,7 @@
 # Causal Inference 360
 A Python package for inferring causal effects from observational data.
 
-## Description
+## Description test
 Causal inference analysis enables estimating the causal effect of 
 an intervention on some outcome from real-world non-experimental observational data.  
 
