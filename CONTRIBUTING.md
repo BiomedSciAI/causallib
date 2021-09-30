@@ -79,3 +79,11 @@ You can review the [individual CLA document as a PDF](https://www.apache.org/lic
 > is the property of your employer, then you will likely need to sign a
 > [corporate CLA](https://www.apache.org/licenses/cla-corporate.txt) too and
 > email it to us at <ehudk@ibm.com>.
+
+## Contributors
+Ehud Karavani
+Yishai Shimoni
+Michael Danziger
+Chirag Nagpal
+Tal Kozlovski
+Dennis Wei
