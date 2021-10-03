@@ -20,7 +20,7 @@ script:
   - pip install -e .[contrib]  # test optional install
   - pip freeze
   - pytest causallib/contrib/tests  # -k 'not test_hemm'
-  - pytest --cov-report= --cov=causallib causallib/tests
+  - coverage run --source=. -m pytest --ignore causallib\contrib\
 after_success:
   - coverage xml
   - ./cc-test-reporter after-build
