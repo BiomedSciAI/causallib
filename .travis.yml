@@ -13,14 +13,13 @@ install:
   - pip install --upgrade pip
   - pip install -r requirements.txt
   - pip install -r causallib/contrib/requirements.txt
-  - pip install --upgrade pytest pytest-cov
+  - pip install --upgrade pytest coverage
 script:
   - pip install --upgrade pip
   - pip install -e .  # test that install is running properly
   - pip install -e .[contrib]  # test optional install
   - pip freeze
-  - pytest causallib/contrib/tests  # -k 'not test_hemm'
-  - coverage run --source=. --omit=*__init__.py,*contrib*,setup.py -m pytest --ignore causallib\contrib\
+  - coverage run --source=. --omit=*__init__.py,setup.py -m pytest
 after_success:
   - coverage report
   - coverage xml
