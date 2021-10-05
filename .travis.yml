@@ -1,3 +1,6 @@
+env:
+  global:
+    CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
 language: python
 python:
   - "3.6"
@@ -20,8 +23,6 @@ script:
   - pip install -e .[contrib]  # test optional install
   - pip freeze
   - coverage run --source=. --omit=*__init__.py,setup.py -m pytest
-env:
-  - CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
 after_success:
   - coverage report
   - coverage xml
