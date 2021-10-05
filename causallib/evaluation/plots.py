@@ -478,25 +478,26 @@ def plot_propensity_score_distribution(propensity, treatment, reflect=True, kde=
     ax = ax or plt.gca()
     if kde and not norm_hist:
         warnings.warn("kde=True and norm_hist=False is not supported. Forcing norm_hist from False to True.")
-        norm_hist=True
+        norm_hist = True
     bins = np.histogram(propensity, bins="auto")[1]
-    plot_params = dict(bins=bins,  density=norm_hist, alpha=0.5, cumulative=cumulative)
+    plot_params = dict(bins=bins, density=norm_hist, alpha=0.5, cumulative=cumulative)
 
     unique_treatments = np.sort(np.unique(treatment))
-    for treatment_value in unique_treatments:
+    for treatment_number, treatment_value in enumerate(unique_treatments):
         cur_propensity = propensity.loc[treatment == treatment_value]
-        cur_color = "C{}".format(treatment_value)
-        ax.hist(cur_propensity, label = "treatment = {}".format(treatment_value), color=cur_color,**plot_params)
+        cur_color = "C{}".format(treatment_number)
+        ax.hist(cur_propensity, label="treatment = {}".format(treatment_value),
+                color=[cur_color], **plot_params)
         if kde:
             cur_kde = gaussian_kde(cur_propensity)
-            min_support = max(0,cur_propensity.values.min() - cur_kde.factor)
-            max_support = min(1, cur_propensity.values.max() +  cur_kde.factor)
-            X_plot = np.linspace(min_support,max_support,200)
+            min_support = max(0, cur_propensity.values.min() - cur_kde.factor)
+            max_support = min(1, cur_propensity.values.max() + cur_kde.factor)
+            X_plot = np.linspace(min_support, max_support, 200)
             if cumulative:
                 density = np.array([cur_kde.integrate_box_1d(X_plot[0], x_i) for x_i in X_plot])
-                ax.plot(X_plot,density,color=cur_color,)
-            else:    
-                ax.plot(X_plot,cur_kde.pdf(X_plot),color=cur_color,)
+                ax.plot(X_plot, density, color=cur_color, )
+            else:
+                ax.plot(X_plot, cur_kde.pdf(X_plot), color=cur_color, )
     if reflect:
         if len(unique_treatments) != 2:
             raise ValueError("Reflecting density across X axis can only be done for two groups. "

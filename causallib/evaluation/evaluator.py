@@ -122,7 +122,7 @@ class BaseEvaluator:
                 warnings.warn(str(v))
                 scores[metric_name] = np.nan
 
-        dtype = np.float if all([np.isscalar(score) for score in scores.values()]) else np.dtype(object)
+        dtype = float if all([np.isscalar(score) for score in scores.values()]) else np.dtype(object)
         return pd.Series(scores, dtype=dtype)
 
     def score_regression_prediction(self, y_true, y_pred, sample_weight=None, metrics_to_evaluate=None):
