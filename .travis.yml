@@ -23,6 +23,5 @@ script:
 after_success:
   - coverage report
   - coverage xml
-  - ./cc-test-reporter after-build
-  
+  - ./cc-test-reporter after-build -r ${{ secrets.CC_TEST_REPORTER_ID }}
   
