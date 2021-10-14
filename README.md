@@ -46,15 +46,8 @@ If you use the package, please consider citing [Shimoni et al., 2019](https://ar
 
 ## Installation
 ```bash
-pip install git+ssh://git@github.ibm.com/CausalDev/CausalInference.git
+pip install causallib
 ```
-To install a specific branch use:
-```bash
-pip install git+ssh://git@github.ibm.com/CausalDev/CausalInference.git@{branch-name}#egg=causallib
-```
-
-If installing for development purposes then installation should be performed
-with the `-e` flag. 
 
 ## Usage
 The package is imported using the name `causallib`.
