@@ -4,7 +4,7 @@
 [![Documentation Status](https://readthedocs.org/projects/causallib/badge/?version=latest)](https://causallib.readthedocs.io/en/latest/)
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/IBM/causallib/HEAD)
 [![Slack channel](https://img.shields.io/badge/join-slack-slack.svg?logo=slack)](https://causallib.slack.com/)
-[![Slack channel](https://img.shields.io/badge/support-slack-slack.svg?logo=slack)](https://causallib.slack.com/)
+[![Downloads](https://pepy.tech/badge/causallib)](https://pepy.tech/project/causallib)
 # Causal Inference 360
 A Python package for inferring causal effects from observational data.
 
