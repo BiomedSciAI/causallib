@@ -1,9 +1,10 @@
-[![Build Status](https://travis-ci.com/IBM/causallib.svg?&branch=master)](https://travis-ci.org/IBM/causallib)
-[![Test Coverage](https://api.codeclimate.com/v1/badges/db2562e44c4a9f7280dc/test_coverage)](https://codeclimate.com/github/IBM/causallib/test_coverage)
-[![PyPI version](https://badge.fury.io/py/causallib.svg)](https://badge.fury.io/py/causallib)
+[![Travis (.com) branch](https://img.shields.io/travis/com/IBM/causallib/master?logo=travis)](https://app.travis-ci.com/IBM/causallib)
+[![Code Climate coverage](https://img.shields.io/codeclimate/coverage/IBM/causallib?logo=codeclimate)](https://codeclimate.com/github/IBM/causallib/test_coverage)
+[![PyPI](https://img.shields.io/pypi/v/causallib?color=blue&logo=pypi&logoColor=yellow)](https://badge.fury.io/py/causallib)
 [![Documentation Status](https://readthedocs.org/projects/causallib/badge/?version=latest)](https://causallib.readthedocs.io/en/latest/)
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/IBM/causallib/HEAD)
-[![Slack channel](https://img.shields.io/badge/support-slack-slack.svg?logo=slack)](https://causallib.slack.com/)
+[![Slack channel](https://img.shields.io/badge/join-slack-blue.svg?logo=slack)](https://join.slack.com/t/causallib/shared_invite/zt-mwxnwe1t-htEgAXr3j3T2UeZj61gP6g)
+[![Slack channel](https://img.shields.io/badge/support-slack-blue.svg?logo=slack)](https://causallib.slack.com/)
 [![Downloads](https://pepy.tech/badge/causallib)](https://pepy.tech/project/causallib)
 # Causal Inference 360
 A Python package for inferring causal effects from observational data.
