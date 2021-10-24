@@ -153,7 +153,7 @@ class TestDoublyRobustBase(unittest.TestCase):
                     self.estimator.estimate_individual_outcome(data["X"], data["a"])
                     self.assertTrue(True)  # Dummy assert for not thrown exception
 
-    def ensure_many_models(self):
+    def ensure_many_models(self, truncate_eps=None):
         from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
         from sklearn.neural_network import MLPRegressor
         from sklearn.linear_model import ElasticNet, RANSACRegressor, HuberRegressor, PassiveAggressiveRegressor
@@ -172,7 +172,7 @@ class TestDoublyRobustBase(unittest.TestCase):
                                    RandomForestClassifier(n_estimators=100),
                                    MLPClassifier(hidden_layer_sizes=(5,)),
                                    KNeighborsClassifier(n_neighbors=20)]:
-            weight_model = IPW(propensity_learner)
+            weight_model = IPW(propensity_learner, truncate_eps=truncate_eps)
             propensity_learner_name = str(propensity_learner).split("(", maxsplit=1)[0]
             for outcome_learner in [GradientBoostingRegressor(n_estimators=10), RandomForestRegressor(n_estimators=10),
                                     MLPRegressor(hidden_layer_sizes=(5,)),
@@ -339,4 +339,4 @@ class TestDoublyRobustIPFeature(TestDoublyRobustBase):
         self.ensure_pipeline_learner()
 
     def test_many_models(self):
-        self.ensure_many_models()
+        self.ensure_many_models(truncate_eps=0.001)
