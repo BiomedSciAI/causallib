@@ -1,3 +1,5 @@
+import abc
+
 import pandas as pd
 import numpy as np
 import statsmodels.api as sm
@@ -11,23 +13,16 @@ class BaseTMLE(BaseDoublyRobust):
     # TODO: decorator to convert continuous `y` to 0-1 range
     pass
 
-    def _predict_observed(self, X, a):
-        y_pred = self.outcome_model.estimate_individual_outcome(X, a)
-        y_pred = robust_lookup(y_pred, a)  # Predictions on the observed
-        return y_pred
-
-
-class TMLEMatrix(BaseTMLE):  # TODO: TMLE for multiple treatments
     def fit(self, X, a, y, refit_weight_model=True, **kwargs):
         # TODO: support also just estimators?
         X_outcome = self._extract_outcome_model_data(X)
         self.outcome_model.fit(X_outcome, a, y)
         y_pred = self._predict_observed(X, a)
 
+        # self.treatment_values_ = sorted(a.unique())
         X_treatment = self._extract_weight_model_data(X)
         self.weight_model.fit(X_treatment, a)
-        w = self.weight_model.compute_weight_matrix(X_treatment, a)
-        self.treatment_values_ = sorted(a.unique())
+        w = self._get_weight_term_fit(X, a)
 
         # Statsmodels is the supports logistic regression with continuous (0-1 bounded) targets
         # so can be used with non-binary (but scaled) response
@@ -45,55 +40,55 @@ class TMLEMatrix(BaseTMLE):  # TODO: TMLE for multiple treatments
 
         res = {}
         for treatment_value in get_iterable_treatment_values(treatment_values, a):
-            # TODO refactor common logic with TMLEMatrix, and just replace the assignment to vector
-            treatment_assignment = pd.DataFrame(data=0, index=a.index, columns=self.treatment_values_)
-            treatment_assignment[treatment_value] = weight_matrix[treatment_value]
+            treatment_assignment = self._get_weight_term_inference(weight_matrix, treatment_value)
             target_offset = self.targeted_outcome_model_.predict(treatment_assignment, linear=True)
-
-            res[treatment_value] = _expit(y_pred_logit + target_offset)
+            counterfactual_prediction = _expit(y_pred_logit + target_offset)
+            res[treatment_value] = counterfactual_prediction
 
         res = pd.concat(res, axis="columns", names=[a.name or "a"])
         return res
+
+    @abc.abstractmethod
+    def _get_weight_term_fit(self, X, a):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def _get_weight_term_inference(self, weight_matrix, treatment_value):
+        raise NotImplementedError
+
+    def _predict_observed(self, X, a):
+        y_pred = self.outcome_model.estimate_individual_outcome(X, a)
+        y_pred = robust_lookup(y_pred, a)  # Predictions on the observed
+        return y_pred
+
+
+class TMLEMatrix(BaseTMLE):  # TODO: TMLE for multiple treatments
+
+    def _get_weight_term_fit(self, X, a):
+        w = self.weight_model.compute_weight_matrix(X, a)
+        return w
+
+    def _get_weight_term_inference(self, weight_matrix, treatment_value):
+        w = pd.DataFrame(data=0, index=weight_matrix.index, columns=weight_matrix.columns)
+        w[treatment_value] = weight_matrix[treatment_value]
+        return w
 
 
 class TMLEVector(BaseTMLE):  # TODO: TMLE for binary treatment
-    def fit(self, X, a, y, refit_weight_model=True, **kwargs):
-        X_outcome = self._extract_outcome_model_data(X)
-        self.outcome_model.fit(X_outcome, a, y)
-        y_pred = self._predict_observed(X, a)
 
-        # TODO refactor common logic with TMLEMatrix, and just replace the final `w` into the model
+    def _get_weight_term_fit(self, X, a):
         if a.nunique() != 2:
             raise AssertionError("Can only apply model on a binary treatment")
-        X_treatment = self._extract_weight_model_data(X)
-        self.weight_model.fit(X_treatment, a)
-        w = self.weight_model.compute_weights(X_treatment, a)
+        w = self.weight_model.compute_weights(X, a)
         a_sign = 2 * a - 1  # Convert a==0 to -1, keep a==1 as 1.
         w *= a_sign  # w_i if a_i == 1, -w_i if a_i == 0.
-        self.treatment_values_ = sorted(a.unique())
+        return w
 
-        targeted_outcome_model = sm.Logit(
-            endog=w, exog=y, offset=y_pred,
-        ).fit()
-        self.targeted_outcome_model_ = targeted_outcome_model
-
-        return self
-
-    def estimate_individual_outcome(self, X, a, treatment_values=None, predict_proba=None):
-        y_pred = self._predict_observed(X, a)
-        y_pred_logit = _logit(y_pred)
-        weight_matrix = self.weight_model.compute_weight_matrix(X, a)
-
-        res = {}
-        for treatment_value in get_iterable_treatment_values(treatment_values, a):
-            # TODO refactor common logic with TMLEMatrix, and just replace the assignment to vector
-            treatment_assignment = weight_matrix[treatment_value]
-            target_offset = self.targeted_outcome_model_.predict(treatment_assignment, linear=True)
-
-            res[treatment_value] = _expit(y_pred_logit + target_offset)
-
-        res = pd.concat(res, axis="columns", names=[a.name or "a"])
-        return res
+    def _get_weight_term_inference(self, weight_matrix, treatment_value):
+        w = weight_matrix[treatment_value]
+        a_sign = 2 * treatment_value - 1
+        w *= a_sign
+        return w
 
 
 class TMLEImportanceSampling(BaseTMLE):
@@ -114,6 +109,10 @@ class TMLEImportanceSampling(BaseTMLE):
             family=sm.families.Binomial(),
             # family=sm.families.Binomial(sm.genmod.families.links.logit)
         ).fit()
+        # TODO: maybe include in the Base as well. Convert implementation from Logit to GLM,
+        #       make the _get_weight_term functions to return endog and freq_weight
+        #       (In the others it is ipw (matrix/vector) and weights of 1 / None)
+        #       (In this one it is intercept/treatment and weights of ipw)
         self.targeted_outcome_model_ = targeted_outcome_model
 
         return self
