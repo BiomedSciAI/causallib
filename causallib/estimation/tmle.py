@@ -3,6 +3,7 @@ import abc
 import pandas as pd
 import numpy as np
 import statsmodels.api as sm
+from sklearn.preprocessing import MinMaxScaler
 
 from .doubly_robust import DoublyRobust as BaseDoublyRobust
 from causallib.utils.stat_utils import robust_lookup
@@ -10,11 +11,11 @@ from causallib.utils.general_tools import get_iterable_treatment_values
 
 
 class BaseTMLE(BaseDoublyRobust):
-    # TODO: decorator to convert continuous `y` to 0-1 range
     pass
 
     def fit(self, X, a, y, refit_weight_model=True, **kwargs):
         # TODO: support also just estimators?
+        y = self._scale_target(y, fit=True)
         X_outcome = self._extract_outcome_model_data(X)
         self.outcome_model.fit(X_outcome, a, y)
         y_pred = self._predict_observed(X, a)
@@ -43,6 +44,7 @@ class BaseTMLE(BaseDoublyRobust):
             treatment_assignment = self._get_weight_term_inference(weight_matrix, treatment_value)
             target_offset = self.targeted_outcome_model_.predict(treatment_assignment, linear=True)
             counterfactual_prediction = _expit(y_pred_logit + target_offset)
+            counterfactual_prediction = self._scale_target(counterfactual_prediction, fit=False)
             res[treatment_value] = counterfactual_prediction
 
         res = pd.concat(res, axis="columns", names=[a.name or "a"])
@@ -55,6 +57,42 @@ class BaseTMLE(BaseDoublyRobust):
     @abc.abstractmethod
     def _get_weight_term_inference(self, weight_matrix, treatment_value):
         raise NotImplementedError
+
+    def _scale_target(self, y, fit=False):
+        """The re-targeting of the estimation requires log loss,
+        which requires the target to be bounded between 0 and 1.
+        However, general continuous targets can still be used for targeted learning
+        as long as they are scaled into the 0-1 interval.
+
+        See Gruber and van der Laan 2010: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3126669/
+
+        Function transforms response variable into [0, 1] interval when fitting,
+        and inverse-transform it during inference.
+
+        Args:
+            y (pd.Series): Response variable.
+            fit (bool): If True - fit and transform. If False - inverse transforms.
+
+        Returns:
+            pd.Series: a scaled response variable.
+        """
+        is_binary_target = (y >= 0) & (y <= 1)
+        if is_binary_target:
+            return y
+
+        y_index, y_name = y.index, y.name  # Convert back to Series later
+        y = y.to_frame()  # MinMaxScaler requires a 2D array, not a vector
+        if fit:
+            self._target_scaler_ = MinMaxScaler(feature_range=(0, 1))
+            self._target_scaler_.fit(y)
+            y = self._target_scaler_.transform(y)
+        else:
+            y = self._target_scaler_.inverse_transform(y)
+
+        y = pd.Series(
+            y[:, 0], index=y_index, name=y_name,
+        )
+        return y
 
     def _predict_observed(self, X, a):
         y_pred = self.outcome_model.estimate_individual_outcome(X, a)
@@ -93,6 +131,7 @@ class TMLEVector(BaseTMLE):  # TODO: TMLE for binary treatment
 
 class TMLEImportanceSampling(BaseTMLE):
     def fit(self, X, a, y, refit_weight_model=True, **kwargs):
+        y = self._scale_target(y, fit=True)
         X_outcome = self._extract_outcome_model_data(X)
         self.outcome_model.fit(X_outcome, a, y)
         y_pred = self.outcome_model.estimate_individual_outcome(X, a)
