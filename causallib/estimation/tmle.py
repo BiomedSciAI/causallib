@@ -11,7 +11,6 @@ from causallib.utils.general_tools import get_iterable_treatment_values
 
 
 class BaseTMLE(BaseDoublyRobust):
-    pass
 
     def fit(self, X, a, y, refit_weight_model=True, **kwargs):
         # TODO: support also just estimators?
@@ -134,8 +133,7 @@ class TMLEImportanceSampling(BaseTMLE):
         y = self._scale_target(y, fit=True)
         X_outcome = self._extract_outcome_model_data(X)
         self.outcome_model.fit(X_outcome, a, y)
-        y_pred = self.outcome_model.estimate_individual_outcome(X, a)
-        y_pred = robust_lookup(y_pred, a)  # Predictions on the observed
+        y_pred = self._predict_observed(X, a)
 
         X_treatment = self._extract_weight_model_data(X)
         self.weight_model.fit(X_treatment, a)
