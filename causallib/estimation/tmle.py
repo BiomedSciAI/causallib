@@ -151,8 +151,6 @@ class TMLEVector(BaseTMLE):  # TODO: TMLE for binary treatment
 
 class TMLEImportanceSampling(BaseTMLE):
 
-    # TODO: an equivalent ImportanceSamplingVector class with signed treatment vector rather than matrix
-
     def _get_clever_covariate_fit(self, X, a):
         self.treatment_encoder_ = OneHotEncoder(sparse=False, categories="auto")
         self.treatment_encoder_.fit(a.to_frame())
@@ -170,6 +168,24 @@ class TMLEImportanceSampling(BaseTMLE):
             A, index=weight_matrix.index, columns=self.treatment_encoder_.categories_
         )
         return A
+
+    def _get_sample_weights(self, X, a):
+        w = self.weight_model.compute_weights(X, a)
+        return w
+
+
+class TMLEImportanceSamplingVector(BaseTMLE):
+
+    def _get_clever_covariate_fit(self, X, a):
+        if a.nunique() != 2:
+            raise AssertionError("Can only apply model on a binary treatment")
+        a_sign = 2 * a - 1  # Convert a==0 to -1, keep a==1 as 1.
+        return a_sign
+
+    def _get_clever_covariate_inference(self, weight_matrix, treatment_value):
+        treatment_value = -1 if treatment_value == 0 else treatment_value
+        treatment_assignment = pd.Series(data=treatment_value, index=weight_matrix.index)
+        return treatment_assignment
 
     def _get_sample_weights(self, X, a):
         w = self.weight_model.compute_weights(X, a)
