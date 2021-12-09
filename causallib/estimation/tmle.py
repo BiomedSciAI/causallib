@@ -18,6 +18,7 @@ class BaseTMLE(BaseDoublyRobust):
         X_outcome = self._extract_outcome_model_data(X)
         self.outcome_model.fit(X_outcome, a, y)
         y_pred = self._predict_observed(X, a)
+        y_pred = _logit(y_pred)  # TODO: Verify offset is indeed logit-transformed?
 
         # self.treatment_values_ = sorted(a.unique())
         X_treatment = self._extract_weight_model_data(X)
@@ -36,8 +37,6 @@ class BaseTMLE(BaseDoublyRobust):
             family=sm.families.Binomial(),
             # family=sm.families.Binomial(sm.genmod.families.links.logit)
         ).fit()
-        # TODO: should be Quasibinomial due to weights? If so, break up the statsmodels call for
-        #       regular TMLE and Imprtance Sampling TMLE
         self.targeted_outcome_model_ = targeted_outcome_model
 
         return self
