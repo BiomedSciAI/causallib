@@ -7,7 +7,7 @@ from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 
 from .doubly_robust import DoublyRobust as BaseDoublyRobust
 from causallib.utils.stat_utils import robust_lookup
-from causallib.utils.general_tools import get_iterable_treatment_values
+from causallib.utils.general_tools import get_iterable_treatment_values, check_learner_is_fitted
 
 
 class BaseTMLE(BaseDoublyRobust):
@@ -21,13 +21,15 @@ class BaseTMLE(BaseDoublyRobust):
         y_pred = _logit(y_pred)  # TODO: Verify offset is indeed logit-transformed?
 
         # self.treatment_values_ = sorted(a.unique())
+        weight_model_is_not_fitted = not check_learner_is_fitted(self.weight_model.learner)
         X_treatment = self._extract_weight_model_data(X)
-        self.weight_model.fit(X_treatment, a)
+        if refit_weight_model or weight_model_is_not_fitted:
+            self.weight_model.fit(X_treatment, a)
         endog = self._get_clever_covariate_fit(X, a)
         sample_weights = self._get_sample_weights(X, a)
 
-        # Statsmodels is the supports logistic regression with continuous (0-1 bounded) targets
-        # so can be used with non-binary (but scaled) response
+        # Statsmodels supports logistic regression with continuous (0-1 bounded) targets
+        # so can be used with non-binary (but scaled) response variable (`y`)
         # targeted_outcome_model = sm.Logit(
         #     endog=clever_covariate, exog=y, offset=y_pred,
         # ).fit()
