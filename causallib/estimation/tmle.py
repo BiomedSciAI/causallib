@@ -57,6 +57,10 @@ class BaseTMLE(BaseDoublyRobust):
     def _get_clever_covariate_inference(self, weight_matrix, treatment_value):
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def _get_sample_weights(self, X, a):
+        raise NotImplementedError
+
     # TODO: general implementation by taking the treatment encoding -
     #       either as signed-treatment or OneHotMatrix
     #       and multiplying it with the weight-matrix?
@@ -117,6 +121,9 @@ class TMLEMatrix(BaseTMLE):  # TODO: TMLE for multiple treatments
         w[treatment_value] = weight_matrix[treatment_value]
         return w
 
+    def _get_sample_weights(self, X, a):
+        return None  # pd.Series(data=1, index=a.index)
+
 
 class TMLEVector(BaseTMLE):  # TODO: TMLE for binary treatment
 
@@ -133,6 +140,9 @@ class TMLEVector(BaseTMLE):  # TODO: TMLE for binary treatment
         a_sign = 2 * treatment_value - 1
         w *= a_sign
         return w
+
+    def _get_sample_weights(self, X, a):
+        return None  # pd.Series(data=1, index=a.index)
 
 
 class TMLEImportanceSampling(BaseTMLE):
@@ -172,6 +182,9 @@ class TMLEImportanceSampling(BaseTMLE):
     def _get_clever_covariate_inference(self, weight_matrix, treatment_value):
         raise NotImplementedError
 
+    def _get_sample_weights(self, X, a):
+        w = self.weight_model.compute_weights(X, a)
+        return w
 
 
 def _logit(p):
