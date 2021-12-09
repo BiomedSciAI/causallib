@@ -36,6 +36,8 @@ class BaseTMLE(BaseDoublyRobust):
             family=sm.families.Binomial(),
             # family=sm.families.Binomial(sm.genmod.families.links.logit)
         ).fit()
+        # TODO: should be Quasibinomial due to weights? If so, break up the statsmodels call for
+        #       regular TMLE and Imprtance Sampling TMLE
         self.targeted_outcome_model_ = targeted_outcome_model
 
         return self
@@ -67,10 +69,6 @@ class BaseTMLE(BaseDoublyRobust):
     @abc.abstractmethod
     def _get_sample_weights(self, X, a):
         raise NotImplementedError
-
-    # TODO: general implementation by taking the treatment encoding -
-    #       either as signed-treatment or OneHotMatrix
-    #       and multiplying it with the weight-matrix?
 
     def _scale_target(self, y, fit=False):
         """The re-targeting of the estimation requires log loss,
