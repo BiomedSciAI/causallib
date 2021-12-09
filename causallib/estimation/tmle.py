@@ -1,4 +1,5 @@
 import abc
+from typing import Type
 
 import pandas as pd
 import numpy as np
@@ -10,7 +11,19 @@ from causallib.utils.stat_utils import robust_lookup
 from causallib.utils.general_tools import get_iterable_treatment_values, check_learner_is_fitted
 
 
-class BaseTMLE(BaseDoublyRobust):
+class TMLE(BaseDoublyRobust):
+
+    def __init__(self, outcome_model, weight_model,
+                 reduced=False, importance_sampling=False,
+                 outcome_covariates=None, weight_covariates=None,
+                 ):
+        super().__init__(
+            outcome_model=outcome_model, weight_model=weight_model,
+            outcome_covariates=outcome_covariates, weight_covariates=weight_covariates,
+        )
+        self.reduced = reduced
+        self.importance_sampling = importance_sampling
+        # TODO: doc: `reduce==True` only work on binary treatment
 
     def fit(self, X, a, y, refit_weight_model=True, **kwargs):
         # TODO: support also just estimators?
@@ -25,8 +38,11 @@ class BaseTMLE(BaseDoublyRobust):
         X_treatment = self._extract_weight_model_data(X)
         if refit_weight_model or weight_model_is_not_fitted:
             self.weight_model.fit(X_treatment, a)
-        endog = self._get_clever_covariate_fit(X, a)
-        sample_weights = self._get_sample_weights(X, a)
+        self.clever_covariate_ = _clever_covariate_factory(
+            self.reduced, self.importance_sampling
+        )(self.weight_model)
+        endog = self.clever_covariate_.clever_covariate_fit(X, a)
+        sample_weights = self.clever_covariate_.sample_weights(X, a)
 
         # Statsmodels supports logistic regression with continuous (0-1 bounded) targets
         # so can be used with non-binary (but scaled) response variable (`y`)
@@ -50,7 +66,9 @@ class BaseTMLE(BaseDoublyRobust):
 
         res = {}
         for treatment_value in get_iterable_treatment_values(treatment_values, a):
-            treatment_assignment = self._get_clever_covariate_inference(weight_matrix, treatment_value)
+            treatment_assignment = self.clever_covariate_.clever_covariate_inference(
+                weight_matrix, treatment_value
+            )
             target_offset = self.targeted_outcome_model_.predict(treatment_assignment, linear=True)
             counterfactual_prediction = _expit(y_pred_logit + target_offset)
             counterfactual_prediction = self._scale_target(counterfactual_prediction, fit=False)
@@ -58,18 +76,6 @@ class BaseTMLE(BaseDoublyRobust):
 
         res = pd.concat(res, axis="columns", names=[a.name or "a"])
         return res
-
-    @abc.abstractmethod
-    def _get_clever_covariate_fit(self, X, a):
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def _get_clever_covariate_inference(self, weight_matrix, treatment_value):
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def _get_sample_weights(self, X, a):
-        raise NotImplementedError
 
     def _scale_target(self, y, fit=False):
         """The re-targeting of the estimation requires log loss,
@@ -113,24 +119,41 @@ class BaseTMLE(BaseDoublyRobust):
         return y_pred
 
 
-class TMLEMatrix(BaseTMLE):  # TODO: TMLE for multiple treatments
+class BaseCleverCovariate:
+    def __init__(self, weight_model):
+        self.weight_model = weight_model
 
-    def _get_clever_covariate_fit(self, X, a):
+    @abc.abstractmethod
+    def clever_covariate_fit(self, X, a):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def clever_covariate_inference(self, weight_matrix, treatment_value):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def sample_weights(self, X, a):
+        raise NotImplementedError
+
+
+class CleverCovariateFeatureMatrix(BaseCleverCovariate):
+
+    def clever_covariate_fit(self, X, a):
         w = self.weight_model.compute_weight_matrix(X, a)
         return w
 
-    def _get_clever_covariate_inference(self, weight_matrix, treatment_value):
+    def clever_covariate_inference(self, weight_matrix, treatment_value):
         w = pd.DataFrame(data=0, index=weight_matrix.index, columns=weight_matrix.columns)
         w[treatment_value] = weight_matrix[treatment_value]
         return w
 
-    def _get_sample_weights(self, X, a):
+    def sample_weights(self, X, a):
         return None  # pd.Series(data=1, index=a.index)
 
 
-class TMLEVector(BaseTMLE):  # TODO: TMLE for binary treatment
+class CleverCovariateFeatureVector(BaseCleverCovariate):
 
-    def _get_clever_covariate_fit(self, X, a):
+    def clever_covariate_fit(self, X, a):
         if a.nunique() != 2:
             raise AssertionError("Can only apply model on a binary treatment")
         w = self.weight_model.compute_weights(X, a)
@@ -138,26 +161,26 @@ class TMLEVector(BaseTMLE):  # TODO: TMLE for binary treatment
         w *= a_sign  # w_i if a_i == 1, -w_i if a_i == 0.
         return w
 
-    def _get_clever_covariate_inference(self, weight_matrix, treatment_value):
+    def clever_covariate_inference(self, weight_matrix, treatment_value):
         w = weight_matrix[treatment_value]
         a_sign = 2 * treatment_value - 1
         w *= a_sign
         return w
 
-    def _get_sample_weights(self, X, a):
+    def sample_weights(self, X, a):
         return None  # pd.Series(data=1, index=a.index)
 
 
-class TMLEImportanceSampling(BaseTMLE):
+class CleverCovariateImportanceSamplingMatrix(BaseCleverCovariate):
 
-    def _get_clever_covariate_fit(self, X, a):
+    def clever_covariate_fit(self, X, a):
         self.treatment_encoder_ = OneHotEncoder(sparse=False, categories="auto")
         self.treatment_encoder_.fit(a.to_frame())
         A = self.treatment_encoder_.transform(a.to_frame())
         A = pd.DataFrame(A, index=a.index, columns=self.treatment_encoder_.categories_)
         return A
 
-    def _get_clever_covariate_inference(self, weight_matrix, treatment_value):
+    def clever_covariate_inference(self, weight_matrix, treatment_value):
         treatment_assignment = np.full(
             shape=(weight_matrix.shape[0], 1),
             fill_value=treatment_value,
@@ -168,25 +191,25 @@ class TMLEImportanceSampling(BaseTMLE):
         )
         return A
 
-    def _get_sample_weights(self, X, a):
+    def sample_weights(self, X, a):
         w = self.weight_model.compute_weights(X, a)
         return w
 
 
-class TMLEImportanceSamplingVector(BaseTMLE):
+class CleverCovariateImportanceSamplingVector(BaseCleverCovariate):
 
-    def _get_clever_covariate_fit(self, X, a):
+    def clever_covariate_fit(self, X, a):
         if a.nunique() != 2:
             raise AssertionError("Can only apply model on a binary treatment")
         a_sign = 2 * a - 1  # Convert a==0 to -1, keep a==1 as 1.
         return a_sign
 
-    def _get_clever_covariate_inference(self, weight_matrix, treatment_value):
+    def clever_covariate_inference(self, weight_matrix, treatment_value):
         treatment_value = -1 if treatment_value == 0 else treatment_value
         treatment_assignment = pd.Series(data=treatment_value, index=weight_matrix.index)
         return treatment_assignment
 
-    def _get_sample_weights(self, X, a):
+    def sample_weights(self, X, a):
         w = self.weight_model.compute_weights(X, a)
         return w
 
@@ -197,3 +220,14 @@ def _logit(p):
 
 def _expit(x):
     return 1 / (1 + np.exp(-x))
+
+
+def _clever_covariate_factory(reduced, importance_sampling) -> Type[BaseCleverCovariate]:
+    if importance_sampling and reduced:
+        return CleverCovariateImportanceSamplingVector
+    elif importance_sampling and not reduced:
+        return CleverCovariateImportanceSamplingMatrix
+    elif not importance_sampling and reduced:
+        return CleverCovariateFeatureVector
+    else:  # not importance_sampling and not reduced
+        return CleverCovariateFeatureMatrix
