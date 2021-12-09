@@ -22,12 +22,19 @@ class BaseTMLE(BaseDoublyRobust):
         # self.treatment_values_ = sorted(a.unique())
         X_treatment = self._extract_weight_model_data(X)
         self.weight_model.fit(X_treatment, a)
-        w = self._get_clever_covariate_fit(X, a)
+        endog = self._get_clever_covariate_fit(X, a)
+        sample_weights = self._get_sample_weights(X, a)
 
         # Statsmodels is the supports logistic regression with continuous (0-1 bounded) targets
         # so can be used with non-binary (but scaled) response
-        targeted_outcome_model = sm.Logit(
-            endog=w, exog=y, offset=y_pred,
+        # targeted_outcome_model = sm.Logit(
+        #     endog=clever_covariate, exog=y, offset=y_pred,
+        # ).fit()
+        # GLM supports weighted regression, while Logit doesn't.
+        targeted_outcome_model = sm.GLM(
+            endog=endog, exog=y, offset=y_pred, freq_weights=sample_weights,
+            family=sm.families.Binomial(),
+            # family=sm.families.Binomial(sm.genmod.families.links.logit)
         ).fit()
         self.targeted_outcome_model_ = targeted_outcome_model
 
@@ -64,9 +71,6 @@ class BaseTMLE(BaseDoublyRobust):
     # TODO: general implementation by taking the treatment encoding -
     #       either as signed-treatment or OneHotMatrix
     #       and multiplying it with the weight-matrix?
-    # TODO: do a _get_weight for fitting a weighted regression
-    #       Then the TMLE has endog=clever_covariate, weight=1 / None
-    #       Then the TMLEIS has endog=signed_treatment/treatment_matrix, weight=ipw
 
     def _scale_target(self, y, fit=False):
         """The re-targeting of the estimation requires log loss,
@@ -146,30 +150,8 @@ class TMLEVector(BaseTMLE):  # TODO: TMLE for binary treatment
 
 
 class TMLEImportanceSampling(BaseTMLE):
-    def fit(self, X, a, y, refit_weight_model=True, **kwargs):
-        y = self._scale_target(y, fit=True)
-        X_outcome = self._extract_outcome_model_data(X)
-        self.outcome_model.fit(X_outcome, a, y)
-        y_pred = self._predict_observed(X, a)
 
-        X_treatment = self._extract_weight_model_data(X)
-        self.weight_model.fit(X_treatment, a)
-        endog = self._get_clever_covariate_fit(X, a)
-        w = self._get_sample_weights(X, a)
-
-        # TODO: an equivalent ImportanceSamplingVector class with signed treatment vector rather than matrix
-        targeted_outcome_model = sm.GLM(
-            endog=endog, exog=y, offset=y_pred, freq_weights=w,
-            family=sm.families.Binomial(),
-            # family=sm.families.Binomial(sm.genmod.families.links.logit)
-        ).fit()
-        # TODO: maybe include in the Base as well. Convert implementation from Logit to GLM,
-        #       make the _get_weight_term functions to return endog and freq_weight
-        #       (In the others it is ipw (matrix/vector) and weights of 1 / None)
-        #       (In this one it is intercept/treatment and weights of ipw)
-        self.targeted_outcome_model_ = targeted_outcome_model
-
-        return self
+    # TODO: an equivalent ImportanceSamplingVector class with signed treatment vector rather than matrix
 
     def _get_clever_covariate_fit(self, X, a):
         self.treatment_encoder_ = OneHotEncoder(sparse=False, categories="auto")
