@@ -50,12 +50,19 @@ class BaseTMLE(BaseDoublyRobust):
         return res
 
     @abc.abstractmethod
-    def _get_weight_term_fit(self, X, a):
+    def _get_weight_term_fit(self, X, a):  # TODO: Change name to _get_clever_covariate
         raise NotImplementedError
 
     @abc.abstractmethod
     def _get_weight_term_inference(self, weight_matrix, treatment_value):
         raise NotImplementedError
+
+    # TODO: general implementation by taking the treatment encoding -
+    #       either as signed-treatment or OneHotMatrix
+    #       and multiplying it with the weight-matrix?
+    # TODO: do a _get_weight for fitting a weighted regression
+    #       Then the TMLE has endog=clever_covariate, weight=1 / None
+    #       Then the TMLEIS has endog=signed_treatment/treatment_matrix, weight=ipw
 
     def _scale_target(self, y, fit=False):
         """The re-targeting of the estimation requires log loss,
@@ -140,7 +147,12 @@ class TMLEImportanceSampling(BaseTMLE):
         w = self.weight_model.compute_weights(X_treatment, a)
 
         # endog = a
-        endog = pd.Series(1, index=y.index)  # TODO: does intercept results treatment effect (not potential outcomes)?
+        # endog = pd.Series(1, index=y.index)
+        endog = pd.DataFrame(
+            {f"{a.name}": a,
+             f"inverse_{a.name}": 1 - a}
+        )  # TODO: General One hot matrix of treatment assignment
+        # TODO: an equivalent ImportanceSamplingVector class with signed treatment vector rather than matrix
         targeted_outcome_model = sm.GLM(
             endog=endog, exog=y, offset=y_pred, freq_weights=w,
             family=sm.families.Binomial(),
