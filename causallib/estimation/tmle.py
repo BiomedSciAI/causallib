@@ -3,7 +3,7 @@ import abc
 import pandas as pd
 import numpy as np
 import statsmodels.api as sm
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 
 from .doubly_robust import DoublyRobust as BaseDoublyRobust
 from causallib.utils.stat_utils import robust_lookup
@@ -154,14 +154,9 @@ class TMLEImportanceSampling(BaseTMLE):
 
         X_treatment = self._extract_weight_model_data(X)
         self.weight_model.fit(X_treatment, a)
-        w = self.weight_model.compute_weights(X_treatment, a)
+        endog = self._get_clever_covariate_fit(X, a)
+        w = self._get_sample_weights(X, a)
 
-        # endog = a
-        # endog = pd.Series(1, index=y.index)
-        endog = pd.DataFrame(
-            {f"{a.name}": a,
-             f"inverse_{a.name}": 1 - a}
-        )  # TODO: General One hot matrix of treatment assignment
         # TODO: an equivalent ImportanceSamplingVector class with signed treatment vector rather than matrix
         targeted_outcome_model = sm.GLM(
             endog=endog, exog=y, offset=y_pred, freq_weights=w,
@@ -177,10 +172,22 @@ class TMLEImportanceSampling(BaseTMLE):
         return self
 
     def _get_clever_covariate_fit(self, X, a):
-        raise NotImplementedError
+        self.treatment_encoder_ = OneHotEncoder(sparse=False, categories="auto")
+        self.treatment_encoder_.fit(a.to_frame())
+        A = self.treatment_encoder_.transform(a.to_frame())
+        A = pd.DataFrame(A, index=a.index, columns=self.treatment_encoder_.categories_)
+        return A
 
     def _get_clever_covariate_inference(self, weight_matrix, treatment_value):
-        raise NotImplementedError
+        treatment_assignment = np.full(
+            shape=(weight_matrix.shape[0], 1),
+            fill_value=treatment_value,
+        )
+        A = self.treatment_encoder_.transform(treatment_assignment)
+        A = pd.DataFrame(
+            A, index=weight_matrix.index, columns=self.treatment_encoder_.categories_
+        )
+        return A
 
     def _get_sample_weights(self, X, a):
         w = self.weight_model.compute_weights(X, a)
