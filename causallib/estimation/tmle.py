@@ -155,15 +155,15 @@ class CleverCovariateFeatureVector(BaseCleverCovariate):
         if a.nunique() != 2:
             raise AssertionError("Can only apply model on a binary treatment")
         w = self.weight_model.compute_weights(X, a)
-        a_sign = 2 * a - 1  # Convert a==0 to -1, keep a==1 as 1.
+        a_sign = a.replace({0: -1})  # 2 * a - 1  # Convert a==0 to -1, keep a==1 as 1.
         w *= a_sign  # w_i if a_i == 1, -w_i if a_i == 0.
         return w
 
     def clever_covariate_inference(self, X, a, treatment_value):
         weight_matrix = self.weight_model.compute_weight_matrix(X, a)
         w = weight_matrix[treatment_value]
-        a_sign = 2 * treatment_value - 1
-        w *= a_sign
+        treatment_value = -1 if treatment_value == 0 else treatment_value
+        w *= treatment_value
         return w
 
     def sample_weights(self, X, a):
@@ -200,7 +200,7 @@ class CleverCovariateImportanceSamplingVector(BaseCleverCovariate):
     def clever_covariate_fit(self, X, a):
         if a.nunique() != 2:
             raise AssertionError("Can only apply model on a binary treatment")
-        a_sign = 2 * a - 1  # Convert a==0 to -1, keep a==1 as 1.
+        a_sign = a.replace({0: -1})  # 2 * a - 1  # Convert a==0 to -1, keep a==1 as 1.
         return a_sign
 
     def clever_covariate_inference(self, X, a, treatment_value):
