@@ -62,13 +62,10 @@ class TMLE(BaseDoublyRobust):
     def estimate_individual_outcome(self, X, a, treatment_values=None, predict_proba=None):
         y_pred = self._predict_observed(X, a)
         y_pred_logit = _logit(y_pred)
-        weight_matrix = self.weight_model.compute_weight_matrix(X, a)
 
         res = {}
         for treatment_value in get_iterable_treatment_values(treatment_values, a):
-            treatment_assignment = self.clever_covariate_.clever_covariate_inference(
-                weight_matrix, treatment_value
-            )
+            treatment_assignment = self.clever_covariate_.clever_covariate_inference(X, a, treatment_value)
             target_offset = self.targeted_outcome_model_.predict(treatment_assignment, linear=True)
             counterfactual_prediction = _expit(y_pred_logit + target_offset)
             counterfactual_prediction = self._scale_target(counterfactual_prediction, fit=False)
@@ -128,7 +125,7 @@ class BaseCleverCovariate:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def clever_covariate_inference(self, weight_matrix, treatment_value):
+    def clever_covariate_inference(self, X, a, treatment_value):
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -142,7 +139,8 @@ class CleverCovariateFeatureMatrix(BaseCleverCovariate):
         w = self.weight_model.compute_weight_matrix(X, a)
         return w
 
-    def clever_covariate_inference(self, weight_matrix, treatment_value):
+    def clever_covariate_inference(self, X, a, treatment_value):
+        weight_matrix = self.weight_model.compute_weight_matrix(X, a)
         w = pd.DataFrame(data=0, index=weight_matrix.index, columns=weight_matrix.columns)
         w[treatment_value] = weight_matrix[treatment_value]
         return w
@@ -161,7 +159,8 @@ class CleverCovariateFeatureVector(BaseCleverCovariate):
         w *= a_sign  # w_i if a_i == 1, -w_i if a_i == 0.
         return w
 
-    def clever_covariate_inference(self, weight_matrix, treatment_value):
+    def clever_covariate_inference(self, X, a, treatment_value):
+        weight_matrix = self.weight_model.compute_weight_matrix(X, a)
         w = weight_matrix[treatment_value]
         a_sign = 2 * treatment_value - 1
         w *= a_sign
@@ -180,14 +179,14 @@ class CleverCovariateImportanceSamplingMatrix(BaseCleverCovariate):
         A = pd.DataFrame(A, index=a.index, columns=self.treatment_encoder_.categories_)
         return A
 
-    def clever_covariate_inference(self, weight_matrix, treatment_value):
+    def clever_covariate_inference(self, X, a, treatment_value):
         treatment_assignment = np.full(
-            shape=(weight_matrix.shape[0], 1),
+            shape=(a.shape[0], 1),
             fill_value=treatment_value,
         )
         A = self.treatment_encoder_.transform(treatment_assignment)
         A = pd.DataFrame(
-            A, index=weight_matrix.index, columns=self.treatment_encoder_.categories_
+            A, index=a.index, columns=self.treatment_encoder_.categories_
         )
         return A
 
@@ -204,9 +203,9 @@ class CleverCovariateImportanceSamplingVector(BaseCleverCovariate):
         a_sign = 2 * a - 1  # Convert a==0 to -1, keep a==1 as 1.
         return a_sign
 
-    def clever_covariate_inference(self, weight_matrix, treatment_value):
+    def clever_covariate_inference(self, X, a, treatment_value):
         treatment_value = -1 if treatment_value == 0 else treatment_value
-        treatment_assignment = pd.Series(data=treatment_value, index=weight_matrix.index)
+        treatment_assignment = pd.Series(data=treatment_value, index=a.index)
         return treatment_assignment
 
     def sample_weights(self, X, a):
