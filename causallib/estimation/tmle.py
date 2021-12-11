@@ -42,10 +42,8 @@ class TMLE(BaseDoublyRobust):
         endog = self.clever_covariate_.clever_covariate_fit(X, a)
         sample_weights = self.clever_covariate_.sample_weights(X, a)
 
-        self.target_scaler_ = MinMaxScaler(feature_range=(0, 1))
-        self.target_scaler_.fit(y.to_frame())
-        y = self.target_scaler_.transform(y.to_frame())
-        y_pred = self.target_scaler_.transform(y_pred.to_frame())
+        y = self._scale_target(y, fit=True, inverse=False)
+        y_pred = self._scale_target(y_pred, fit=False, inverse=False)
         y_pred = _logit(y_pred)  # Used as offset in logit-space
         # Statsmodels supports logistic regression with continuous (0-1 bounded) targets
         # so can be used with non-binary (but scaled) response variable (`y`)
@@ -71,13 +69,13 @@ class TMLE(BaseDoublyRobust):
             treatment_assignment = self.clever_covariate_.clever_covariate_inference(X, a, treatment_value)
             target_offset = self.targeted_outcome_model_.predict(treatment_assignment, linear=True)
             counterfactual_prediction = _expit(y_pred_logit + target_offset)
-            counterfactual_prediction = self.target_scaler_.inverse_transform(counterfactual_prediction)
+            counterfactual_prediction = self._scale_target(counterfactual_prediction, fit=False, inverse=True)
             res[treatment_value] = counterfactual_prediction
 
         res = pd.concat(res, axis="columns", names=[a.name or "a"])
         return res
 
-    def _scale_target(self, y, fit=False):
+    def _scale_target(self, y, fit=False, inverse=False):
         """The re-targeting of the estimation requires log loss,
         which requires the target to be bounded between 0 and 1.
         However, general continuous targets can still be used for targeted learning
@@ -95,18 +93,16 @@ class TMLE(BaseDoublyRobust):
         Returns:
             pd.Series: a scaled response variable.
         """
-        is_binary_target = (y >= 0) & (y <= 1)
-        if is_binary_target:
-            return y
-
-        y_index, y_name = y.index, y.name  # Convert back to Series later
+        y_index, y_name = y.index, y.name  # Convert back to pandas Series later
         y = y.to_frame()  # MinMaxScaler requires a 2D array, not a vector
         if fit:
-            self._target_scaler_ = MinMaxScaler(feature_range=(0, 1))
-            self._target_scaler_.fit(y)
-            y = self._target_scaler_.transform(y)
+            self.target_scaler_ = MinMaxScaler(feature_range=(0, 1))
+            self.target_scaler_.fit(y)
+
+        if inverse:
+            y = self.target_scaler_.inverse_transform(y)
         else:
-            y = self._target_scaler_.inverse_transform(y)
+            y = self.target_scaler_.transform(y)
 
         y = pd.Series(
             y[:, 0], index=y_index, name=y_name,
