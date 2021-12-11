@@ -27,11 +27,9 @@ class TMLE(BaseDoublyRobust):
 
     def fit(self, X, a, y, refit_weight_model=True, **kwargs):
         # TODO: support also just estimators?
-        y = self._scale_target(y, fit=True)
         X_outcome = self._extract_outcome_model_data(X)
         self.outcome_model.fit(X_outcome, a, y)
         y_pred = self._predict_observed(X, a)
-        y_pred = _logit(y_pred)  # TODO: Verify offset is indeed logit-transformed?
 
         # self.treatment_values_ = sorted(a.unique())
         weight_model_is_not_fitted = not check_learner_is_fitted(self.weight_model.learner)
@@ -44,6 +42,11 @@ class TMLE(BaseDoublyRobust):
         endog = self.clever_covariate_.clever_covariate_fit(X, a)
         sample_weights = self.clever_covariate_.sample_weights(X, a)
 
+        self.target_scaler_ = MinMaxScaler(feature_range=(0, 1))
+        self.target_scaler_.fit(y.to_frame())
+        y = self.target_scaler_.transform(y.to_frame())
+        y_pred = self.target_scaler_.transform(y_pred.to_frame())
+        y_pred = _logit(y_pred)  # Used as offset in logit-space
         # Statsmodels supports logistic regression with continuous (0-1 bounded) targets
         # so can be used with non-binary (but scaled) response variable (`y`)
         # targeted_outcome_model = sm.Logit(
@@ -68,7 +71,7 @@ class TMLE(BaseDoublyRobust):
             treatment_assignment = self.clever_covariate_.clever_covariate_inference(X, a, treatment_value)
             target_offset = self.targeted_outcome_model_.predict(treatment_assignment, linear=True)
             counterfactual_prediction = _expit(y_pred_logit + target_offset)
-            counterfactual_prediction = self._scale_target(counterfactual_prediction, fit=False)
+            counterfactual_prediction = self.target_scaler_.inverse_transform(counterfactual_prediction)
             res[treatment_value] = counterfactual_prediction
 
         res = pd.concat(res, axis="columns", names=[a.name or "a"])
