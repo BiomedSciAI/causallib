@@ -16,6 +16,7 @@ class TMLE(BaseDoublyRobust):
     def __init__(self, outcome_model, weight_model,
                  reduced=False, importance_sampling=False,
                  outcome_covariates=None, weight_covariates=None,
+                 glm_fit_kwargs=None,
                  ):
         super().__init__(
             outcome_model=outcome_model, weight_model=weight_model,
@@ -23,7 +24,9 @@ class TMLE(BaseDoublyRobust):
         )
         self.reduced = reduced
         self.importance_sampling = importance_sampling
+        self.glm_fit_kwargs = {} if glm_fit_kwargs is None else glm_fit_kwargs
         # TODO: doc: `reduce==True` only work on binary treatment
+        # TODO: doc: glm_got_kwargs: https://www.statsmodels.org/stable/generated/statsmodels.genmod.generalized_linear_model.GLM.fit.html
 
     def fit(self, X, a, y, refit_weight_model=True, **kwargs):
         # TODO: support also just estimators?
@@ -49,13 +52,13 @@ class TMLE(BaseDoublyRobust):
         # so can be used with non-binary (but scaled) response variable (`y`)
         # targeted_outcome_model = sm.Logit(
         #     endog=clever_covariate, exog=y, offset=y_pred,
-        # ).fit()
+        # ).fit(method="lbfgs")
         # GLM supports weighted regression, while Logit doesn't.
         targeted_outcome_model = sm.GLM(
             endog=endog, exog=y, offset=y_pred, freq_weights=sample_weights,
             family=sm.families.Binomial(),
             # family=sm.families.Binomial(sm.genmod.families.links.logit)
-        ).fit()
+        ).fit(**self.glm_fit_kwargs)
         self.targeted_outcome_model_ = targeted_outcome_model
 
         return self
