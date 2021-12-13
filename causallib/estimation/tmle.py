@@ -14,8 +14,8 @@ from causallib.utils.general_tools import get_iterable_treatment_values, check_l
 class TMLE(BaseDoublyRobust):
 
     def __init__(self, outcome_model, weight_model,
-                 reduced=False, importance_sampling=False,
                  outcome_covariates=None, weight_covariates=None,
+                 reduced=False, importance_sampling=False,
                  glm_fit_kwargs=None,
                  ):
         super().__init__(
