@@ -32,7 +32,7 @@ class TMLE(BaseDoublyRobust):
         # TODO: support also just estimators?
         X_outcome = self._extract_outcome_model_data(X)
         self.outcome_model.fit(X_outcome, a, y)
-        y_pred = self._predict_observed(X, a)
+        y_pred = self._predict_observed_outcomes(X, a)
 
         # self.treatment_values_ = sorted(a.unique())
         weight_model_is_not_fitted = not check_learner_is_fitted(self.weight_model.learner)
@@ -64,7 +64,7 @@ class TMLE(BaseDoublyRobust):
         return self
 
     def estimate_individual_outcome(self, X, a, treatment_values=None, predict_proba=None):
-        y_pred = self._predict_observed(X, a)
+        y_pred = self._predict_observed_outcomes(X, a)
         y_pred_logit = _logit(y_pred)
 
         res = {}
@@ -112,7 +112,7 @@ class TMLE(BaseDoublyRobust):
         )
         return y
 
-    def _predict_observed(self, X, a):
+    def _predict_observed_outcomes(self, X, a):
         y_pred = self.outcome_model.estimate_individual_outcome(X, a)
         y_pred = robust_lookup(y_pred, a)  # Predictions on the observed
         return y_pred
