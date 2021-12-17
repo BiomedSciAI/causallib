@@ -29,10 +29,10 @@ class TMLE(BaseDoublyRobust):
         # TODO: doc: glm_got_kwargs: https://www.statsmodels.org/stable/generated/statsmodels.genmod.generalized_linear_model.GLM.fit.html
 
     def fit(self, X, a, y, refit_weight_model=True, **kwargs):
-        # TODO: support also just estimators?
         X_outcome = self._extract_outcome_model_data(X)
         self.outcome_model.fit(X_outcome, a, y)
-        y_pred = self._predict_observed_outcomes(X, a)
+        y_pred = self.outcome_model.estimate_individual_outcome(X, a)
+        y_pred = robust_lookup(y_pred, a)  # Predictions on the observed
 
         # self.treatment_values_ = sorted(a.unique())
         weight_model_is_not_fitted = not check_learner_is_fitted(self.weight_model.learner)
@@ -112,11 +112,6 @@ class TMLE(BaseDoublyRobust):
             y[:, 0], index=y_index, name=y_name,
         )
         return y
-
-    def _predict_observed_outcomes(self, X, a):
-        y_pred = self.outcome_model.estimate_individual_outcome(X, a)
-        y_pred = robust_lookup(y_pred, a)  # Predictions on the observed
-        return y_pred
 
 
 class BaseCleverCovariate:
