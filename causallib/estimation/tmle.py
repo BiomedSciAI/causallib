@@ -64,14 +64,15 @@ class TMLE(BaseDoublyRobust):
         return self
 
     def estimate_individual_outcome(self, X, a, treatment_values=None, predict_proba=None):
-        y_pred = self._predict_observed_outcomes(X, a)
-        y_pred_logit = _logit(y_pred)
+        potential_outcomes = self.outcome_model.estimate_individual_outcome(X, a)
+        potential_outcomes = _logit(potential_outcomes)
 
         res = {}
         for treatment_value in get_iterable_treatment_values(treatment_values, a):
+            potential_outcome = potential_outcomes[treatment_value]
             treatment_assignment = self.clever_covariate_.clever_covariate_inference(X, a, treatment_value)
             target_offset = self.targeted_outcome_model_.predict(treatment_assignment, linear=True)
-            counterfactual_prediction = _expit(y_pred_logit + target_offset)
+            counterfactual_prediction = _expit(potential_outcome + target_offset)
             counterfactual_prediction = self._scale_target(counterfactual_prediction, fit=False, inverse=True)
             res[treatment_value] = counterfactual_prediction
 
