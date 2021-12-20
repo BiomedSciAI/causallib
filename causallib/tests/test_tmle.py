@@ -87,7 +87,7 @@ class BaseTestTMLE(unittest.TestCase):
 
     def ensure_fit(self):
         self.estimator.fit(
-            self.data['X'], self.data['a'], self.data['y_bin'],
+            self.data['X'], self.data['a'], self.data['y'],
         )
         self.assertTrue(True)
 
