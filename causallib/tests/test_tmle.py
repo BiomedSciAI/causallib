@@ -8,6 +8,7 @@ from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 
 from causallib.estimation import TMLE
 from causallib.estimation import Standardization, IPW
+from causallib.utils.general_tools import check_learner_is_fitted
 
 
 def generate_data(n_samples, n_independent_features, n_interaction_features=None,
@@ -89,7 +90,8 @@ class BaseTestTMLE(unittest.TestCase):
         self.estimator.fit(
             self.data['X'], self.data['a'], self.data['y'],
         )
-        self.assertTrue(True)
+        self.assertTrue(check_learner_is_fitted(self.estimator.outcome_model.learner))
+        self.assertTrue(check_learner_is_fitted(self.estimator.weight_model.learner))
 
 
 class BaseTestTMLEBinary(BaseTestTMLE):
