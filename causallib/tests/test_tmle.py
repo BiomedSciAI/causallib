@@ -185,7 +185,7 @@ class BaseTestTMLEContinuous(BaseTestTMLE):
         self.assertAlmostEqual(data['treatment_effect'], effect['diff'], places=1)
 
     def ensure_conditional_effect(self):
-        n_samples = 10000  # TODO: is it really that data inefficient to get within 0.1 of true parameters?
+        n_samples = 11000  # TODO: is it really that data inefficient to get within 0.1 of true parameters?
         data = generate_data(n_samples, 1, 1, a_sparsity=1.0, y_sparsity=1.0, X_normal=False, seed=0)
         self.estimator.fit(data['X'], data['a'], data['y_cont'])
         ind_outcome = self.estimator.estimate_individual_outcome(data['X'], data['a'])
@@ -193,21 +193,22 @@ class BaseTestTMLEContinuous(BaseTestTMLE):
         ind_effect = ind_effect["diff"]
 
         # The modified effect should the added interaction term to the true effect
-        self.assertAlmostEqual(
+        np.testing.assert_allclose(
             ind_effect.loc[data['X'].iloc[:, -1] == 1].mean(),
             data['treatment_effect'] + data['y_beta'][-1],
-            places=1
+            atol=0.6, rtol=1e-5,
         )
 
         # The effect under no modification should the coefficient of the treatment assignment
-        self.assertAlmostEqual(
+        np.testing.assert_allclose(
             ind_effect.loc[data['X'].iloc[:, -1] == 0].mean(),
             data['treatment_effect'],
-            places=1
+            # decimal=1,
+            atol=0.5, rtol=1e-5,
         )
 
         # The average effect should be the weighted mean between the two modifications
-        self.assertAlmostEqual(
+        np.testing.assert_almost_equal(
             ind_effect.mean(),
             np.average(
                 [ind_effect.loc[data['X'].iloc[:, -1] == 0].mean(),
@@ -215,7 +216,7 @@ class BaseTestTMLEContinuous(BaseTestTMLE):
                 weights=[sum(data['X'].iloc[:, -1] == 0),
                          sum(data['X'].iloc[:, -1] == 1)]
             ),
-            places=1
+            decimal=1
         )
 
 
