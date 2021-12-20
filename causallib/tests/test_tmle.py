@@ -81,6 +81,12 @@ class BaseTestTMLE(unittest.TestCase):
     def estimator(self):
         raise NotImplementedError
 
+    def ensure_fit(self):
+        self.estimator.fit(
+            self.data['X'], self.data['a'], self.data['y_bin'],
+        )
+        self.assertTrue(True)
+
 
 class TestTMLEMatrixFeature(BaseTestTMLE):
     @property
@@ -93,6 +99,9 @@ class TestTMLEMatrixFeature(BaseTestTMLE):
             IPW(self.treatment_model),
             reduced=False, importance_sampling=False,
         )
+
+    def test_fit(self):
+        self.ensure_fit()
 
 
 class TestTMLEVectorFeature(BaseTestTMLE):
@@ -107,6 +116,9 @@ class TestTMLEVectorFeature(BaseTestTMLE):
             reduced=True, importance_sampling=False,
         )
 
+    def test_fit(self):
+        self.ensure_fit()
+
 
 class TestTMLEMatrixImportanceSampling(BaseTestTMLE):
     @property
@@ -120,6 +132,9 @@ class TestTMLEMatrixImportanceSampling(BaseTestTMLE):
             reduced=False, importance_sampling=True,
         )
 
+    def test_fit(self):
+        self.ensure_fit()
+
 
 class TestTMLEVectorImportanceSampling(BaseTestTMLE):
     @property
@@ -132,4 +147,7 @@ class TestTMLEVectorImportanceSampling(BaseTestTMLE):
             IPW(self.treatment_model),
             reduced=True, importance_sampling=True,
         )
+
+    def test_fit(self):
+        self.ensure_fit()
 
