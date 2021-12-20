@@ -45,7 +45,8 @@ def generate_data(n_samples, n_independent_features, n_interaction_features=None
         "X": X,
         "a": a_assignment,
         "y_cont": y_continuous,
-        "y_bin": y_binary
+        "y_bin": y_binary,
+        "treatment_effect": treatment_effect,
     }
     return data
 
@@ -169,6 +170,13 @@ class BaseTestTMLEContinuous(BaseTestTMLE):
             self.assertLess(ind_outcomes.min().min(), 0)
             self.assertLess(1, ind_outcomes.max().max())
 
+    def ensure_average_effect(self):
+        data = generate_data(20000, 3, 0, seed=0)
+        self.estimator.fit(data['X'], data['a'], data['y_cont'])
+        pop_outcome = self.estimator.estimate_population_outcome(data['X'], data['a'])
+        effect = self.estimator.estimate_effect(pop_outcome[1], pop_outcome[0])
+        self.assertAlmostEqual(data['treatment_effect'], effect['diff'], places=1)
+
 
 class TestTMLEMatrixFeatureBinary(BaseTestTMLEBinary):
     def setUp(self) -> None:
@@ -251,6 +259,9 @@ class TestTMLEMatrixFeatureContinuous(BaseTestTMLEContinuous):
     def test_estimate_individual_outcome(self):
         self.ensure_estimate_individual_outcome()
 
+    def test_average_effect(self):
+        self.ensure_average_effect()
+
 
 class TestTMLEVectorFeatureContinuous(BaseTestTMLEContinuous):
     def setUp(self) -> None:
@@ -264,6 +275,9 @@ class TestTMLEVectorFeatureContinuous(BaseTestTMLEContinuous):
 
     def test_estimate_individual_outcome(self):
         self.ensure_estimate_individual_outcome()
+
+    def test_average_effect(self):
+        self.ensure_average_effect()
 
 
 class TestTMLEMatrixImportanceSamplingContinuous(BaseTestTMLEContinuous):
@@ -279,6 +293,9 @@ class TestTMLEMatrixImportanceSamplingContinuous(BaseTestTMLEContinuous):
     def test_estimate_individual_outcome(self):
         self.ensure_estimate_individual_outcome()
 
+    def test_average_effect(self):
+        self.ensure_average_effect()
+
 
 class TestTMLEVectorImportanceSamplingContinuous(BaseTestTMLEContinuous):
     def setUp(self) -> None:
@@ -292,3 +309,6 @@ class TestTMLEVectorImportanceSamplingContinuous(BaseTestTMLEContinuous):
 
     def test_estimate_individual_outcome(self):
         self.ensure_estimate_individual_outcome()
+
+    def test_average_effect(self):
+        self.ensure_average_effect()
