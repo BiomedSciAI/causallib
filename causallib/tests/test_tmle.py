@@ -156,6 +156,19 @@ class BaseTestTMLEContinuous(BaseTestTMLE):
     def estimator(self):
         return self._estimator
 
+    def ensure_target_scaling(self):
+        self.estimator.fit(self.data['X'], self.data['a'], self.data['y'])
+        with self.subTest("Test `target_scaler_` fit"):
+            self.assertTrue(hasattr(self.estimator, "target_scaler_"))
+            self.assertEqual(self.estimator.target_scaler_.data_min_[0], self.data['y'].min())
+            self.assertEqual(self.estimator.target_scaler_.data_max_[0], self.data['y'].max())
+
+        with self.subTest("Test `target_scaler_` inverse transform"):
+            # Test predictions are not in a zero-one scale used for fitting
+            ind_outcomes = self.estimator.estimate_individual_outcome(self.data['X'], self.data['a'])
+            self.assertLess(ind_outcomes.min().min(), 0)
+            self.assertLess(1, ind_outcomes.max().max())
+
 
 class TestTMLEMatrixFeatureBinary(BaseTestTMLEBinary):
     def setUp(self) -> None:
@@ -232,6 +245,9 @@ class TestTMLEMatrixFeatureContinuous(BaseTestTMLEContinuous):
     def test_fit(self):
         self.ensure_fit()
 
+    def test_target_scaling(self):
+        self.ensure_target_scaling()
+
     def test_estimate_individual_outcome(self):
         self.ensure_estimate_individual_outcome()
 
@@ -242,6 +258,9 @@ class TestTMLEVectorFeatureContinuous(BaseTestTMLEContinuous):
 
     def test_fit(self):
         self.ensure_fit()
+
+    def test_target_scaling(self):
+        self.ensure_target_scaling()
 
     def test_estimate_individual_outcome(self):
         self.ensure_estimate_individual_outcome()
@@ -254,6 +273,9 @@ class TestTMLEMatrixImportanceSamplingContinuous(BaseTestTMLEContinuous):
     def test_fit(self):
         self.ensure_fit()
 
+    def test_target_scaling(self):
+        self.ensure_target_scaling()
+
     def test_estimate_individual_outcome(self):
         self.ensure_estimate_individual_outcome()
 
@@ -264,6 +286,9 @@ class TestTMLEVectorImportanceSamplingContinuous(BaseTestTMLEContinuous):
 
     def test_fit(self):
         self.ensure_fit()
+
+    def test_target_scaling(self):
+        self.ensure_target_scaling()
 
     def test_estimate_individual_outcome(self):
         self.ensure_estimate_individual_outcome()
