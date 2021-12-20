@@ -185,8 +185,8 @@ class BaseTestTMLEContinuous(BaseTestTMLE):
         self.assertAlmostEqual(data['treatment_effect'], effect['diff'], places=1)
 
     def ensure_conditional_effect(self):
-        n_samples = 110000  # TODO: is it really that data inefficient to get within 0.1 of true parameters?
-        data = generate_data(n_samples, 3, 1, a_sparsity=1.0, y_sparsity=1.0, X_normal=False, seed=0)
+        n_samples = 10000  # TODO: is it really that data inefficient to get within 0.1 of true parameters?
+        data = generate_data(n_samples, 1, 1, a_sparsity=1.0, y_sparsity=1.0, X_normal=False, seed=0)
         self.estimator.fit(data['X'], data['a'], data['y_cont'])
         ind_outcome = self.estimator.estimate_individual_outcome(data['X'], data['a'])
         ind_effect = self.estimator.estimate_effect(ind_outcome[1], ind_outcome[0], agg="individual")
