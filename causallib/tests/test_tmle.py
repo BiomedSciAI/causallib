@@ -117,6 +117,18 @@ class BaseTestTMLEBinary(BaseTestTMLE):
             self.estimator.fit(self.data['X'], self.data['a'], self.data['y'])
         self.estimator.outcome_model.predict_proba = True
 
+    def ensure_positive_label_prediction_is_used(self):
+        self.estimator.fit(self.data['X'], self.data['a'], self.data['y'])
+        tmle_output = self.estimator._outcome_model_estimate_individual_outcome(
+            self.data['X'], self.data['a']
+        )
+        outcome_model_output = self.estimator.outcome_model.estimate_individual_outcome(
+            self.data['X'], self.data['a']
+        )
+        outcome_model_output = outcome_model_output.loc[:, pd.IndexSlice[:, 1]]  # Take prediction for `1` class
+        outcome_model_output = outcome_model_output.droplevel(level=-1, axis="columns")  # Drop redundant inner level
+        pd.testing.assert_frame_equal(tmle_output, outcome_model_output)
+
 
 class BaseTestTMLEContinuous(BaseTestTMLE):
     @classmethod
@@ -146,6 +158,9 @@ class TestTMLEMatrixFeatureBinary(BaseTestTMLEBinary):
     def test_warning_if_not_predict_proba(self):
         self.ensure_warning_if_not_predict_proba()
 
+    def test_positive_label_prediction_is_used(self):
+        self.ensure_positive_label_prediction_is_used()
+
 
 class TestTMLEVectorFeatureBinary(BaseTestTMLEBinary):
     def setUp(self) -> None:
@@ -156,6 +171,9 @@ class TestTMLEVectorFeatureBinary(BaseTestTMLEBinary):
 
     def test_warning_if_not_predict_proba(self):
         self.ensure_warning_if_not_predict_proba()
+
+    def test_positive_label_prediction_is_used(self):
+        self.ensure_positive_label_prediction_is_used()
 
 
 class TestTMLEMatrixImportanceSamplingBinary(BaseTestTMLEBinary):
@@ -168,6 +186,9 @@ class TestTMLEMatrixImportanceSamplingBinary(BaseTestTMLEBinary):
     def test_warning_if_not_predict_proba(self):
         self.ensure_warning_if_not_predict_proba()
 
+    def test_positive_label_prediction_is_used(self):
+        self.ensure_positive_label_prediction_is_used()
+
 
 class TestTMLEVectorImportanceSamplingBinary(BaseTestTMLEBinary):
     def setUp(self) -> None:
@@ -178,6 +199,9 @@ class TestTMLEVectorImportanceSamplingBinary(BaseTestTMLEBinary):
 
     def test_warning_if_not_predict_proba(self):
         self.ensure_warning_if_not_predict_proba()
+
+    def test_positive_label_prediction_is_used(self):
+        self.ensure_positive_label_prediction_is_used()
 
 
 class TestTMLEMatrixFeatureContinuous(BaseTestTMLEContinuous):
