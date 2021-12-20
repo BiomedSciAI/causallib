@@ -76,6 +76,10 @@ class BaseTestTMLE(unittest.TestCase):
         cls.outcome_model_bin = GradientBoostingClassifier()
         cls.outcome_model_cont = GradientBoostingRegressor()
 
+    @abc.abstractmethod
+    def init(self, reduced, importance_sampling):
+        raise NotImplementedError
+
     @property
     @abc.abstractmethod
     def estimator(self):
@@ -88,66 +92,69 @@ class BaseTestTMLE(unittest.TestCase):
         self.assertTrue(True)
 
 
-class TestTMLEMatrixFeature(BaseTestTMLE):
-    @property
-    def estimator(self):
-        return self._estimator
+class BaseTestTMLEBinary(BaseTestTMLE):
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        cls.data['y'] = cls.data['y_bin']
 
-    def setUp(self) -> None:
+    def init(self, reduced, importance_sampling):
         self._estimator = TMLE(
-            Standardization(self.outcome_model_cont, predict_proba=True),
+            Standardization(self.outcome_model_bin, predict_proba=True),
             IPW(self.treatment_model),
-            reduced=False, importance_sampling=False,
+            reduced=reduced, importance_sampling=importance_sampling,
         )
 
-    def test_fit(self):
-        self.ensure_fit()
-
-
-class TestTMLEVectorFeature(BaseTestTMLE):
     @property
     def estimator(self):
         return self._estimator
 
-    def setUp(self) -> None:
+
+class BaseTestTMLEContinuous(BaseTestTMLE):
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        cls.data['y'] = cls.data['y_cont']
+
+    def init(self, reduced, importance_sampling):
         self._estimator = TMLE(
             Standardization(self.outcome_model_cont),
             IPW(self.treatment_model),
-            reduced=True, importance_sampling=False,
+            reduced=reduced, importance_sampling=importance_sampling,
         )
 
-    def test_fit(self):
-        self.ensure_fit()
-
-
-class TestTMLEMatrixImportanceSampling(BaseTestTMLE):
     @property
     def estimator(self):
         return self._estimator
 
+
+class TestTMLEMatrixFeature(BaseTestTMLEBinary):
     def setUp(self) -> None:
-        self._estimator = TMLE(
-            Standardization(self.outcome_model_cont, predict_proba=True),
-            IPW(self.treatment_model),
-            reduced=False, importance_sampling=True,
-        )
+        self.init(reduced=False, importance_sampling=False)
 
     def test_fit(self):
         self.ensure_fit()
 
 
-class TestTMLEVectorImportanceSampling(BaseTestTMLE):
-    @property
-    def estimator(self):
-        return self._estimator
-
+class TestTMLEVectorFeature(BaseTestTMLEBinary):
     def setUp(self) -> None:
-        self._estimator = TMLE(
-            Standardization(self.outcome_model_cont, predict_proba=True),
-            IPW(self.treatment_model),
-            reduced=True, importance_sampling=True,
-        )
+        self.init(reduced=True, importance_sampling=False)
 
     def test_fit(self):
         self.ensure_fit()
 
+
+class TestTMLEMatrixImportanceSampling(BaseTestTMLEBinary):
+    def setUp(self) -> None:
+        self.init(reduced=False, importance_sampling=True)
+
+    def test_fit(self):
+        self.ensure_fit()
+
+
+class TestTMLEVectorImportanceSampling(BaseTestTMLEBinary):
+    def setUp(self) -> None:
+        self.init(reduced=True, importance_sampling=True)
+
+    def test_fit(self):
+        self.ensure_fit()
