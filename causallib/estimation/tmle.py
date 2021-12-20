@@ -31,7 +31,7 @@ class TMLE(BaseDoublyRobust):
     def fit(self, X, a, y, refit_weight_model=True, **kwargs):
         X_outcome = self._extract_outcome_model_data(X)
         self.outcome_model.fit(X_outcome, a, y)
-        y_pred = self.outcome_model.estimate_individual_outcome(X, a)
+        y_pred = self._outcome_model_estimate_individual_outcome(X, a)
         y_pred = robust_lookup(y_pred, a)  # Predictions on the observed
 
         # self.treatment_values_ = sorted(a.unique())
@@ -64,7 +64,7 @@ class TMLE(BaseDoublyRobust):
         return self
 
     def estimate_individual_outcome(self, X, a, treatment_values=None, predict_proba=None):
-        potential_outcomes = self.outcome_model.estimate_individual_outcome(X, a)
+        potential_outcomes = self._outcome_model_estimate_individual_outcome(X, a)
         potential_outcomes = _logit(potential_outcomes)
 
         res = {}
@@ -112,6 +112,23 @@ class TMLE(BaseDoublyRobust):
             y[:, 0], index=y_index, name=y_name,
         )
         return y
+
+    def _outcome_model_estimate_individual_outcome(self, X, a):
+        """Standardize output for continuous `outcome_model` with `predict` with
+        binary `outcome_model` with `predict_proba`"""
+        potential_outcomes = self.outcome_model.estimate_individual_outcome(X, a)
+
+        is_predict_proba_classification_result = isinstance(potential_outcomes.columns, pd.MultiIndex)
+        if is_predict_proba_classification_result:
+            # Classification `outcome_model` with `predict_proba=True` returns
+            # a MultiIndex treatment-values (`a`) over outcome-values (`y`)
+            # Extract the prediction for the maximal outcome class
+            # (probably class `1` in binary classification):
+            outcome_values = potential_outcomes.columns.get_level_values(level=-1)
+            potential_outcomes = potential_outcomes.xs(
+                outcome_values.max(), axis="columns", level=-1, drop_level=True,
+            )
+        return potential_outcomes
 
 
 class BaseCleverCovariate:
