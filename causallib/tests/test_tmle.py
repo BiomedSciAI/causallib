@@ -4,6 +4,7 @@ import abc
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
+from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 
 from causallib.estimation import TMLE
@@ -13,18 +14,23 @@ from causallib.utils.general_tools import check_learner_is_fitted
 
 def generate_data(n_samples, n_independent_features, n_interaction_features=None,
                   a_sparsity=0.8, y_sparsity=0.8,
+                  X_normal=True,
                   seed=None):
     if seed is not None:
         np.random.seed(seed)
 
     # Generate independent features:
+    if X_normal:
+        X_independent = np.random.normal(size=(n_samples, n_independent_features))
+    else:
+        X_independent = np.random.binomial(1, 0.4, size=(n_samples, n_independent_features))
     X_independent = pd.DataFrame(
-        np.random.normal(size=(n_samples, n_independent_features)),
-        columns=[f"x_{i}" for i in range(n_independent_features)]
+        X_independent,
+        columns=[f"x_{i}" for i in range(X_independent.shape[1])]
     )
 
     # Generate treatment assignment:
-    a_assignment, a_propensity, a_logit = generate_vector(X_independent, a_sparsity)
+    a_assignment, a_propensity, a_logit, a_beta = generate_vector(X_independent, a_sparsity)
 
     # Generate interactions:
     if n_interaction_features is None:
@@ -39,7 +45,7 @@ def generate_data(n_samples, n_independent_features, n_interaction_features=None
     # Generate outcome:
     X = X_independent.join(X_interactions)
     treatment_effect = 2
-    y_binary, y_propensity, y_continuous = generate_vector(X, y_sparsity, a_assignment, treatment_effect)
+    y_binary, y_propensity, y_continuous, y_beta = generate_vector(X, y_sparsity, a_assignment, treatment_effect)
 
     data = {
         "X": X,
@@ -47,6 +53,7 @@ def generate_data(n_samples, n_independent_features, n_interaction_features=None
         "y_cont": y_continuous,
         "y_bin": y_binary,
         "treatment_effect": treatment_effect,
+        "y_beta": y_beta,
     }
     return data
 
@@ -65,7 +72,7 @@ def generate_vector(X, sparsity, a=None, treatment_effect=None):
     logit = pd.Series(logit, index=X.index)
     propensity = pd.Series(propensity, index=X.index)
     classes = pd.Series(classes, index=X.index)
-    return classes, propensity, logit
+    return classes, propensity, logit, beta_masked
 
 
 class BaseTestTMLE(unittest.TestCase):
@@ -177,6 +184,40 @@ class BaseTestTMLEContinuous(BaseTestTMLE):
         effect = self.estimator.estimate_effect(pop_outcome[1], pop_outcome[0])
         self.assertAlmostEqual(data['treatment_effect'], effect['diff'], places=1)
 
+    def ensure_conditional_effect(self):
+        n_samples = 110000  # TODO: is it really that data inefficient to get within 0.1 of true parameters?
+        data = generate_data(n_samples, 3, 1, a_sparsity=1.0, y_sparsity=1.0, X_normal=False, seed=0)
+        self.estimator.fit(data['X'], data['a'], data['y_cont'])
+        ind_outcome = self.estimator.estimate_individual_outcome(data['X'], data['a'])
+        ind_effect = self.estimator.estimate_effect(ind_outcome[1], ind_outcome[0], agg="individual")
+        ind_effect = ind_effect["diff"]
+
+        # The modified effect should the added interaction term to the true effect
+        self.assertAlmostEqual(
+            ind_effect.loc[data['X'].iloc[:, -1] == 1].mean(),
+            data['treatment_effect'] + data['y_beta'][-1],
+            places=1
+        )
+
+        # The effect under no modification should the coefficient of the treatment assignment
+        self.assertAlmostEqual(
+            ind_effect.loc[data['X'].iloc[:, -1] == 0].mean(),
+            data['treatment_effect'],
+            places=1
+        )
+
+        # The average effect should be the weighted mean between the two modifications
+        self.assertAlmostEqual(
+            ind_effect.mean(),
+            np.average(
+                [ind_effect.loc[data['X'].iloc[:, -1] == 0].mean(),
+                 ind_effect.loc[data['X'].iloc[:, -1] == 1].mean()],
+                weights=[sum(data['X'].iloc[:, -1] == 0),
+                         sum(data['X'].iloc[:, -1] == 1)]
+            ),
+            places=1
+        )
+
 
 class TestTMLEMatrixFeatureBinary(BaseTestTMLEBinary):
     def setUp(self) -> None:
@@ -262,6 +303,9 @@ class TestTMLEMatrixFeatureContinuous(BaseTestTMLEContinuous):
     def test_average_effect(self):
         self.ensure_average_effect()
 
+    def test_conditional_effect(self):
+        self.ensure_conditional_effect()
+
 
 class TestTMLEVectorFeatureContinuous(BaseTestTMLEContinuous):
     def setUp(self) -> None:
@@ -278,6 +322,9 @@ class TestTMLEVectorFeatureContinuous(BaseTestTMLEContinuous):
 
     def test_average_effect(self):
         self.ensure_average_effect()
+
+    def test_conditional_effect(self):
+        self.ensure_conditional_effect()
 
 
 class TestTMLEMatrixImportanceSamplingContinuous(BaseTestTMLEContinuous):
@@ -296,6 +343,9 @@ class TestTMLEMatrixImportanceSamplingContinuous(BaseTestTMLEContinuous):
     def test_average_effect(self):
         self.ensure_average_effect()
 
+    def test_conditional_effect(self):
+        self.ensure_conditional_effect()
+
 
 class TestTMLEVectorImportanceSamplingContinuous(BaseTestTMLEContinuous):
     def setUp(self) -> None:
@@ -312,3 +362,6 @@ class TestTMLEVectorImportanceSamplingContinuous(BaseTestTMLEContinuous):
 
     def test_average_effect(self):
         self.ensure_average_effect()
+
+    def test_conditional_effect(self):
+        self.ensure_conditional_effect()
