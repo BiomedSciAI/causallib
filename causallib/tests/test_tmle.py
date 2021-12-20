@@ -1,9 +1,13 @@
 import unittest
+import abc
 
 import numpy as np
 import pandas as pd
+from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 
 from causallib.estimation import TMLE
+from causallib.estimation import Standardization, IPW
 
 
 def generate_data(n_samples, n_independent_features, n_interaction_features=None,
@@ -68,4 +72,60 @@ class BaseTestTMLE(unittest.TestCase):
         random_seed = 0
         cls.data = generate_data(200, 3, 3, seed=random_seed)
 
+        cls.treatment_model = GradientBoostingClassifier()
+        cls.outcome_model_bin = GradientBoostingClassifier()
+        cls.outcome_model_cont = GradientBoostingRegressor()
+
+    @property
+    @abc.abstractmethod
+    def estimator(self):
+        raise NotImplementedError
+
+
+class TestTMLEMatrixFeature(BaseTestTMLE):
+    @property
+    def estimator(self):
+        return self._estimator
+
+    def setUp(self) -> None:
+        self._estimator = TMLE(
+            self.outcome_model_bin, self.treatment_model,
+            reduced=False, importance_sampling=False,
+        )
+
+
+class TestTMLEVectorFeature(BaseTestTMLE):
+    @property
+    def estimator(self):
+        return self._estimator
+
+    def setUp(self) -> None:
+        self._estimator = TMLE(
+            self.outcome_model_bin, self.treatment_model,
+            reduced=True, importance_sampling=False,
+        )
+
+
+class TestTMLEMatrixImportanceSampling(BaseTestTMLE):
+    @property
+    def estimator(self):
+        return self._estimator
+
+    def setUp(self) -> None:
+        self._estimator = TMLE(
+            self.outcome_model_bin, self.treatment_model,
+            reduced=False, importance_sampling=True,
+        )
+
+
+class TestTMLEVectorImportanceSampling(BaseTestTMLE):
+    @property
+    def estimator(self):
+        return self._estimator
+
+    def setUp(self) -> None:
+        self._estimator = TMLE(
+            self.outcome_model_bin, self.treatment_model,
+            reduced=True, importance_sampling=True,
+        )
 
