@@ -73,8 +73,9 @@ class TMLE(BaseDoublyRobust):
         for treatment_value in get_iterable_treatment_values(treatment_values, a):
             potential_outcome = potential_outcomes[treatment_value]
             treatment_assignment = self.clever_covariate_.clever_covariate_inference(X, a, treatment_value)
-            target_offset = self.targeted_outcome_model_.predict(treatment_assignment, linear=True)
-            counterfactual_prediction = _expit(potential_outcome + target_offset)
+            counterfactual_prediction = self.targeted_outcome_model_.predict(
+                treatment_assignment, offset=potential_outcome,
+            )
             counterfactual_prediction = self._scale_target(counterfactual_prediction, fit=False, inverse=True)
             res[treatment_value] = counterfactual_prediction
 
