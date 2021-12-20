@@ -109,6 +109,12 @@ class BaseTestTMLEBinary(BaseTestTMLE):
     def estimator(self):
         return self._estimator
 
+    def ensure_warning_if_not_predict_proba(self):
+        self.estimator.outcome_model.predict_proba = False
+        with self.assertWarns(UserWarning):
+            self.estimator.fit(self.data['X'], self.data['a'], self.data['y'])
+        self.estimator.outcome_model.predict_proba = True
+
 
 class BaseTestTMLEContinuous(BaseTestTMLE):
     @classmethod
@@ -135,6 +141,9 @@ class TestTMLEMatrixFeatureBinary(BaseTestTMLEBinary):
     def test_fit(self):
         self.ensure_fit()
 
+    def test_warning_if_not_predict_proba(self):
+        self.ensure_warning_if_not_predict_proba()
+
 
 class TestTMLEVectorFeatureBinary(BaseTestTMLEBinary):
     def setUp(self) -> None:
@@ -142,6 +151,9 @@ class TestTMLEVectorFeatureBinary(BaseTestTMLEBinary):
 
     def test_fit(self):
         self.ensure_fit()
+
+    def test_warning_if_not_predict_proba(self):
+        self.ensure_warning_if_not_predict_proba()
 
 
 class TestTMLEMatrixImportanceSamplingBinary(BaseTestTMLEBinary):
@@ -151,6 +163,9 @@ class TestTMLEMatrixImportanceSamplingBinary(BaseTestTMLEBinary):
     def test_fit(self):
         self.ensure_fit()
 
+    def test_warning_if_not_predict_proba(self):
+        self.ensure_warning_if_not_predict_proba()
+
 
 class TestTMLEVectorImportanceSamplingBinary(BaseTestTMLEBinary):
     def setUp(self) -> None:
@@ -158,6 +173,9 @@ class TestTMLEVectorImportanceSamplingBinary(BaseTestTMLEBinary):
 
     def test_fit(self):
         self.ensure_fit()
+
+    def test_warning_if_not_predict_proba(self):
+        self.ensure_warning_if_not_predict_proba()
 
 
 class TestTMLEMatrixFeatureContinuous(BaseTestTMLEContinuous):

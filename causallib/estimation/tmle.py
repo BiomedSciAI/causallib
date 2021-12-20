@@ -1,10 +1,12 @@
 import abc
+import warnings
 from typing import Type
 
 import pandas as pd
 import numpy as np
 import statsmodels.api as sm
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
+from sklearn.utils.multiclass import type_of_target
 
 from .doubly_robust import DoublyRobust as BaseDoublyRobust
 from causallib.utils.stat_utils import robust_lookup
@@ -100,6 +102,7 @@ class TMLE(BaseDoublyRobust):
         y_index, y_name = y.index, y.name  # Convert back to pandas Series later
         y = y.to_frame()  # MinMaxScaler requires a 2D array, not a vector
         if fit:
+            self._validate_predict_proba_for_classification(y)
             self.target_scaler_ = MinMaxScaler(feature_range=(0, 1))
             self.target_scaler_.fit(y)
 
@@ -129,6 +132,16 @@ class TMLE(BaseDoublyRobust):
                 outcome_values.max(), axis="columns", level=-1, drop_level=True,
             )
         return potential_outcomes
+
+    def _validate_predict_proba_for_classification(self, y):
+        # TODO: maybe instead for `predict_proba=True` when calling `outcome_model.estimate_individual_outcome`
+        if type_of_target(y) != "continuous" and not self.outcome_model.predict_proba:
+            warnings.warn(
+                "`predict_proba` should be used if outcome type is not continuous."
+                "Hint: set `predict_proba=True` when initializing the `outcome_model`.",
+                UserWarning
+            )
+
 
 
 class BaseCleverCovariate:
