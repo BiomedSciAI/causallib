@@ -100,7 +100,7 @@ class BaseTestTMLE(unittest.TestCase):
             self.data['X'], self.data['a'], self.data['y'],
         )
         ind_outcomes = self.estimator.estimate_individual_outcome(self.data['X'], self.data['a'])
-        self.assertTrue(True)
+        self.assertFalse(ind_outcomes.isna().any().any())
 
 
 class BaseTestTMLEBinary(BaseTestTMLE):
