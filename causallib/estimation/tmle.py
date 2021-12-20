@@ -44,7 +44,7 @@ class TMLE(BaseDoublyRobust):
         self.clever_covariate_ = _clever_covariate_factory(
             self.reduced, self.importance_sampling
         )(self.weight_model)
-        endog = self.clever_covariate_.clever_covariate_fit(X, a)
+        exog = self.clever_covariate_.clever_covariate_fit(X, a)
         sample_weights = self.clever_covariate_.sample_weights(X, a)
 
         y = self._scale_target(y, fit=True, inverse=False)
@@ -53,11 +53,11 @@ class TMLE(BaseDoublyRobust):
         # Statsmodels supports logistic regression with continuous (0-1 bounded) targets
         # so can be used with non-binary (but scaled) response variable (`y`)
         # targeted_outcome_model = sm.Logit(
-        #     endog=clever_covariate, exog=y, offset=y_pred,
+        #     endog=y, exog=clever_covariate, offset=y_pred,
         # ).fit(method="lbfgs")
         # GLM supports weighted regression, while Logit doesn't.
         targeted_outcome_model = sm.GLM(
-            endog=endog, exog=y, offset=y_pred, freq_weights=sample_weights,
+            endog=y, exog=exog, offset=y_pred, freq_weights=sample_weights,
             family=sm.families.Binomial(),
             # family=sm.families.Binomial(sm.genmod.families.links.logit)
         ).fit(**self.glm_fit_kwargs)
@@ -141,7 +141,6 @@ class TMLE(BaseDoublyRobust):
                 "Hint: set `predict_proba=True` when initializing the `outcome_model`.",
                 UserWarning
             )
-
 
 
 class BaseCleverCovariate:

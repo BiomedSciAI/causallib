@@ -93,6 +93,13 @@ class BaseTestTMLE(unittest.TestCase):
         self.assertTrue(check_learner_is_fitted(self.estimator.outcome_model.learner))
         self.assertTrue(check_learner_is_fitted(self.estimator.weight_model.learner))
 
+    def ensure_estimate_individual_outcome(self):
+        self.estimator.fit(
+            self.data['X'], self.data['a'], self.data['y'],
+        )
+        ind_outcomes = self.estimator.estimate_individual_outcome(self.data['X'], self.data['a'])
+        self.assertTrue(True)
+
 
 class BaseTestTMLEBinary(BaseTestTMLE):
     @classmethod
@@ -161,6 +168,9 @@ class TestTMLEMatrixFeatureBinary(BaseTestTMLEBinary):
     def test_positive_label_prediction_is_used(self):
         self.ensure_positive_label_prediction_is_used()
 
+    def test_estimate_individual_outcome(self):
+        self.ensure_estimate_individual_outcome()
+
 
 class TestTMLEVectorFeatureBinary(BaseTestTMLEBinary):
     def setUp(self) -> None:
@@ -174,6 +184,9 @@ class TestTMLEVectorFeatureBinary(BaseTestTMLEBinary):
 
     def test_positive_label_prediction_is_used(self):
         self.ensure_positive_label_prediction_is_used()
+
+    def test_estimate_individual_outcome(self):
+        self.ensure_estimate_individual_outcome()
 
 
 class TestTMLEMatrixImportanceSamplingBinary(BaseTestTMLEBinary):
@@ -189,6 +202,9 @@ class TestTMLEMatrixImportanceSamplingBinary(BaseTestTMLEBinary):
     def test_positive_label_prediction_is_used(self):
         self.ensure_positive_label_prediction_is_used()
 
+    def test_estimate_individual_outcome(self):
+        self.ensure_estimate_individual_outcome()
+
 
 class TestTMLEVectorImportanceSamplingBinary(BaseTestTMLEBinary):
     def setUp(self) -> None:
@@ -203,6 +219,9 @@ class TestTMLEVectorImportanceSamplingBinary(BaseTestTMLEBinary):
     def test_positive_label_prediction_is_used(self):
         self.ensure_positive_label_prediction_is_used()
 
+    def test_estimate_individual_outcome(self):
+        self.ensure_estimate_individual_outcome()
+
 
 class TestTMLEMatrixFeatureContinuous(BaseTestTMLEContinuous):
     def setUp(self) -> None:
@@ -210,6 +229,9 @@ class TestTMLEMatrixFeatureContinuous(BaseTestTMLEContinuous):
 
     def test_fit(self):
         self.ensure_fit()
+
+    def test_estimate_individual_outcome(self):
+        self.ensure_estimate_individual_outcome()
 
 
 class TestTMLEVectorFeatureContinuous(BaseTestTMLEContinuous):
@@ -219,6 +241,9 @@ class TestTMLEVectorFeatureContinuous(BaseTestTMLEContinuous):
     def test_fit(self):
         self.ensure_fit()
 
+    def test_estimate_individual_outcome(self):
+        self.ensure_estimate_individual_outcome()
+
 
 class TestTMLEMatrixImportanceSamplingContinuous(BaseTestTMLEContinuous):
     def setUp(self) -> None:
@@ -227,6 +252,9 @@ class TestTMLEMatrixImportanceSamplingContinuous(BaseTestTMLEContinuous):
     def test_fit(self):
         self.ensure_fit()
 
+    def test_estimate_individual_outcome(self):
+        self.ensure_estimate_individual_outcome()
+
 
 class TestTMLEVectorImportanceSamplingContinuous(BaseTestTMLEContinuous):
     def setUp(self) -> None:
@@ -234,3 +262,6 @@ class TestTMLEVectorImportanceSamplingContinuous(BaseTestTMLEContinuous):
 
     def test_fit(self):
         self.ensure_fit()
+
+    def test_estimate_individual_outcome(self):
+        self.ensure_estimate_individual_outcome()
