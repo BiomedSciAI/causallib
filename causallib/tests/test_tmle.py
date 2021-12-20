@@ -89,7 +89,8 @@ class TestTMLEMatrixFeature(BaseTestTMLE):
 
     def setUp(self) -> None:
         self._estimator = TMLE(
-            self.outcome_model_bin, self.treatment_model,
+            Standardization(self.outcome_model_cont, predict_proba=True),
+            IPW(self.treatment_model),
             reduced=False, importance_sampling=False,
         )
 
@@ -101,7 +102,8 @@ class TestTMLEVectorFeature(BaseTestTMLE):
 
     def setUp(self) -> None:
         self._estimator = TMLE(
-            self.outcome_model_bin, self.treatment_model,
+            Standardization(self.outcome_model_cont),
+            IPW(self.treatment_model),
             reduced=True, importance_sampling=False,
         )
 
@@ -113,7 +115,8 @@ class TestTMLEMatrixImportanceSampling(BaseTestTMLE):
 
     def setUp(self) -> None:
         self._estimator = TMLE(
-            self.outcome_model_bin, self.treatment_model,
+            Standardization(self.outcome_model_cont, predict_proba=True),
+            IPW(self.treatment_model),
             reduced=False, importance_sampling=True,
         )
 
@@ -125,7 +128,8 @@ class TestTMLEVectorImportanceSampling(BaseTestTMLE):
 
     def setUp(self) -> None:
         self._estimator = TMLE(
-            self.outcome_model_bin, self.treatment_model,
+            Standardization(self.outcome_model_cont, predict_proba=True),
+            IPW(self.treatment_model),
             reduced=True, importance_sampling=True,
         )
 
