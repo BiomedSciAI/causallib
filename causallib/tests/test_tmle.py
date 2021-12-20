@@ -128,7 +128,7 @@ class BaseTestTMLEContinuous(BaseTestTMLE):
         return self._estimator
 
 
-class TestTMLEMatrixFeature(BaseTestTMLEBinary):
+class TestTMLEMatrixFeatureBinary(BaseTestTMLEBinary):
     def setUp(self) -> None:
         self.init(reduced=False, importance_sampling=False)
 
@@ -136,7 +136,7 @@ class TestTMLEMatrixFeature(BaseTestTMLEBinary):
         self.ensure_fit()
 
 
-class TestTMLEVectorFeature(BaseTestTMLEBinary):
+class TestTMLEVectorFeatureBinary(BaseTestTMLEBinary):
     def setUp(self) -> None:
         self.init(reduced=True, importance_sampling=False)
 
@@ -144,7 +144,7 @@ class TestTMLEVectorFeature(BaseTestTMLEBinary):
         self.ensure_fit()
 
 
-class TestTMLEMatrixImportanceSampling(BaseTestTMLEBinary):
+class TestTMLEMatrixImportanceSamplingBinary(BaseTestTMLEBinary):
     def setUp(self) -> None:
         self.init(reduced=False, importance_sampling=True)
 
@@ -152,7 +152,39 @@ class TestTMLEMatrixImportanceSampling(BaseTestTMLEBinary):
         self.ensure_fit()
 
 
-class TestTMLEVectorImportanceSampling(BaseTestTMLEBinary):
+class TestTMLEVectorImportanceSamplingBinary(BaseTestTMLEBinary):
+    def setUp(self) -> None:
+        self.init(reduced=True, importance_sampling=True)
+
+    def test_fit(self):
+        self.ensure_fit()
+
+
+class TestTMLEMatrixFeatureContinuous(BaseTestTMLEContinuous):
+    def setUp(self) -> None:
+        self.init(reduced=False, importance_sampling=False)
+
+    def test_fit(self):
+        self.ensure_fit()
+
+
+class TestTMLEVectorFeatureContinuous(BaseTestTMLEContinuous):
+    def setUp(self) -> None:
+        self.init(reduced=True, importance_sampling=False)
+
+    def test_fit(self):
+        self.ensure_fit()
+
+
+class TestTMLEMatrixImportanceSamplingContinuous(BaseTestTMLEContinuous):
+    def setUp(self) -> None:
+        self.init(reduced=False, importance_sampling=True)
+
+    def test_fit(self):
+        self.ensure_fit()
+
+
+class TestTMLEVectorImportanceSamplingContinuous(BaseTestTMLEContinuous):
     def setUp(self) -> None:
         self.init(reduced=True, importance_sampling=True)
 
