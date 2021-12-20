@@ -92,6 +92,8 @@ class BaseTestTMLE(unittest.TestCase):
         )
         self.assertTrue(check_learner_is_fitted(self.estimator.outcome_model.learner))
         self.assertTrue(check_learner_is_fitted(self.estimator.weight_model.learner))
+        self.assertTrue(hasattr(self.estimator, "targeted_outcome_model_"))
+        self.assertTrue(hasattr(self.estimator.targeted_outcome_model_, "params"))
 
     def ensure_estimate_individual_outcome(self):
         self.estimator.fit(
