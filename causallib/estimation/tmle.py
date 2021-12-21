@@ -9,17 +9,75 @@ from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 from sklearn.utils.multiclass import type_of_target
 
 from .doubly_robust import DoublyRobust as BaseDoublyRobust
+from causallib.estimation.base_estimator import IndividualOutcomeEstimator
+from causallib.estimation.base_weight import PropensityEstimator
 from causallib.utils.stat_utils import robust_lookup
 from causallib.utils.general_tools import get_iterable_treatment_values, check_learner_is_fitted
 
 
 class TMLE(BaseDoublyRobust):
-
     def __init__(self, outcome_model, weight_model,
                  outcome_covariates=None, weight_covariates=None,
                  reduced=False, importance_sampling=False,
                  glm_fit_kwargs=None,
                  ):
+        """Targeted Maximum Likelihood Estimation.
+        A model that takes an outcome model that was optimized to predict E[Y|X,A],
+        and "retargets" ("updates") it to estimate E[Y^A|X] using a "clever covariate"
+        constructed from the inverse propensity weights.
+
+        Steps:
+         1. Fit an outcome model Y=Q(X,A).
+         2. Fit a weight model A=g(X,A).
+         3. Construct a clever covariate using g(X,A).
+         4. Fit a logistic regression model Q* to predict Y
+            using g(X,A) as features and Q(X,A) as offset.
+         5. Predict counterfactual outcome for treatment value `a` Q*(X,a)
+            by plugging in Q(X,a) as offset, g(X,a) as covariate.
+
+        Implements 4 flavours of TMLE controlled by the `reduced` and `importance_sampling` parameters.
+        `importance_sampling=True` moves the clever covariate from being a feature to being a sample
+        weight in the targeted regression.
+        'reduced=True' use a clever covariate vector of 1s and -1s, therefore only good for binary treatment.
+        Otherwise, the clever covariate are the entire IPW matrix and can be used for multiple treatments.
+
+        References:
+            * TMLE:
+              Van Der Laan MJ, Rubin D. Targeted maximum likelihood learning. 2006.
+              https://doi.org/10.2202/1557-4679.1043
+            * TMLE with a vector version of clever covariate:
+              Schuler MS, Rose S. Targeted maximum likelihood estimation for causal inference in observational studies.
+              2017.
+              https://doi.org/10.1093/aje/kww165
+            * TMLE with a matrix version of clever covariate:
+              Gruber S, van der Laan M. tmle: An R package for targeted maximum likelihood estimation. 2012.
+              https://doi.org/10.18637/jss.v051.i13
+            * TMLE with weighted regression and matrix of clever covariate:
+              Gruber S, van der Laan M, Kennedy C. tmle: Targeted Maximum Likelihood Estimation. Cran documentation.
+              https://cran.r-project.org/web/packages/tmle/index.html
+            * TMLE for continuous outcomes
+              Gruber S, van der Laan MJ. A targeted maximum likelihood estimator of a causal effect
+              on a bounded continuous outcome. 2010.
+              https://doi.org/10.2202/1557-4679.1260
+
+        Args:
+            outcome_model (IndividualOutcomeEstimator): An initial prediction of the outcome
+            weight_model (PropensityEstimator): An IPW model predicting the treatment.
+            outcome_covariates (array): Covariates to use for outcome model.
+                                        If None - all covariates passed will be used.
+                                        Either list of column names or boolean mask.
+            weight_covariates (array): Covariates to use for weight model.
+                                       If None - all covariates passed will be used.
+                                       Either list of column names or boolean mask.
+            reduced (bool): If `True` uses a vector version of the clever covariate
+                            (rather than a matrix of all treatment values).
+                            If `True` enforces a binary treatment assignment.
+            importance_sampling (bool): If `True` moves the clever covariate from being
+                                        a feature to being a weight in the regression.
+            glm_fit_kwargs (dict): Additional kwargs for statsmodels' `GLM.fit()`.
+              Can be used for example for refining the optimizers.
+              see: https://www.statsmodels.org/stable/generated/statsmodels.genmod.generalized_linear_model.GLM.fit.html
+        """
         super().__init__(
             outcome_model=outcome_model, weight_model=weight_model,
             outcome_covariates=outcome_covariates, weight_covariates=weight_covariates,
@@ -27,8 +85,6 @@ class TMLE(BaseDoublyRobust):
         self.reduced = reduced
         self.importance_sampling = importance_sampling
         self.glm_fit_kwargs = {} if glm_fit_kwargs is None else glm_fit_kwargs
-        # TODO: doc: `reduce==True` only work on binary treatment
-        # TODO: doc: glm_got_kwargs: https://www.statsmodels.org/stable/generated/statsmodels.genmod.generalized_linear_model.GLM.fit.html
 
     def fit(self, X, a, y, refit_weight_model=True, **kwargs):
         X_outcome = self._extract_outcome_model_data(X)
@@ -166,7 +222,13 @@ class BaseCleverCovariate:
 
 
 class CleverCovariateFeatureMatrix(BaseCleverCovariate):
+    """Clever covariate uses a matrix of inverse propensity weights
+    of all treatment values as a predictor to the targeting regression.
 
+    References:
+        * Gruber S, van der Laan M. tmle: An R package for targeted maximum likelihood estimation. 2012.
+          https://doi.org/10.18637/jss.v051.i13
+    """
     def clever_covariate_fit(self, X, a):
         w = self.weight_model.compute_weight_matrix(X, a)
         return w
@@ -182,7 +244,14 @@ class CleverCovariateFeatureMatrix(BaseCleverCovariate):
 
 
 class CleverCovariateFeatureVector(BaseCleverCovariate):
+    """Clever covariate uses a signed vector of inverse propensity weights,
+    with control group have their weights negated.
+    The vector is then used as a predictor to the targeting regression.
 
+    References:
+        * Schuler MS, Rose S. Targeted maximum likelihood estimation for causal inference in observational studies. 2017
+          https://doi.org/10.1093/aje/kww165
+    """
     def clever_covariate_fit(self, X, a):
         if a.nunique() != 2:
             raise AssertionError("Can only apply model on a binary treatment")
@@ -202,7 +271,14 @@ class CleverCovariateFeatureVector(BaseCleverCovariate):
 
 
 class CleverCovariateImportanceSamplingMatrix(BaseCleverCovariate):
+    """Clever covariate of inverse propensity weight vector is used as weight for
+    the targeting regression. The predictors are a one-hot (full dummy) encoding
+    of the treatment assignment.
 
+    References:
+        * Gruber S, van der Laan M. tmle: An R package for targeted maximum likelihood estimation. 2012.
+          https://doi.org/10.18637/jss.v051.i13
+    """
     def clever_covariate_fit(self, X, a):
         self.treatment_encoder_ = OneHotEncoder(sparse=False, categories="auto")
         self.treatment_encoder_.fit(a.to_frame())
@@ -227,7 +303,10 @@ class CleverCovariateImportanceSamplingMatrix(BaseCleverCovariate):
 
 
 class CleverCovariateImportanceSamplingVector(BaseCleverCovariate):
-
+    """Clever covariate of inverse propensity weight vector is used as weight for
+    the targeting regression. The predictors are a signed vector with negative 1 for
+    the control group.
+    """
     def clever_covariate_fit(self, X, a):
         if a.nunique() != 2:
             raise AssertionError("Can only apply model on a binary treatment")
