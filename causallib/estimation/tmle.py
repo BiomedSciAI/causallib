@@ -111,7 +111,6 @@ class TMLE(BaseDoublyRobust):
         if inverse:
             y = self.target_scaler_.inverse_transform(y)
         else:
-            # TODO: consider clipping `y` in case containing zeros and ones
             y = self.target_scaler_.transform(y)
 
         y = pd.Series(
@@ -137,6 +136,8 @@ class TMLE(BaseDoublyRobust):
             potential_outcomes = potential_outcomes.xs(
                 outcome_values.max(), axis="columns", level=-1, drop_level=True,
             )
+        # TODO: move scale + logit here? since they always go together
+        # TODO: move logit as a method, and do a clipped version with bounds specified in constructor to avoid `inf`
         return potential_outcomes
 
     def _validate_predict_proba_for_classification(self, y):
