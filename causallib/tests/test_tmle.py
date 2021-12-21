@@ -200,11 +200,15 @@ class BaseTestTMLEContinuous(BaseTestTMLE):
             self.assertLess(1, ind_outcomes.max().max())
 
     def ensure_average_effect(self):
-        data = generate_data(20000, 3, 0, seed=0)
+        data = generate_data(1500, 2, 0, seed=0)
         self.estimator.fit(data['X'], data['a'], data['y_cont'])
         pop_outcome = self.estimator.estimate_population_outcome(data['X'], data['a'])
         effect = self.estimator.estimate_effect(pop_outcome[1], pop_outcome[0])
-        self.assertAlmostEqual(data['treatment_effect'], effect['diff'], places=1)
+        # self.assertAlmostEqual(data['treatment_effect'], effect['diff'], places=1)
+        np.testing.assert_allclose(
+            data['treatment_effect'], effect['diff'],
+            atol=0.1,
+        )
 
     def ensure_conditional_effect(self):
         n_samples = 11000  # TODO: is it really that data inefficient to get within 0.1 of true parameters?
