@@ -137,7 +137,6 @@ class TMLE(BaseDoublyRobust):
                 outcome_values.max(), axis="columns", level=-1, drop_level=True,
             )
         # TODO: move scale + logit here? since they always go together
-        # TODO: move logit as a method, and do a clipped version with bounds specified in constructor to avoid `inf`
         return potential_outcomes
 
     def _validate_predict_proba_for_classification(self, y):
@@ -249,7 +248,11 @@ class CleverCovariateImportanceSamplingVector(BaseCleverCovariate):
         return w
 
 
-def _logit(p):
+def _logit(p, safe=True):
+    # TODO: move logit as a method, and do a clipped version with bounds specified in constructor
+    if safe:
+        epsilon = np.finfo(float).eps
+        p = np.clip(p, epsilon, 1 - epsilon)
     return np.log(p / (1 - p))
 
 
