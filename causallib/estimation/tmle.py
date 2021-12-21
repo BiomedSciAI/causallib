@@ -111,6 +111,7 @@ class TMLE(BaseDoublyRobust):
         if inverse:
             y = self.target_scaler_.inverse_transform(y)
         else:
+            # TODO: consider clipping `y` in case containing zeros and ones
             y = self.target_scaler_.transform(y)
 
         y = pd.Series(
@@ -121,7 +122,10 @@ class TMLE(BaseDoublyRobust):
     def _outcome_model_estimate_individual_outcome(self, X, a):
         """Standardize output for continuous `outcome_model` with `predict` with
         binary `outcome_model` with `predict_proba`"""
-        potential_outcomes = self.outcome_model.estimate_individual_outcome(X, a)
+        # Force `predict_proba` so if `outcome_model.learner` is a classifier,
+        # It will produce continuous scores.
+        # For zeros and ones, logit(y_pred) will break with `inf`
+        potential_outcomes = self.outcome_model.estimate_individual_outcome(X, a, predict_proba=True)
 
         is_predict_proba_classification_result = isinstance(potential_outcomes.columns, pd.MultiIndex)
         if is_predict_proba_classification_result:
@@ -136,11 +140,10 @@ class TMLE(BaseDoublyRobust):
         return potential_outcomes
 
     def _validate_predict_proba_for_classification(self, y):
-        # TODO: maybe instead for `predict_proba=True` when calling `outcome_model.estimate_individual_outcome`
         if type_of_target(y) != "continuous" and not self.outcome_model.predict_proba:
             warnings.warn(
-                "`predict_proba` should be used if outcome type is not continuous."
-                "Hint: set `predict_proba=True` when initializing the `outcome_model`.",
+                "`predict_proba` should be used in `outcome_model` if outcome type "
+                "is not continuous. TMLE will force the use of `predict_proba`.",
                 UserWarning
             )
 
