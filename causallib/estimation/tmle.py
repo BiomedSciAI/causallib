@@ -248,10 +248,6 @@ def _logit(p):
     return np.log(p / (1 - p))
 
 
-def _expit(x):
-    return 1 / (1 + np.exp(-x))
-
-
 def _clever_covariate_factory(reduced, importance_sampling) -> Type[BaseCleverCovariate]:
     if importance_sampling and reduced:
         return CleverCovariateImportanceSamplingVector
