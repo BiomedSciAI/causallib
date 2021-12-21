@@ -110,6 +110,28 @@ class BaseTestTMLE(unittest.TestCase):
         ind_outcomes = self.estimator.estimate_individual_outcome(self.data['X'], self.data['a'])
         self.assertFalse(ind_outcomes.isna().any().any())
 
+    def ensure_no_refit(self):
+        from copy import deepcopy
+        n = self.data['X'].shape[0]
+        self.estimator.fit(
+            self.data['X'].loc[:n//2], self.data['a'].loc[:n//2], self.data['y'].loc[:n//2],
+        )
+        weight_model = deepcopy(self.estimator.weight_model)
+        outcome_model = deepcopy(self.estimator.outcome_model)
+        self.estimator.fit(
+            self.data['X'].loc[n//2:], self.data['a'].loc[n//2:], self.data['y'].loc[n//2:],
+            refit_weight_model=False
+        )
+        np.testing.assert_equal(
+            weight_model.learner.feature_importances_,
+            self.estimator.weight_model.learner.feature_importances_,
+        )
+        with self.assertRaises(AssertionError):  # Assert not equal since refitted
+            np.testing.assert_equal(
+                outcome_model.learner.feature_importances_,
+                self.estimator.outcome_model.learner.feature_importances_,
+            )
+
 
 class BaseTestTMLEBinary(BaseTestTMLE):
     @classmethod
@@ -235,6 +257,9 @@ class TestTMLEMatrixFeatureBinary(BaseTestTMLEBinary):
 
     def test_estimate_individual_outcome(self):
         self.ensure_estimate_individual_outcome()
+
+    def test_no_refit(self):
+        self.ensure_no_refit()
 
 
 class TestTMLEVectorFeatureBinary(BaseTestTMLEBinary):
