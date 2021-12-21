@@ -55,6 +55,7 @@ def generate_data(n_samples, n_independent_features, n_interaction_features=None
         "y_bin": y_binary,
         "treatment_effect": treatment_effect,
         "y_beta": y_beta,
+        "y_propensity": y_propensity,
     }
     return data
 
@@ -168,6 +169,18 @@ class BaseTestTMLEBinary(BaseTestTMLE):
         outcome_model_output = outcome_model_output.droplevel(level=-1, axis="columns")  # Drop redundant inner level
         pd.testing.assert_frame_equal(tmle_output, outcome_model_output)
 
+    def ensure_average_effect(self):
+        data = generate_data(1500, 2, 0, seed=0)
+        self.estimator.fit(data['X'], data['a'], data['y_bin'])
+        pop_outcome = self.estimator.estimate_population_outcome(data['X'], data['a'])
+        effect = self.estimator.estimate_effect(pop_outcome[1], pop_outcome[0],
+                                                effect_types=["diff", "ratio", "or"])
+        np.testing.assert_allclose(
+            data["y_propensity"][data['a'] == 1].mean() - data["y_propensity"][data['a'] == 0].mean(),
+            effect['diff'],
+            atol=0.1,
+        )
+
 
 class BaseTestTMLEContinuous(BaseTestTMLE):
     @classmethod
@@ -265,6 +278,9 @@ class TestTMLEMatrixFeatureBinary(BaseTestTMLEBinary):
     def test_no_refit(self):
         self.ensure_no_refit()
 
+    def test_average_effect(self):
+            self.ensure_average_effect()
+
 
 class TestTMLEVectorFeatureBinary(BaseTestTMLEBinary):
     def setUp(self) -> None:
@@ -288,6 +304,9 @@ class TestTMLEVectorFeatureBinary(BaseTestTMLEBinary):
         with self.assertRaises(AssertionError):
             self.estimator.fit(data['X'], data['a'], data['y'])
 
+    def test_average_effect(self):
+        self.ensure_average_effect()
+
 
 class TestTMLEMatrixImportanceSamplingBinary(BaseTestTMLEBinary):
     def setUp(self) -> None:
@@ -304,6 +323,9 @@ class TestTMLEMatrixImportanceSamplingBinary(BaseTestTMLEBinary):
 
     def test_estimate_individual_outcome(self):
         self.ensure_estimate_individual_outcome()
+
+    def test_average_effect(self):
+            self.ensure_average_effect()
 
 
 class TestTMLEVectorImportanceSamplingBinary(BaseTestTMLEBinary):
@@ -327,6 +349,9 @@ class TestTMLEVectorImportanceSamplingBinary(BaseTestTMLEBinary):
         data['a'].loc[:5] = 2  # Create multiclass treatment
         with self.assertRaises(AssertionError):
             self.estimator.fit(data['X'], data['a'], data['y'])
+
+    def test_average_effect(self):
+        self.ensure_average_effect()
 
 
 class TestTMLEMatrixFeatureContinuous(BaseTestTMLEContinuous):
