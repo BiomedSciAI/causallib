@@ -1,5 +1,6 @@
 import unittest
 import abc
+from copy import deepcopy
 
 import numpy as np
 import pandas as pd
@@ -111,7 +112,6 @@ class BaseTestTMLE(unittest.TestCase):
         self.assertFalse(ind_outcomes.isna().any().any())
 
     def ensure_no_refit(self):
-        from copy import deepcopy
         n = self.data['X'].shape[0]
         self.estimator.fit(
             self.data['X'].loc[:n//2], self.data['a'].loc[:n//2], self.data['y'].loc[:n//2],
@@ -278,6 +278,12 @@ class TestTMLEVectorFeatureBinary(BaseTestTMLEBinary):
     def test_estimate_individual_outcome(self):
         self.ensure_estimate_individual_outcome()
 
+    def test_raises_on_non_binary_treatment(self):
+        data = deepcopy(self.data)
+        data['a'].loc[:5] = 2  # Create multiclass treatment
+        with self.assertRaises(AssertionError):
+            self.estimator.fit(data['X'], data['a'], data['y'])
+
 
 class TestTMLEMatrixImportanceSamplingBinary(BaseTestTMLEBinary):
     def setUp(self) -> None:
@@ -311,6 +317,12 @@ class TestTMLEVectorImportanceSamplingBinary(BaseTestTMLEBinary):
 
     def test_estimate_individual_outcome(self):
         self.ensure_estimate_individual_outcome()
+
+    def test_raises_on_non_binary_treatment(self):
+        data = deepcopy(self.data)
+        data['a'].loc[:5] = 2  # Create multiclass treatment
+        with self.assertRaises(AssertionError):
+            self.estimator.fit(data['X'], data['a'], data['y'])
 
 
 class TestTMLEMatrixFeatureContinuous(BaseTestTMLEContinuous):
