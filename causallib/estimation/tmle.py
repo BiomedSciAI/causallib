@@ -207,9 +207,7 @@ class CleverCovariateImportanceSamplingMatrix(BaseCleverCovariate):
         self.treatment_encoder_ = OneHotEncoder(sparse=False, categories="auto")
         self.treatment_encoder_.fit(a.to_frame())
         A = self.treatment_encoder_.transform(a.to_frame())
-        A = pd.DataFrame(A, index=a.index, columns=self.treatment_encoder_.categories_)
-        # TODO: a bug in statsmodels >0.9? crashes weighted GLM expecting string columns
-        A = A.rename(columns=lambda i: str(i))  # A bug in statsmodels
+        A = pd.DataFrame(A, index=a.index, columns=self.treatment_encoder_.categories_[0])
         return A
 
     def clever_covariate_inference(self, X, a, treatment_value):
@@ -219,10 +217,8 @@ class CleverCovariateImportanceSamplingMatrix(BaseCleverCovariate):
         )
         A = self.treatment_encoder_.transform(treatment_assignment)
         A = pd.DataFrame(
-            A, index=a.index, columns=self.treatment_encoder_.categories_
+            A, index=a.index, columns=self.treatment_encoder_.categories_[0]
         )
-        # TODO: a bug in statsmodels >0.9? crashes weighted GLM expecting string columns
-        A = A.rename(columns=lambda i: str(i))  # A bug in statsmodels
         return A
 
     def sample_weights(self, X, a):
