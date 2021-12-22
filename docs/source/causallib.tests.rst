@@ -14,7 +14,9 @@ Submodules
    causallib.tests.test_marginal_outcome
    causallib.tests.test_matching
    causallib.tests.test_overlap_weights
+   causallib.tests.test_plots
    causallib.tests.test_standardization
+   causallib.tests.test_tmle
    causallib.tests.test_transformers
    causallib.tests.test_utils
 

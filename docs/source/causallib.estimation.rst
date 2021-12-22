@@ -1,5 +1,5 @@
-
-.. mdinclude:: ..\..\causallib\estimation\README.md
+causallib.estimation package
+============================
 
 Submodules
 ----------
@@ -14,6 +14,7 @@ Submodules
    causallib.estimation.matching
    causallib.estimation.overlap_weights
    causallib.estimation.standardization
+   causallib.estimation.tmle
 
 Module contents
 ---------------
