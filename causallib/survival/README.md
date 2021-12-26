@@ -21,11 +21,11 @@ The methods that are currently available are:
 from sklearn.linear_model import LogisticRegression
 from causallib.survival import WeightedSurvival
 from causallib.estimation import IPW
-from causallib.survival.survival_utils import get_nhefs_data
+from causallib.datasets import load_nhefs_survival
 
 ipw = IPW(learner=LogisticRegression())
 weighted_survival_estimator = WeightedSurvival(weight_model=ipw)
-X, a, t, y = get_nhefs_data()
+X, a, t, y = load_nhefs_survival()
 
 weighted_survival_estimator.fit(X, a)
 population_averaged_survival_curves = weighted_survival_estimator.estimate_population_outcome(X, a, t, y)
