@@ -13,6 +13,7 @@ Subpackages
    causallib.evaluation
    causallib.preprocessing
    causallib.simulation
+   causallib.survival
    causallib.tests
    causallib.utils
 

@@ -95,6 +95,68 @@ def load_nhefs(raw=False, restrict=True, augment=True, onehot=True):
     return data
 
 
+def load_nhefs_survival(augment=True, onehot=True):
+    """
+    Loads and pre-processes the NHEFS smoking-cessation dataset.
+
+    Data was gathered in an observational study conducted by the NHANS
+    during the 1970's and 1980'. It follows a cohort a people whom some
+    decided to quite smoking and some decided to persist, and record the
+    death events within 10 years of follow-up.
+
+    This dataset is used throughout Hernán and Robins' Causal Inference Book.
+    https://www.hsph.harvard.edu/miguel-hernan/causal-inference-book/
+    If used for academic purposes, please consider citing the book:
+    Hernán MA, Robins JM (2020). Causal Inference: What If. Boca Raton: Chapman & Hall/CRC.
+
+    Args:
+        augment (bool): Whether to add augmented (squared) features
+                    If False, only original data returned.
+                    If True, squares continuous valued columns ['age', 'wt71', 'smokeintensity', 'smokeyrs']
+                    and joins to data frame with suffix '^2'
+        onehot (bool): Whether to one-hot encode categorical data.
+                    If False, categorical data ["active", "education", "exercise"], will be returned
+                    in individual columns with categorical values.
+                    If True, extra columns with the categorical value one-hot encoded.
+
+    Returns:
+        X (pd.DataFrame): Baseline covariate matrix of size (num_subjects, num_features).
+        a (pd.Series): Treatment assignment of size (num_subjects,). Quit smoking vs. non-quit.
+        t (pd.Series): Followup duration, size (num_subjects,).
+        y (pd.Series): Observed outcome (1) or right censoring event (0), size (num_subjects,).
+    """
+
+    nhefs_all = load_nhefs(raw=True, augment=augment, onehot=onehot)[0]
+
+    nhefs_all['longevity'] = (nhefs_all.yrdth - 83) * 12 + nhefs_all.modth - 1
+    nhefs_all['longevity'].fillna(120, inplace=True)
+
+    # Pre-process data
+    a = nhefs_all['qsmk']
+    t = nhefs_all['longevity']
+    y = nhefs_all['death']
+    X = nhefs_all[[
+        "sex", "race", "age",
+        "active", "education", "exercise",
+        "smokeintensity", "smokeyrs",
+        "wt71"
+    ]]
+
+    # Add square terms and dummy variables
+    squares = {}
+    for col in ['age', 'wt71', 'smokeintensity', 'smokeyrs']:
+        squares[f'{col}^2'] = X[col] * X[col]
+    X = X.assign(**squares)
+    X = pd.get_dummies(
+        X, columns=["active", "education", "exercise"], drop_first=True
+    )
+
+    # Make timeline 1-index (to comply with some lifelines fitters that require strictly positive time steps)
+    t = t + 1
+
+    return X, a, t, y
+
+
 def load_acic16(instance=1, raw=False):
     """ Loads single dataset from the 2016 Atlantic Causal Inference Conference data challenge.
 
