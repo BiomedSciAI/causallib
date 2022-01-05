@@ -340,3 +340,38 @@ def _clever_covariate_factory(reduced, importance_sampling) -> Type[BaseCleverCo
         return CleverCovariateFeatureVector
     else:  # not importance_sampling and not reduced
         return CleverCovariateFeatureMatrix
+
+
+class TargetMinMaxScaler(MinMaxScaler):
+    """A MinMaxScaler that operates on a vector (Series)"""
+    # @staticmethod
+    def _series_to_matrix_and_back(func):
+        def to_matrix_run_and_to_series(self, X):
+            X_index, X_name = X.index, X.name  # Convert back to pandas Series later
+            X = X.to_frame()  # MinMaxScaler requires a 2D array, not a vector
+            X = func(self, X)
+            X = pd.Series(
+                X.ravel(), index=X_index, name=X_name,
+            )
+            return X
+        return to_matrix_run_and_to_series
+
+    def fit(self, X, y=None):
+        X = X.to_frame()  # MinMaxScaler requires a 2D array, not a vector
+        super().fit(X, y)
+        return self
+
+    @_series_to_matrix_and_back
+    def transform(self, X):
+        X = super().transform(X)
+        return X
+
+    @_series_to_matrix_and_back
+    def inverse_transform(self, X):
+        X = super().inverse_transform(X)
+        return X
+
+    # Decorator function cannot be defined as static before decorating,
+    # so setting as the decorator as `staticmethod` is done after defining the functions using the decorator
+    _series_to_matrix_and_back = staticmethod(_series_to_matrix_and_back)
+

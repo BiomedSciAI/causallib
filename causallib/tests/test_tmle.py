@@ -432,3 +432,40 @@ class TestTMLEVectorImportanceSamplingContinuous(BaseTestTMLEContinuous):
 
     def test_conditional_effect(self):
         self.ensure_conditional_effect()
+
+
+from causallib.estimation.tmle import TargetMinMaxScaler
+
+
+class TestTargetMinMaxScaler(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.scaler = TargetMinMaxScaler(feature_range=(0, 1))
+        cls.y = pd.Series(
+            data=[-2, -1, 0, 1, 2],
+            index=list("abcde"),
+            name="target_mctargetface",
+            dtype=float,
+        )
+
+    def setUp(self) -> None:
+        self.scaler.fit(self.y)
+
+    def test_fit(self):
+        self.assertEqual(self.scaler.data_min_, -2)
+        self.assertEqual(self.scaler.data_max_, 2)
+        self.assertEqual(self.scaler.n_features_in_, 1)
+        self.assertEqual(self.scaler.n_samples_seen_, 5)
+
+    def test_transform(self):
+        y = self.scaler.transform(self.y)
+        self.assertEqual(y.min(), 0)
+        self.assertEqual(y.max(), 1)
+        self.assertIsInstance(y, pd.Series)
+        self.assertEqual(y.name, self.y.name)
+        pd.testing.assert_index_equal(y.index, self.y.index)
+
+    def test_inverse_transform(self):
+        y = self.scaler.transform(self.y)
+        y = self.scaler.inverse_transform(y)
+        pd.testing.assert_series_equal(y, self.y)
