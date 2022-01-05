@@ -87,12 +87,13 @@ class TMLE(BaseDoublyRobust):
         self.glm_fit_kwargs = {} if glm_fit_kwargs is None else glm_fit_kwargs
 
     def fit(self, X, a, y, refit_weight_model=True, **kwargs):
+        # Initial outcome model:
         X_outcome = self._extract_outcome_model_data(X)
         self.outcome_model.fit(X_outcome, a, y)
         y_pred = self._outcome_model_estimate_individual_outcome(X, a)
         y_pred = robust_lookup(y_pred, a)  # Predictions on the observed
 
-        # self.treatment_values_ = sorted(a.unique())
+        # IPW to prepare covariates to fluctuate the initial estimator:
         weight_model_is_not_fitted = not check_learner_is_fitted(self.weight_model.learner)
         X_treatment = self._extract_weight_model_data(X)
         if refit_weight_model or weight_model_is_not_fitted:
@@ -103,8 +104,16 @@ class TMLE(BaseDoublyRobust):
         exog = self.clever_covariate_.clever_covariate_fit(X, a)
         sample_weights = self.clever_covariate_.sample_weights(X, a)
 
-        y = self._scale_target(y, fit=True, inverse=False)
-        y_pred = self._scale_target(y_pred, fit=False, inverse=False)
+        # Update the initial estimator with the IPW:
+        self._validate_predict_proba_for_classification(y)
+        # The re-targeting of the estimation is done through logistic regression,
+        # which requires the target to be bounded between 0 and 1.
+        # We force this bounding in case target is continuous.
+        # See Gruber and van der Laan 2010: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3126669/
+        self.target_scaler_ = TargetMinMaxScaler(feature_range=(0, 1))
+        self.target_scaler_.fit(y)
+        y = self.target_scaler_.transform(y)
+        y_pred = self.target_scaler_.transform(y_pred)
         y_pred = _logit(y_pred)  # Used as offset in logit-space
         # Statsmodels supports logistic regression with continuous (0-1 bounded) targets
         # so can be used with non-binary (but scaled) response variable (`y`)
@@ -127,52 +136,17 @@ class TMLE(BaseDoublyRobust):
         res = {}
         for treatment_value in get_iterable_treatment_values(treatment_values, a):
             potential_outcome = potential_outcomes[treatment_value]
-            potential_outcome = self._scale_target(potential_outcome, fit=False, inverse=False)
+            potential_outcome = self.target_scaler_.transform(potential_outcome)
             potential_outcome = _logit(potential_outcome)
             treatment_assignment = self.clever_covariate_.clever_covariate_inference(X, a, treatment_value)
             counterfactual_prediction = self.targeted_outcome_model_.predict(
                 treatment_assignment, offset=potential_outcome,
             )
-            counterfactual_prediction = self._scale_target(counterfactual_prediction, fit=False, inverse=True)
+            counterfactual_prediction = self.target_scaler_.inverse_transform(counterfactual_prediction)
             res[treatment_value] = counterfactual_prediction
 
         res = pd.concat(res, axis="columns", names=[a.name or "a"])
         return res
-
-    def _scale_target(self, y, fit=False, inverse=False):
-        """The re-targeting of the estimation requires log loss,
-        which requires the target to be bounded between 0 and 1.
-        However, general continuous targets can still be used for targeted learning
-        as long as they are scaled into the 0-1 interval.
-
-        See Gruber and van der Laan 2010: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3126669/
-
-        Function transforms response variable into [0, 1] interval when fitting,
-        and inverse-transform it during inference.
-
-        Args:
-            y (pd.Series): Response variable.
-            fit (bool): If True - fit and transform. If False - inverse transforms.
-
-        Returns:
-            pd.Series: a scaled response variable.
-        """
-        y_index, y_name = y.index, y.name  # Convert back to pandas Series later
-        y = y.to_frame()  # MinMaxScaler requires a 2D array, not a vector
-        if fit:
-            self._validate_predict_proba_for_classification(y)
-            self.target_scaler_ = MinMaxScaler(feature_range=(0, 1))
-            self.target_scaler_.fit(y)
-
-        if inverse:
-            y = self.target_scaler_.inverse_transform(y)
-        else:
-            y = self.target_scaler_.transform(y)
-
-        y = pd.Series(
-            y[:, 0], index=y_index, name=y_name,
-        )
-        return y
 
     def _outcome_model_estimate_individual_outcome(self, X, a):
         """Standardize output for continuous `outcome_model` with `predict` with
