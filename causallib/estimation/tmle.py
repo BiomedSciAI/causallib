@@ -195,28 +195,6 @@ class BaseCleverCovariate:
         raise NotImplementedError
 
 
-class CleverCovariateFeatureMatrix(BaseCleverCovariate):
-    """Clever covariate uses a matrix of inverse propensity weights
-    of all treatment values as a predictor to the targeting regression.
-
-    References:
-        * Gruber S, van der Laan M. tmle: An R package for targeted maximum likelihood estimation. 2012.
-          https://doi.org/10.18637/jss.v051.i13
-    """
-    def clever_covariate_fit(self, X, a):
-        w = self.weight_model.compute_weight_matrix(X, a)
-        return w
-
-    def clever_covariate_inference(self, X, a, treatment_value):
-        weight_matrix = self.weight_model.compute_weight_matrix(X, a)
-        w = pd.DataFrame(data=0, index=weight_matrix.index, columns=weight_matrix.columns)
-        w[treatment_value] = weight_matrix[treatment_value]
-        return w
-
-    def sample_weights(self, X, a):
-        return None  # pd.Series(data=1, index=a.index)
-
-
 class CleverCovariateFeatureVector(BaseCleverCovariate):
     """Clever covariate uses a signed vector of inverse propensity weights,
     with control group have their weights negated.
@@ -295,6 +273,30 @@ class CleverCovariateImportanceSamplingVector(BaseCleverCovariate):
     def sample_weights(self, X, a):
         w = self.weight_model.compute_weights(X, a)
         return w
+
+
+class CleverCovariateFeatureMatrix(CleverCovariateImportanceSamplingMatrix):
+    """Clever covariate uses a matrix of inverse propensity weights
+    of all treatment values as a predictor to the targeting regression.
+
+    References:
+        * Gruber S, van der Laan M. tmle: An R package for targeted maximum likelihood estimation. 2012.
+          https://doi.org/10.18637/jss.v051.i13
+    """
+    def clever_covariate_fit(self, X, a):
+        A = super().clever_covariate_fit(X, a)
+        W = self.weight_model.compute_weight_matrix(X, a)
+        w = A * W
+        return w
+
+    def clever_covariate_inference(self, X, a, treatment_value):
+        assignment = super().clever_covariate_inference(X, a, treatment_value)
+        W = self.weight_model.compute_weight_matrix(X, a)
+        w = assignment * W
+        return w
+
+    def sample_weights(self, X, a):
+        return None  # pd.Series(data=1, index=a.index)
 
 
 def _logit(p, safe=True):

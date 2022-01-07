@@ -243,7 +243,7 @@ class BaseTestTMLEContinuous(BaseTestTMLE):
             ind_effect.loc[data['X'].iloc[:, -1] == 0].mean(),
             data['treatment_effect'],
             # decimal=1,
-            atol=0.5, rtol=1e-5,
+            atol=0.2, rtol=1e-5,
         )
 
         # The average effect should be the weighted mean between the two modifications
@@ -255,7 +255,7 @@ class BaseTestTMLEContinuous(BaseTestTMLE):
                 weights=[sum(data['X'].iloc[:, -1] == 0),
                          sum(data['X'].iloc[:, -1] == 1)]
             ),
-            decimal=1
+            decimal=3
         )
 
 
