@@ -21,7 +21,7 @@ from numpy import isscalar as np_is_scalar
 from pandas import Series
 
 
-def get_iterable_treatment_values(treatment_values, treatment_assignment):
+def get_iterable_treatment_values(treatment_values, treatment_assignment, sort=True):
     """
     Convert an optionally provided specification of unique treatment values to an iterable of the unique treatment
     options.
@@ -36,12 +36,15 @@ def get_iterable_treatment_values(treatment_values, treatment_assignment):
         treatment_assignment (Series): The observed treatment assignment, used to infer a list of unique treatment
                                        values in case no treatment values are provided (None is passed to
                                        treatment_values).
+        sort (bool): Whether to sort the treatment values
 
     Returns:
         list[Any]: list of unique treatment values.
     """
     treatment_values = treatment_assignment.unique() if treatment_values is None else treatment_values
     treatment_values = [treatment_values] if np_is_scalar(treatment_values) else treatment_values
+    if sort:
+        treatment_values = sorted(treatment_values)
     return treatment_values
 
 

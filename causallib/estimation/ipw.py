@@ -58,7 +58,8 @@ class IPW(PropensityEstimator, PopulationOutcomeEstimator):
     def _predict(self, X):
         # Assumes PropensityEstimator checked that learner has predict_proba during initialization:
         prediction_matrix = self.learner.predict_proba(X)
-        prediction_matrix = pd.DataFrame(prediction_matrix, index=X.index, columns=self.learner.classes_)
+        columns = getattr(self.learner, "classes_", None)  # non-sklearn classifiers might not have the attribute
+        prediction_matrix = pd.DataFrame(prediction_matrix, index=X.index, columns=columns)
         return prediction_matrix
 
     def compute_weights(self, X, a, treatment_values=None, truncate_eps=None, use_stabilized=None):
