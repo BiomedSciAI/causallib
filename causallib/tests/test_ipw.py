@@ -48,7 +48,8 @@ class TestIPW(unittest.TestCase):
         cls.data_cat_r_80 = {"X": X, "a": a}
 
         # Avoids regularization of the model:
-        cls.estimator = IPW(LogisticRegression(C=1e6, solver='lbfgs'), truncate_eps=0.05, use_stabilized=False)
+        cls.estimator = IPW(LogisticRegression(C=1e6, solver='lbfgs'), clip_min=0.05, clip_max=0.95,
+                            use_stabilized=False)
 
     def setUp(self):
         self.estimator.fit(self.data_r_100["X"], self.data_r_100["a"])
@@ -87,11 +88,34 @@ class TestIPW(unittest.TestCase):
             self.assertAlmostEqual(p.max(), 1 - 0.05)
 
         with self.subTest("Overwrite parameters in compute_weights"):
-            p = self.estimator.compute_propensity(self.data_r_80["X"], self.data_r_80["a"], truncate_eps=0.1)
+            p = self.estimator.compute_propensity(self.data_r_80["X"], self.data_r_80["a"], clip_min=0.1, clip_max = 0.9)
             if test_weights:
-                p = self.estimator.compute_weights(self.data_r_80["X"], self.data_r_80["a"], truncate_eps=0.1).pow(-1)
+                p = self.estimator.compute_weights(self.data_r_80["X"], self.data_r_80["a"], clip_min=0.1, clip_max=0.9).pow(-1)
             self.assertAlmostEqual(p.min(), 0.1)
             self.assertAlmostEqual(p.max(), 1 - 0.1)
+
+        with self.subTest("Test asymmetric clipping"):
+            p = self.estimator.compute_propensity(self.data_r_80["X"], self.data_r_80["a"], clip_min=0.2,
+                                                  clip_max=0.9)
+            if test_weights:
+                p = self.estimator.compute_weights(self.data_r_80["X"], self.data_r_80["a"], clip_min=0.2,
+                                                   clip_max=0.9).pow(-1)
+            self.assertAlmostEqual(p.min(), 0.2)
+            self.assertAlmostEqual(p.max(), 0.9)
+
+        with self.subTest("Test calculation of fraction of clipped observations"):
+            probabilities = pd.DataFrame()
+            probabilities['col1'] = [0.01, 0.02, 0.03, 0.05, 0.3, 0.6, 0.9, 0.95, 0.99, 0.99]
+            probabilities['col2'] = [0.99, 0.98, 0.97, 0.95, 0.7, 0.4, 0.1, 0.05, 0.01, 0.01]
+            frac = self.estimator._IPW__count_truncated(probabilities, clip_min=0.05, clip_max=0.95)
+            self.assertAlmostEqual(frac, 0.5)
+
+        with self.subTest("Test calculation of fraction of clipped observations - no clipping"):
+            probabilities = pd.DataFrame()
+            probabilities['col1'] = [0.0, 0.0, 0.0, 1.0, 1.0]
+            probabilities['col2'] = [1.0, 1.0, 1.0, 0.0, 0.0]
+            frac = self.estimator._IPW__count_truncated(probabilities, clip_min=0.0, clip_max=1.0)
+            self.assertAlmostEqual(frac, 0.0)
 
     def test_weight_truncation(self):
         self.ensure_truncation(test_weights=True)
@@ -101,22 +125,37 @@ class TestIPW(unittest.TestCase):
 
         with self.subTest("Illegal truncation values assertion on compute"):
             with self.assertRaises(AssertionError):
-                self.estimator.compute_propensity(self.data_r_80["X"], self.data_r_80["a"], truncate_eps=0.6)
+                self.estimator.compute_propensity(self.data_r_80["X"], self.data_r_80["a"], clip_min=0.6)
+            with self.assertRaises(AssertionError):
+                self.estimator.compute_propensity(self.data_r_80["X"], self.data_r_80["a"], clip_max=0.4)
+            with self.assertRaises(AssertionError):
+                self.estimator.compute_propensity(self.data_r_80["X"], self.data_r_80["a"], clip_min=0.6,
+                                                  clip_max=0.9)
+            with self.assertRaises(AssertionError):
+                self.estimator.compute_propensity(self.data_r_80["X"], self.data_r_80["a"], clip_min=0.1,
+                                                  clip_max=0.4)
 
         with self.subTest("Illegal truncation values assertion on initialization"):
             with self.assertRaises(AssertionError):
-                IPW(LogisticRegression, truncate_eps=0.6)
+                IPW(LogisticRegression(), clip_min=0.6)
+            with self.assertRaises(AssertionError):
+                IPW(LogisticRegression(), clip_max=0.4)
+            with self.assertRaises(AssertionError):
+                IPW(LogisticRegression(), clip_min=0.1, clip_max=0.4)
+            with self.assertRaises(AssertionError):
+                IPW(LogisticRegression(), clip_min=0.6, clip_max=0.9)
 
     def test_weights_sanity_check(self):
         with self.subTest("Linearly separable X should have perfectly predicted propensity score"):
-            p = self.estimator.compute_weights(self.data_r_100["X"], self.data_r_100["a"], truncate_eps=0.0).pow(-1)
+            p = self.estimator.compute_weights(self.data_r_100["X"], self.data_r_100["a"], clip_min=0.0,
+                                               clip_max=1.0).pow(-1)
             np.testing.assert_array_almost_equal(p, np.ones_like(p), decimal=3)
 
         with self.subTest("Train on bijection X|a data and predict on data where q% are flipped"):
             # Train on data that maps x=0->a=0 and x=1->a=1:
             self.estimator.fit(self.data_cat_r_100["X"], self.data_cat_r_100["a"])
             # Predict on a set with mis-mapping: 10% of x=0 have a=1 and 10% of x=1 have a=0:
-            p = self.estimator.compute_weights(self.data_cat_r_80["X"], self.data_cat_r_80["a"], truncate_eps=0.0).pow(
+            p = self.estimator.compute_weights(self.data_cat_r_80["X"], self.data_cat_r_80["a"], clip_min=0.0, clip_max=1.0).pow(
                 -1)
             # Extract subjects with mismatching X-a values:
             mis_assigned = np.logical_xor(self.data_cat_r_80["X"].iloc[:, 0], self.data_cat_r_80["a"])

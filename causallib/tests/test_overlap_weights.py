@@ -63,11 +63,11 @@ class TestOverlapWeights(unittest.TestCase):
             with self.assertRaises(AssertionError):
                 self.estimator.compute_weight_matrix(self.data_r_100["X"], a)
 
-    def test_truncate_eps_not_none(self):
+    def test_truncate_values_not_none(self):
         with self.assertWarns(RuntimeWarning):
             self.estimator.compute_weight_matrix(
                 self.data_r_100["X"], self.data_r_100["a"],
-                truncate_eps=0.2, use_stabilized=None)
+                clip_min=0.2, clip_max=0.8, use_stabilized=None)
 
     def test_categorical_classes_df_col_names(self):
         a = pd.Series(["a"] * 50 + ["b"] * 50, index=self.data_r_100["X"].index)
@@ -78,7 +78,8 @@ class TestOverlapWeights(unittest.TestCase):
     def test_ow_weights_reversed_to_propensity(self):
         propensity = self.estimator.learner.predict_proba(self.data_r_100["X"])
         propensity = pd.DataFrame(propensity)
-        ow_weights = self.estimator.compute_weight_matrix(self.data_r_100["X"], self.data_r_100["a"], truncate_eps=None)
+        ow_weights = self.estimator.compute_weight_matrix(self.data_r_100["X"], self.data_r_100["a"],
+                                                          clip_min=None, clip_max=None)
         pd.testing.assert_series_equal(propensity.loc[:, 0], ow_weights.loc[:, 1], check_names=False)
         pd.testing.assert_series_equal(propensity.loc[:, 1], ow_weights.loc[:, 0], check_names=False)
         pd.testing.assert_index_equal(propensity.columns, ow_weights.columns)

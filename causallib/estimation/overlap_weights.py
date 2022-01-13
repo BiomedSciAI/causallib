@@ -55,7 +55,7 @@ class OverlapWeights(IPW):
         """
         super(OverlapWeights, self).__init__(learner, use_stabilized)
 
-    def compute_weight_matrix(self, X, a, truncate_eps=None, use_stabilized=None):
+    def compute_weight_matrix(self, X, a, clip_min=None, clip_max=None, use_stabilized=None):
         """
         Computes individual weight across all possible treatment values.
         w_ij = 1 - Pr[A=a_j | X_i]  for all individual i and treatment j.
@@ -63,7 +63,8 @@ class OverlapWeights(IPW):
         Args:
             X (pd.DataFrame): Covariate matrix of size (num_subjects, num_features).
             a (pd.Series): Treatment assignment of size (num_subjects,).
-            truncate_eps (None): Ignored.
+            clip_min (None|float): Lower bound for propensity scores. Better be left `None`.
+            clip_max (None|float): Upper bound for propensity scores. Better be left `None`.
             use_stabilized (None|bool): Whether to re-weigh the learned weights with the prevalence of the treatment.
                                         This overrides the use_stabilized parameter provided at initialization.
                                         If True provided, but the model was initialized with use_stabilized=False, then
@@ -78,11 +79,11 @@ class OverlapWeights(IPW):
         use_stabilized = self.use_stabilized if use_stabilized is None else use_stabilized
         # Check that number of unique classes is 2
         self.__check_number_of_classes_is_legal(a)
-        #  Check truncate_eps is None|False otherwise a warning is printed
-        self.__check_truncate_eps_is_none(truncate_eps)
+        # Truncation is generally bad, check and warn:
+        self.__check_truncation_value_is_none(clip_min, clip_max)
 
         # COmpute propensity scores
-        probabilities = self.compute_propensity_matrix(X, a, truncate_eps)
+        probabilities = self.compute_propensity_matrix(X, a, clip_min, clip_max)
         # weight matrix: 1-P[a_i=1|x]
         # Reverse probabilities to opposite classes:
         probabilities.columns = probabilities.columns[::-1]  # Flip name-based indexing
@@ -132,8 +133,8 @@ class OverlapWeights(IPW):
             raise AssertionError("Number of unique classes should be equal 2")
 
     @staticmethod
-    def __check_truncate_eps_is_none(truncate_eps):
-        if truncate_eps is not None:
+    def __check_truncation_value_is_none(clip_min, clip_max):
+        if clip_min is not None or clip_max is not None:
             warnings.warn(
                 "Trimming observations with Overlap Weighting may be redundant, "
                 "as extreme observations can receive greater importance than they should.",

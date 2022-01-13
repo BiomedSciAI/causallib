@@ -26,28 +26,31 @@ from .base_weight import PropensityEstimator
 from ..utils.stat_utils import robust_lookup
 
 
-# TODO: implement a two-caliper truncation, one lower bound truncation epsilon and an upper bound one.
-
-
 class IPW(PropensityEstimator, PopulationOutcomeEstimator):
     """
     Causal model implementing inverse probability (propensity score) weighting.
     w_i = 1 / Pr[A=a_i|Xi]
     """
 
-    def __init__(self, learner, truncate_eps=None, use_stabilized=False):
+    def __init__(self, learner, clip_min=None, clip_max=None, use_stabilized=False, verbose=False):
         """
 
         Args:
             learner: Initialized sklearn model.
-            truncate_eps (None|float): Optional value between 0 to 0.5 to clip the propensity estimation.
-                                       Will clip probabilities between clip_eps and 1-clip_eps.
+            clip_min (None|float): Optional value between 0 to 0.5 to lower bound the propensity estimation by
+                                   clipping it. Will clip probabilities under clip_min to this value.
+            clip_max (None|float): Optional value between 0.5 to 1 to upper bound the propensity estimation by
+                                   clipping it. Will clip probabilities above clip_max to this value.
             use_stabilized (bool): Whether to re-weigh the learned weights with the prevalence of the treatment.
                                    See Also: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4351790/#S6title
+            verbose (bool): Whether to print summary statistics regarding the number of samples clipped due to
+                            clip_min and clip_max.
         """
         super(IPW, self).__init__(learner, use_stabilized)
-        self.__check_truncation_value_is_legal(truncate_eps)
-        self.truncate_eps = truncate_eps
+        self.__check_truncation_value_is_legal(clip_min, clip_max)
+        self.clip_min = clip_min
+        self.clip_max = clip_max
+        self.verbose = verbose
 
     def fit(self, X, a, y=None):
         if self.use_stabilized:
@@ -62,7 +65,7 @@ class IPW(PropensityEstimator, PopulationOutcomeEstimator):
         prediction_matrix = pd.DataFrame(prediction_matrix, index=X.index, columns=columns)
         return prediction_matrix
 
-    def compute_weights(self, X, a, treatment_values=None, truncate_eps=None, use_stabilized=None):
+    def compute_weights(self, X, a, treatment_values=None, clip_min=None, clip_max=None, use_stabilized=None):
         """
         Computes individual weight given the individual's treatment assignment.
         w_i = 1 / Pr[A=a_i|X_i]  for each individual i.
@@ -74,8 +77,10 @@ class IPW(PropensityEstimator, PopulationOutcomeEstimator):
                                            value should be calculated).
                                            If not specified, then the weights are chosen by the individual's actual
                                            treatment assignment.
-            truncate_eps (None|float): Optional value between 0 to 0.5 to clip the propensity estimation.
-                                       Will clip probabilities between clip_eps and 1-clip_eps.
+            clip_min (None|float): Optional value between 0 to 0.5 to lower bound the propensity estimation by
+                                   clipping it. Will clip probabilities under clip_min to this value.
+            clip_max (None|float): Optional value between 0.5 to 1 to upper bound the propensity estimation by
+                                   clipping it. Will clip probabilities above clip_max to this value.
             use_stabilized (None|bool): Whether to re-weigh the learned weights with the prevalence of the treatment.
                                         This overrides the use_stabilized parameter provided at initialization.
                                         If True provided, but the model was initialized with use_stabilized=False, then
@@ -88,14 +93,14 @@ class IPW(PropensityEstimator, PopulationOutcomeEstimator):
                                       n_samples with a weight for each sample is returned.
                                       If treatment_values is a list/array, then a DataFrame is returned.
         """
-        weight_matrix = self.compute_weight_matrix(X, a, truncate_eps, use_stabilized)
+        weight_matrix = self.compute_weight_matrix(X, a, clip_min, clip_max, use_stabilized)
         if treatment_values is None:
             weights = robust_lookup(weight_matrix, a)  # lookup table: take the column a[i] for every i in index(a).
         else:
             weights = weight_matrix[treatment_values]
         return weights
 
-    def compute_weight_matrix(self, X, a, truncate_eps=None, use_stabilized=None):
+    def compute_weight_matrix(self, X, a, clip_min=None, clip_max=None, use_stabilized=None):
         """
         Computes individual weight across all possible treatment values.
         w_ij = 1 / Pr[A=a_j | X_i]  for all individual i and treatment j.
@@ -103,8 +108,10 @@ class IPW(PropensityEstimator, PopulationOutcomeEstimator):
         Args:
             X (pd.DataFrame): Covariate matrix of size (num_subjects, num_features).
             a (pd.Series): Treatment assignment of size (num_subjects,).
-            truncate_eps (None|float): Optional value between 0 to 0.5 to clip the propensity estimation.
-                                       Will clip probabilities between clip_eps and 1-clip_eps.
+            clip_min (None|float): Optional value between 0 to 0.5 to lower bound the propensity estimation by clipping it.
+                                       Will clip probabilities under clip_min to this value.
+            clip_max (None|float): Optional value between 0.5 to 1 to upper bound the propensity estimation by clipping it.
+                                       Will clip probabilities above clip_max to this value.
             use_stabilized (None|bool): Whether to re-weigh the learned weights with the prevalence of the treatment.
                                         This overrides the use_stabilized parameter provided at initialization.
                                         If True provided, but the model was initialized with use_stabilized=False, then
@@ -118,7 +125,7 @@ class IPW(PropensityEstimator, PopulationOutcomeEstimator):
         """
         use_stabilized = self.use_stabilized if use_stabilized is None else use_stabilized
 
-        probabilities = self.compute_propensity_matrix(X, a, truncate_eps)
+        probabilities = self.compute_propensity_matrix(X, a, clip_min, clip_max)
 
         # weight_matrix = 1.0 / probabilities                                                     # type: pd.DataFrame
         weight_matrix = probabilities.rdiv(1.0)
@@ -137,7 +144,7 @@ class IPW(PropensityEstimator, PopulationOutcomeEstimator):
 
         return weight_matrix
 
-    def compute_propensity(self, X, a, treatment_values=None, truncate_eps=None):
+    def compute_propensity(self, X, a, treatment_values=None, clip_min=None, clip_max=None):
         """
 
         Args:
@@ -147,8 +154,10 @@ class IPW(PropensityEstimator, PopulationOutcomeEstimator):
                                           treatment value should be calculated).
                                           If not specified, then the maximal treatment value is chosen. This is since
                                           the usual case is of treatment (A=1) control (A=0) setting.
-            truncate_eps (None|float): Optional value between 0 to 0.5 to clip the propensity estimation.
-                                       Will clip probabilities between clip_eps and 1-clip_eps.
+            clip_min (None|float): Optional value between 0 to 0.5 to lower bound the propensity estimation by clipping it.
+                                       Will clip probabilities under clip_min to this value.
+            clip_max (None|float): Optional value between 0.5 to 1 to upper bound the propensity estimation by clipping it.
+                                       Will clip probabilities above clip_max to this value.
 
         Returns:
             pd.DataFrame | pd.Series: A matrix/vector num_subjects rows and number of columns is the number of values
@@ -160,33 +169,35 @@ class IPW(PropensityEstimator, PopulationOutcomeEstimator):
         """
         treatment_values = a.max() if treatment_values is None else treatment_values
 
-        probabilities = self.compute_propensity_matrix(X, a, truncate_eps)
+        probabilities = self.compute_propensity_matrix(X, a, clip_min, clip_max)
         probabilities = probabilities[treatment_values]
         return probabilities
 
-    def compute_propensity_matrix(self, X, a=None, truncate_eps=None):
+    def compute_propensity_matrix(self, X, a=None, clip_min=None, clip_max=None):
         """
 
         Args:
             X (pd.DataFrame): Covariate matrix of size (num_subjects, num_features).
             a (pd.Series): Treatment assignment of size (num_subjects,).
-            truncate_eps (None|float): Optional value between 0 to 0.5 to clip the propensity estimation.
-                                       Will clip probabilities between clip_eps and 1-clip_eps.
+            clip_min (None|float): Optional value between 0 to 0.5 to lower bound the propensity estimation by clipping it.
+                                       Will clip probabilities under clip_min to this value.
+            clip_max (None|float): Optional value between 0.5 to 1 to upper bound the propensity estimation by clipping it.
+                                       Will clip probabilities above clip_max to this value.
 
         Returns:
             pd.DataFrame: A matrix of size (num_subjects, num_treatments) with probability for every individual and e
                           very treatment.
         """
-        truncate_eps = self.truncate_eps if truncate_eps is None else truncate_eps
-        self.__check_truncation_value_is_legal(truncate_eps)
+        clip_min = self.clip_min if clip_min is None else clip_min
+        clip_max = self.clip_max if clip_max is None else clip_max
+        self.__check_truncation_value_is_legal(clip_min, clip_max)
 
         probabilities = self._predict(X)
-        if truncate_eps is not None:  # since truncation value is legal, it must be a float.
-            print("Fraction of values being truncated: {:.5f}."
-                  .format(probabilities.apply(lambda x: ~x.between(truncate_eps, 1 - truncate_eps)).sum().sum() /
-                          probabilities.size))  # TODO: do as log
 
-            probabilities = probabilities.clip(lower=truncate_eps, upper=1 - truncate_eps)
+        clip_min = 0 if clip_min is None else clip_min
+        clip_max = 1 if clip_max is None else clip_max
+        self.__count_truncated(probabilities, clip_min, clip_max)
+        probabilities = probabilities.clip(lower=clip_min, upper=clip_max)
 
         return probabilities
 
@@ -215,6 +226,15 @@ class IPW(PropensityEstimator, PopulationOutcomeEstimator):
         return res
 
     @staticmethod
-    def __check_truncation_value_is_legal(truncate_eps):
-        if truncate_eps is not None and not 0 <= truncate_eps <= 0.5:
-            raise AssertionError("Provided value for truncation (truncate_eps) should be between 0.0 and 0.5")
+    def __check_truncation_value_is_legal(clip_min, clip_max):
+        if clip_min is not None and not 0 <= clip_min <= 0.5:
+            raise AssertionError("Provided value for truncation (clip_min) should be between 0.0 and 0.5")
+        if clip_max is not None and not 0.5 <= clip_max <= 1:
+            raise AssertionError("Provided value for truncation (clip_max) should be between 0.5 and 1.0")
+
+    def __count_truncated(self, probabilities, clip_min, clip_max):
+        num_clipped = probabilities.apply(lambda x: ~x.between(clip_min, clip_max)).sum().sum()
+        fraction_clipped = num_clipped/probabilities.size
+        if self.verbose:
+            print(f'Fraction of values being truncated: {fraction_clipped:.5f}.')  # TODO: do as log
+        return fraction_clipped
