@@ -29,7 +29,7 @@ class TestPlots(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         self.data = load_nhefs()
-        ipw = IPW(LogisticRegression(solver="liblinear"), truncate_eps=0.05)
+        ipw = IPW(LogisticRegression(solver="liblinear"), clip_min=0.05, clip_max=0.95)
         std = StratifiedStandardization(LinearRegression())
         self.dr = DoublyRobustVanilla(std, ipw)
         self.dr.fit(self.data.X, self.data.a, self.data.y)
