@@ -382,7 +382,7 @@ class TestPropensityFeatureStandardization(TestDoublyRobustBase):
 
                 # Test added covariates:
                 X_size = data['X'].shape[1]
-                added_covariates = 1 if "vector" in feature_type else 2  # Else is a matrix
+                added_covariates = 1 if "vector" in feature_type else 2  # Else it's a matrix
                 n_coefs = self.estimator.outcome_model.learner.coef_.size
                 self.assertEqual(n_coefs, X_size + added_covariates + 1)  # 1 for treatment assignment
 
