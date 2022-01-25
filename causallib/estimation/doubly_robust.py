@@ -299,11 +299,13 @@ class DoublyRobustIpFeature(BaseDoublyRobust):
         return self
 
 
-class DoublyRobustJoffe(BaseDoublyRobust):
+class WeightedStandardization(BaseDoublyRobust):
     """
-    A doubly-robust estimator of the effect of treatment.
-    This model uses the weights from the weight-model (e.g. inverse probability weighting) as individual weights for
-    fitting the outcome model.
+    This model uses the weights from the weight-model (e.g. inverse probability weighting)
+    as individual weights for fitting the outcome model.
+
+    References:
+        * Kang and Schafer, section 3.2, https://dx.doi.org/10.1214/07-STS227
     """
 
     def estimate_individual_outcome(self, X, a, treatment_values=None, predict_proba=None):

@@ -26,7 +26,7 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from warnings import simplefilter, catch_warnings
 
-from causallib.estimation import ResidualCorrectedStandardization, DoublyRobustIpFeature, DoublyRobustJoffe
+from causallib.estimation import ResidualCorrectedStandardization, DoublyRobustIpFeature, WeightedStandardization
 from causallib.estimation import IPW
 from causallib.estimation import Standardization, StratifiedStandardization
 
@@ -223,14 +223,14 @@ class TestResidualCorrectedStandardization(TestDoublyRobustBase):
         self.ensure_many_models()
 
 
-class TestDoublyRobustJoffe(TestDoublyRobustBase):
+class TestWeightedStandardization(TestDoublyRobustBase):
     @classmethod
     def setUpClass(cls):
         TestDoublyRobustBase.setUpClass()
         # Avoids regularization of the model:
         ipw = IPW(LogisticRegression(C=1e6, solver='lbfgs'), use_stabilized=False)
         std = Standardization(LinearRegression(normalize=True))
-        cls.estimator = DoublyRobustJoffe(std, ipw)
+        cls.estimator = WeightedStandardization(std, ipw)
 
     def test_uninformative_tx_leads_to_std_like_results(self):
         self.ensure_uninformative_tx_leads_to_std_like_results(self.estimator)
@@ -248,7 +248,7 @@ class TestDoublyRobustJoffe(TestDoublyRobustBase):
         self.ensure_weight_refitting_refits(self.estimator)
 
     def test_model_combinations_work(self):
-        self.ensure_model_combinations_work(DoublyRobustJoffe)
+        self.ensure_model_combinations_work(WeightedStandardization)
 
     def test_pipeline_learner(self):
         self.ensure_pipeline_learner()
