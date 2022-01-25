@@ -26,7 +26,9 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from warnings import simplefilter, catch_warnings
 
-from causallib.estimation import ResidualCorrectedStandardization, DoublyRobustIpFeature, WeightedStandardization
+from causallib.estimation import (
+    ResidualCorrectedStandardization, PropensityFeatureStandardization, WeightedStandardization
+)
 from causallib.estimation import IPW
 from causallib.estimation import Standardization, StratifiedStandardization
 
@@ -300,14 +302,14 @@ class TestWeightedStandardization(TestDoublyRobustBase):
                         model.fit(data["X"], data["a"], data["y"], refit_weight_model=False)
 
 
-class TestDoublyRobustIPFeature(TestDoublyRobustBase):
+class TestPropensityFeatureStandardization(TestDoublyRobustBase):
     @classmethod
     def setUpClass(cls):
         TestDoublyRobustBase.setUpClass()
         # Avoids regularization of the model:
         ipw = IPW(LogisticRegression(C=1e6, solver='lbfgs'), use_stabilized=False)
         std = Standardization(LinearRegression(normalize=True))
-        cls.estimator = DoublyRobustIpFeature(std, ipw)
+        cls.estimator = PropensityFeatureStandardization(std, ipw)
 
     def fit_and_predict_all_learners(self, data, estimator):
         X, a, y = data["X"], data["a"], data["y"]
@@ -333,7 +335,7 @@ class TestDoublyRobustIPFeature(TestDoublyRobustBase):
         self.ensure_weight_refitting_refits(self.estimator)
 
     def test_model_combinations_work(self):
-        self.ensure_model_combinations_work(DoublyRobustIpFeature)
+        self.ensure_model_combinations_work(PropensityFeatureStandardization)
 
     def test_pipeline_learner(self):
         self.ensure_pipeline_learner()

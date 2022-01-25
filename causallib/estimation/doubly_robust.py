@@ -249,10 +249,15 @@ class ResidualCorrectedStandardization(BaseDoublyRobust):
         return effect
 
 
-class DoublyRobustIpFeature(BaseDoublyRobust):
+class PropensityFeatureStandardization(BaseDoublyRobust):
     """
     A doubly-robust estimator of the effect of treatment.
-    This model adds the weighting (inverse probability weighting) as feature to the model.
+    This model adds the weighting (inverse probability weighting)
+    as additional feature to the outcome model.
+
+    References:
+        * Bang and Robins, https://doi.org/10.1111/j.1541-0420.2005.00377.x
+        * Kang and Schafer, section 3.3, https://dx.doi.org/10.1214/07-STS227
     """
 
     def estimate_individual_outcome(self, X, a, treatment_values=None, predict_proba=None):
