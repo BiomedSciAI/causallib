@@ -329,7 +329,7 @@ class TestPropensityFeatureStandardization(TestDoublyRobustBase):
         self.ensure_is_fitted(self.estimator)
 
     def test_data_is_separated_between_models(self):
-        self.ensure_data_is_separated_between_models(self.estimator, 2 + 1)  # 2 ip-features + 1 treatment assignment
+        self.ensure_data_is_separated_between_models(self.estimator, 1 + 1)  # 1 ip-feature + 1 treatment assignment
 
     def test_weight_refitting_refits(self):
         self.ensure_weight_refitting_refits(self.estimator)
@@ -342,3 +342,53 @@ class TestPropensityFeatureStandardization(TestDoublyRobustBase):
 
     def test_many_models(self):
         self.ensure_many_models(clip_min=0.001, clip_max=1-0.001)
+
+    def test_many_feature_types(self):
+        with self.subTest("Ensure all feature types are tested"):
+            feature_types = [
+                "weight_vector",  # "signed_weight_vector",
+                "weight_matrix",  # "masked_weight_matrix",
+                "propensity_vector", "propensity_matrix",
+                "logit_propensity_vector",
+            ]
+            model_feature_types = set(self.estimator._feature_functions.keys())
+            if set(feature_types) != model_feature_types:
+                raise AssertionError(
+                    "Hey there, there's a mismatch between `PropensityFeatureStandardization._feature_types"
+                    "and its corresponding tests. Did you add a new type without testing?"
+                )
+
+        use_tmle_data = True
+        if use_tmle_data:  # Align the datasets to the same attributes
+            from causallib.tests.test_tmle import generate_data
+            data = generate_data(1100, 2, 0, seed=0)
+            data['y'] = data['y_cont']
+        else:
+            data = self.create_uninformative_ox_dataset()
+            data['treatment_effect'] = data['beta']
+
+        for feature_type in feature_types:
+            with self.subTest(f"Testing {feature_type}"):
+                self.estimator.feature_type = feature_type
+                self.estimator.fit(data['X'], data['a'], data['y'])
+
+                # Test estimation:
+                pop_outcomes = self.estimator.estimate_population_outcome(data['X'], data['a'])
+                effect = pop_outcomes[1] - pop_outcomes[0]
+                np.testing.assert_allclose(
+                    data['treatment_effect'], effect,
+                    atol=0.05
+                )
+
+                # Test added covariates:
+                X_size = data['X'].shape[1]
+                added_covariates = 1 if "vector" in feature_type else 2  # Else is a matrix
+                n_coefs = self.estimator.outcome_model.learner.coef_.size
+                self.assertEqual(n_coefs, X_size + added_covariates + 1)  # 1 for treatment assignment
+
+        # with self.subTest("Test signed_weight_vector takes only binary", skip=True):
+        #     a = data['a'].copy()
+        #     a.iloc[-a.shape[0] // 4:] += 1
+        #     self.estimator.feature_type = "signed_weight_vector"
+        #     with self.assertRaises(AssertionError):
+        #         self.estimator.fit(data['X'], a, data['y'])
