@@ -26,13 +26,14 @@ import abc
 import warnings
 
 import pandas as pd
+import numpy as np
 
 from .base_estimator import IndividualOutcomeEstimator
-from .base_weight import WeightEstimator
+from .base_weight import WeightEstimator, PropensityEstimator
 from ..utils import general_tools as g_tools
 
 
-class DoublyRobust(IndividualOutcomeEstimator):
+class BaseDoublyRobust(IndividualOutcomeEstimator):
     """
     Abstract class defining the interface and general initialization of specific doubly-robust methods.
     """
@@ -52,7 +53,7 @@ class DoublyRobust(IndividualOutcomeEstimator):
                                        If None - all covariates passed will be used.
                                        Either list of column names or boolean mask.
         """
-        super(DoublyRobust, self).__init__(lambda **x: None)  # Dummy initialization
+        super(BaseDoublyRobust, self).__init__(lambda **x: None)  # Dummy initialization
         delattr(self, "learner")  # To remove the learner attribute a IndividualOutcomeEstimator has
         self.outcome_model = outcome_model
         self.weight_model = weight_model
@@ -98,25 +99,23 @@ class DoublyRobust(IndividualOutcomeEstimator):
         return repr_string
 
 
-class DoublyRobustVanilla(DoublyRobust):
+class ResidualCorrectedStandardization(BaseDoublyRobust):
     """
-    Given the measured outcome Y, the assignment Y, and the coefficients X calculate a doubly-robust estimator
-    of the effect of treatment
+    Calculates a doubly-robust estimate of the treatment effect by performing
+    potential-outcome prediction (`outcome_model`) and then correcting its
+    prediction-residuals using re-weighting from a treatment model (`weight_model`, like IPW).
 
     Let e(X) be the estimated propensity score and m(X, A) is the estimated effect by an estimator,
     then the individual estimates are:
 
-    | Y + (A-e(X))*(Y-m(X,1)) / e(X) if A==1, and
-    | Y + (e(X)-A)*(Y-m(X,0)) / (1-e(X)) if A==0
+    | m(X,1) + A*(Y-m(X,1))/e(X), and
+    | m(X,0) + (1-A)*(Y-m(X,0))/(1-e(X))
 
     These expressions show that when e(X) is an unbiased estimator of A, or when m is an unbiased estimator of Y
     then the resulting estimator is unbiased. Note that the term for A==0 is derived from (1-A)-(1-e(X))
 
-    Another way of writing these equation is by "correcting" the individual prediction rather than the individual
-    outcome:
-
-    | m(X,1) + A*(Y-m(X,1))/e(X), and
-    | m(X,0) + (1-A)*(Y-m(X,0))/(1-e(X))
+    Kang and Schafer (https://dx.doi.org/10.1214/07-STS227) attribute this method to
+    Cassel, Särndal and Wretman.
     """
 
     def fit(self, X, a, y, refit_weight_model=True, **kwargs):
@@ -247,15 +246,50 @@ class DoublyRobustVanilla(DoublyRobust):
                           "not corrected for population effect.\n"
                           "In case you want individual effect use agg='individual', or in case you want population"
                           "effect use the estimate_population_effect() output as your input to this function.")
-        effect = super(DoublyRobustVanilla, self).estimate_effect(outcome1, outcome2, agg, effect_types)
+        effect = super(ResidualCorrectedStandardization, self).estimate_effect(outcome1, outcome2, agg, effect_types)
         return effect
 
 
-class DoublyRobustIpFeature(DoublyRobust):
-    """
-    A doubly-robust estimator of the effect of treatment.
-    This model adds the weighting (inverse probability weighting) as feature to the model.
-    """
+class PropensityFeatureStandardization(BaseDoublyRobust):
+    def __init__(self, outcome_model, weight_model,
+                 outcome_covariates=None, weight_covariates=None,
+                 feature_type="weight_vector"):
+        """
+        A doubly-robust estimator of the effect of treatment.
+        This model adds the weighting (inverse probability weighting)
+        as additional feature to the outcome model.
+
+        References:
+            * Bang and Robins, https://doi.org/10.1111/j.1541-0420.2005.00377.x
+            * Kang and Schafer, section 3.3, https://dx.doi.org/10.1214/07-STS227
+
+        Args:
+            outcome_model(IndividualOutcomeEstimator): A causal model that estimate on individuals level
+            weight_model (WeightEstimator | PropensityEstimator): A causal model for weighting individuals (e.g. IPW).
+            outcome_covariates (array): Covariates to use for outcome model.
+                If None - all covariates passed will be used. Either list of column names or boolean mask.
+            weight_covariates (array): Covariates to use for weight model.
+                If None - all covariates passed will be used. Either list of column names or boolean mask.
+            feature_type (str): the type of covariate to add. One of the following options:
+                *  "weight_vector": uses a signed weight vector. Only defined for binary treatment.
+                   For example, if `weight_model` is IPW then: 1/Pr[A=a_i|X] for each sample `i`.
+                   As described in Bang and Robins (2005).
+                * "weight_matrix": uses the entire weight matrix.
+                   For example, if `weight_model` is IPW then: 1/Pr[A_i=a|X_i=x],
+                                for all treatment values `a` and for every sample `i`.
+                * "propensity_vector": uses the probabilities for being in treatment group: Pr[A=1|X].
+                                       Better defined for binary treatment.
+                                       Equivalent to Scharfstein, Rotnitzky, and Robins (1999) that use its inverse.
+                * "logit_propensity_vector": uses logit transformation of the propensity to treat Pr[A=1|X].
+                                             As described in Kang and Schafer (2007)
+                * "propensity_matrix": uses the probabilities for all treatment options,
+                    Pr[A_i=a|X_i=x] for all treatment values `a` and samples `i`.
+        """
+        super().__init__(outcome_model, weight_model,
+                         outcome_covariates, weight_covariates)
+        self.feature_type = feature_type
+
+        self._feature_functions = self._define_feature_functions()
 
     def estimate_individual_outcome(self, X, a, treatment_values=None, predict_proba=None):
         X_augmented = self._augment_outcome_model_data(X, a)
@@ -276,12 +310,13 @@ class DoublyRobustIpFeature(DoublyRobust):
                           matrix (W | X).
         """
         X_outcome, X_weight = self._prepare_data(X, a)
-        try:
-            weights_feature = self.weight_model.compute_weight_matrix(X_weight, a)
-            weights_feature = weights_feature.add_prefix("ipf_")
-        except NotImplementedError:
-            weights_feature = self.weight_model.compute_weights(X_weight, a)
-            weights_feature = weights_feature.rename("ipf")
+        feature_func = self._feature_functions.get(self.feature_type)
+        if feature_func is None:
+            raise ValueError(
+                f"feature type {self.feature_type} is not recognized."
+                f"Supported options are: {set(self._feature_functions.keys())}"
+            )
+        weights_feature = feature_func(X_weight, a)
         # Let standardization deal with incorporating treatment assignment (a) into the data:
         X_augmented = pd.concat([weights_feature, X_outcome], join="outer", axis="columns")
         return X_augmented
@@ -300,12 +335,72 @@ class DoublyRobustIpFeature(DoublyRobust):
         self.outcome_model.fit(X=X_augmented, y=y, a=a)
         return self
 
+    def _define_feature_functions(self):
 
-class DoublyRobustJoffe(DoublyRobust):
+        def weight_vector(X, a):
+            w = self.weight_model.compute_weights(X, a)
+            w = w.rename("ipf")
+            return w
+
+        def signed_weight_vector(X, a):
+            if a.nunique() != 2:
+                raise AssertionError(
+                    f"`feature_type` 'weight_vector' can only be used with binary treatment."
+                    f"Instead, treatment values are {set(a)}."
+                )
+            w = weight_vector(X, a)
+            w[a == 0] *= -1
+            return w
+
+        def weight_matrix(X, a):
+            W = self.weight_model.compute_weight_matrix(X, a)
+            W = W.add_prefix("ipf_")
+            return W
+
+        def masked_weight_matrix(X, a):
+            W = weight_matrix(X, a)
+            A = pd.get_dummies(a)
+            A = A.add_prefix("ipf_")  # To match naming of `W`
+            W_masked = W * A
+            return W_masked
+
+        def propensity_vector(X, a):
+            p = self.weight_model.compute_propensity(X, a)
+            p = p.rename("propensity")
+            return p
+
+        def logit_propensity_vector(X, a, safe=True):
+            p = propensity_vector(X, a)
+            if safe:
+                epsilon = np.finfo(float).eps
+                p = np.clip(p, epsilon, 1 - epsilon)
+            return np.log(p / (1 - p))
+
+        def propensity_matrix(X, a):
+            P = self.weight_model.compute_propensity_matrix(X)
+            # P = P.iloc[:, 1:]  # Drop first column
+            P = P.add_prefix("propensity_")
+            return P
+
+        feature_functions = {
+            "weight_vector": weight_vector,
+            # "signed_weight_vector": signed_weight_vector,  # Hernan & Robins Fine Point 13.2, but seems to be biased
+            "weight_matrix": weight_matrix,
+            # "masked_weight_matrix": masked_weight_matrix,  # Seems to be biased
+            "propensity_vector": propensity_vector,
+            "logit_propensity_vector": logit_propensity_vector,
+            "propensity_matrix": propensity_matrix,
+        }
+        return feature_functions
+
+
+class WeightedStandardization(BaseDoublyRobust):
     """
-    A doubly-robust estimator of the effect of treatment.
-    This model uses the weights from the weight-model (e.g. inverse probability weighting) as individual weights for
-    fitting the outcome model.
+    This model uses the weights from the weight-model (e.g. inverse probability weighting)
+    as individual weights for fitting the outcome model.
+
+    References:
+        * Kang and Schafer, section 3.2, https://dx.doi.org/10.1214/07-STS227
     """
 
     def estimate_individual_outcome(self, X, a, treatment_values=None, predict_proba=None):
