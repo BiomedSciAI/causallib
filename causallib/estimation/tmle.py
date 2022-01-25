@@ -8,7 +8,7 @@ import statsmodels.api as sm
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 from sklearn.utils.multiclass import type_of_target
 
-from .doubly_robust import DoublyRobust as BaseDoublyRobust
+from .doubly_robust import BaseDoublyRobust
 from causallib.estimation.base_estimator import IndividualOutcomeEstimator
 from causallib.estimation.base_weight import PropensityEstimator
 from causallib.utils.stat_utils import robust_lookup

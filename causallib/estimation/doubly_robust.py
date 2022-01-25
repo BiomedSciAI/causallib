@@ -32,7 +32,7 @@ from .base_weight import WeightEstimator
 from ..utils import general_tools as g_tools
 
 
-class DoublyRobust(IndividualOutcomeEstimator):
+class BaseDoublyRobust(IndividualOutcomeEstimator):
     """
     Abstract class defining the interface and general initialization of specific doubly-robust methods.
     """
@@ -52,7 +52,7 @@ class DoublyRobust(IndividualOutcomeEstimator):
                                        If None - all covariates passed will be used.
                                        Either list of column names or boolean mask.
         """
-        super(DoublyRobust, self).__init__(lambda **x: None)  # Dummy initialization
+        super(BaseDoublyRobust, self).__init__(lambda **x: None)  # Dummy initialization
         delattr(self, "learner")  # To remove the learner attribute a IndividualOutcomeEstimator has
         self.outcome_model = outcome_model
         self.weight_model = weight_model
@@ -98,7 +98,7 @@ class DoublyRobust(IndividualOutcomeEstimator):
         return repr_string
 
 
-class DoublyRobustVanilla(DoublyRobust):
+class DoublyRobustVanilla(BaseDoublyRobust):
     """
     Given the measured outcome Y, the assignment Y, and the coefficients X calculate a doubly-robust estimator
     of the effect of treatment
@@ -251,7 +251,7 @@ class DoublyRobustVanilla(DoublyRobust):
         return effect
 
 
-class DoublyRobustIpFeature(DoublyRobust):
+class DoublyRobustIpFeature(BaseDoublyRobust):
     """
     A doubly-robust estimator of the effect of treatment.
     This model adds the weighting (inverse probability weighting) as feature to the model.
@@ -301,7 +301,7 @@ class DoublyRobustIpFeature(DoublyRobust):
         return self
 
 
-class DoublyRobustJoffe(DoublyRobust):
+class DoublyRobustJoffe(BaseDoublyRobust):
     """
     A doubly-robust estimator of the effect of treatment.
     This model uses the weights from the weight-model (e.g. inverse probability weighting) as individual weights for
