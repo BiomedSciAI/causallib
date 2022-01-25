@@ -1,4 +1,4 @@
-from .doubly_robust import DoublyRobustIpFeature, DoublyRobustJoffe, DoublyRobustVanilla
+from .doubly_robust import DoublyRobustIpFeature, DoublyRobustJoffe, ResidualCorrectedStandardization
 from .ipw import IPW
 from .overlap_weights import OverlapWeights
 from .standardization import Standardization, StratifiedStandardization

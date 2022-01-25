@@ -98,25 +98,23 @@ class BaseDoublyRobust(IndividualOutcomeEstimator):
         return repr_string
 
 
-class DoublyRobustVanilla(BaseDoublyRobust):
+class ResidualCorrectedStandardization(BaseDoublyRobust):
     """
-    Given the measured outcome Y, the assignment Y, and the coefficients X calculate a doubly-robust estimator
-    of the effect of treatment
+    Calculates a doubly-robust estimate of the treatment effect by performing
+    potential-outcome prediction (`outcome_model`) and then correcting its
+    prediction-residuals using re-weighting from a treatment model (`weight_model`, like IPW).
 
     Let e(X) be the estimated propensity score and m(X, A) is the estimated effect by an estimator,
     then the individual estimates are:
 
-    | Y + (A-e(X))*(Y-m(X,1)) / e(X) if A==1, and
-    | Y + (e(X)-A)*(Y-m(X,0)) / (1-e(X)) if A==0
+    | m(X,1) + A*(Y-m(X,1))/e(X), and
+    | m(X,0) + (1-A)*(Y-m(X,0))/(1-e(X))
 
     These expressions show that when e(X) is an unbiased estimator of A, or when m is an unbiased estimator of Y
     then the resulting estimator is unbiased. Note that the term for A==0 is derived from (1-A)-(1-e(X))
 
-    Another way of writing these equation is by "correcting" the individual prediction rather than the individual
-    outcome:
-
-    | m(X,1) + A*(Y-m(X,1))/e(X), and
-    | m(X,0) + (1-A)*(Y-m(X,0))/(1-e(X))
+    Kang and Schafer (https://dx.doi.org/10.1214/07-STS227) attribute this method to
+    Cassel, Särndal and Wretman.
     """
 
     def fit(self, X, a, y, refit_weight_model=True, **kwargs):
@@ -247,7 +245,7 @@ class DoublyRobustVanilla(BaseDoublyRobust):
                           "not corrected for population effect.\n"
                           "In case you want individual effect use agg='individual', or in case you want population"
                           "effect use the estimate_population_effect() output as your input to this function.")
-        effect = super(DoublyRobustVanilla, self).estimate_effect(outcome1, outcome2, agg, effect_types)
+        effect = super(ResidualCorrectedStandardization, self).estimate_effect(outcome1, outcome2, agg, effect_types)
         return effect
 
 

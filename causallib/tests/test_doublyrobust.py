@@ -26,7 +26,7 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from warnings import simplefilter, catch_warnings
 
-from causallib.estimation import DoublyRobustVanilla, DoublyRobustIpFeature, DoublyRobustJoffe
+from causallib.estimation import ResidualCorrectedStandardization, DoublyRobustIpFeature, DoublyRobustJoffe
 from causallib.estimation import IPW
 from causallib.estimation import Standardization, StratifiedStandardization
 
@@ -124,7 +124,7 @@ class TestDoublyRobustBase(unittest.TestCase):
                     self.assertTrue(True)  # Dummy assert, didn't crash
                 with self.subTest("Check prediction"):
                     ind_outcome = dr.estimate_individual_outcome(data["X"], data["a"])
-                    y = data["y"] if isinstance(dr, DoublyRobustVanilla) else None  # Avoid warnings
+                    y = data["y"] if isinstance(dr, ResidualCorrectedStandardization) else None  # Avoid warnings
                     pop_outcome = dr.estimate_population_outcome(data["X"], data["a"], y)
                     dr.estimate_effect(ind_outcome[1], ind_outcome[0], agg="individual")
                     dr.estimate_effect(pop_outcome[1], pop_outcome[0])
@@ -189,14 +189,14 @@ class TestDoublyRobustBase(unittest.TestCase):
                     self.assertTrue(True)  # Fit did not crash
 
 
-class TestDoublyRobustVanilla(TestDoublyRobustBase):
+class TestResidualCorrectedStandardization(TestDoublyRobustBase):
     @classmethod
     def setUpClass(cls):
         TestDoublyRobustBase.setUpClass()
         # Avoids regularization of the model:
         ipw = IPW(LogisticRegression(C=1e6, solver='lbfgs'), use_stabilized=False)
         std = Standardization(LinearRegression(normalize=True))
-        cls.estimator = DoublyRobustVanilla(std, ipw)
+        cls.estimator = ResidualCorrectedStandardization(std, ipw)
 
     def test_uninformative_tx_leads_to_std_like_results(self):
         self.ensure_uninformative_tx_leads_to_std_like_results(self.estimator)
@@ -214,7 +214,7 @@ class TestDoublyRobustVanilla(TestDoublyRobustBase):
         self.ensure_weight_refitting_refits(self.estimator)
 
     def test_model_combinations_work(self):
-        self.ensure_model_combinations_work(DoublyRobustVanilla)
+        self.ensure_model_combinations_work(ResidualCorrectedStandardization)
 
     def test_pipeline_learner(self):
         self.ensure_pipeline_learner()
