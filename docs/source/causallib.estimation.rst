@@ -5,6 +5,7 @@ Submodules
 ----------
 
 .. toctree::
+   :maxdepth: 4
 
    causallib.estimation.base_estimator
    causallib.estimation.base_weight
@@ -13,6 +14,7 @@ Submodules
    causallib.estimation.marginal_outcome
    causallib.estimation.matching
    causallib.estimation.overlap_weights
+   causallib.estimation.rlearner
    causallib.estimation.standardization
    causallib.estimation.tmle
 

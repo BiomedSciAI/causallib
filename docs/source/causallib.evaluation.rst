@@ -1,10 +1,11 @@
-
-.. mdinclude:: ..\..\causallib\evaluation\README.md
+causallib.evaluation package
+============================
 
 Submodules
 ----------
 
 .. toctree::
+   :maxdepth: 4
 
    causallib.evaluation.evaluator
    causallib.evaluation.outcome_evaluator

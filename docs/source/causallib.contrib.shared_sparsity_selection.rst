@@ -5,6 +5,7 @@ Submodules
 ----------
 
 .. toctree::
+   :maxdepth: 4
 
    causallib.contrib.shared_sparsity_selection.shared_sparsity_selection
 
