@@ -1,10 +1,11 @@
-
-.. mdinclude:: ..\..\causallib\datasets\README.md
+causallib.datasets package
+==========================
 
 Submodules
 ----------
 
 .. toctree::
+   :maxdepth: 4
 
    causallib.datasets.data_loader
 

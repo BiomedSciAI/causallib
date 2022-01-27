@@ -1,10 +1,11 @@
-
-.. mdinclude:: ..\..\causallib\contrib\hemm\README.md
+causallib.contrib.hemm package
+==============================
 
 Submodules
 ----------
 
 .. toctree::
+   :maxdepth: 4
 
    causallib.contrib.hemm.gen_synthetic_data
    causallib.contrib.hemm.hemm

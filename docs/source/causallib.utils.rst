@@ -5,7 +5,9 @@ Submodules
 ----------
 
 .. toctree::
+   :maxdepth: 4
 
+   causallib.utils.crossfit
    causallib.utils.general_tools
    causallib.utils.stat_utils
 

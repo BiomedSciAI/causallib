@@ -1,10 +1,11 @@
-
-.. mdinclude:: ..\..\causallib\README.md
+causallib package
+=================
 
 Subpackages
 -----------
 
 .. toctree::
+   :maxdepth: 4
 
    causallib.analysis
    causallib.contrib

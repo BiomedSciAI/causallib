@@ -1,10 +1,11 @@
-
-.. mdinclude:: ../../causallib/survival/README.md
+causallib.survival package
+==========================
 
 Submodules
 ----------
 
 .. toctree::
+   :maxdepth: 4
 
    causallib.survival.base_survival
    causallib.survival.marginal_survival
