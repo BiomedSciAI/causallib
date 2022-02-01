@@ -31,6 +31,7 @@ import numpy as np
 from .base_estimator import IndividualOutcomeEstimator
 from .base_weight import WeightEstimator, PropensityEstimator
 from ..utils import general_tools as g_tools
+from ..utils.stat_utils import robust_lookup
 
 
 class BaseDoublyRobust(IndividualOutcomeEstimator):
@@ -248,6 +249,61 @@ class ResidualCorrectedStandardization(BaseDoublyRobust):
                           "effect use the estimate_population_effect() output as your input to this function.")
         effect = super(ResidualCorrectedStandardization, self).estimate_effect(outcome1, outcome2, agg, effect_types)
         return effect
+
+
+class AIPW(ResidualCorrectedStandardization):
+    """
+    Calculates a doubly-robust estimate of the treatment effect by performing
+    potential-outcome prediction (`outcome_model`) and then imputing its
+    factual-predictions using weighted (`weight_model`) residuals from the observed outcome.
+
+    Let e(X) be the estimated propensity score and m(X, A) is the estimated effect by an estimator,
+    then the individual potential outcome estimates under treatment and controls are:
+
+    | A * [y - (1-e(X))m(X,1)]/e(X) + (1-A) * m(X,1), and
+    | (1-A) * [y - e(X)m(X,0)]/(1-e(X)) + A * m(X,0)
+
+
+    References:
+        * Robins, Rotnitzky, and Zhao, 1994, https://doi.org/10.1080/01621459.1994.10476818
+        * Glynn and Quinn, 2010, https://doi.org/10.1093/pan/mpp036
+    """
+    def fit(self, X, a, y, refit_weight_model=True, **kwargs):
+        if a.nunique() != 2:
+            raise AssertionError(
+                f"can only be used with binary treatment."
+                f"Instead, treatment values are {set(a)}."
+            )
+        super().fit(X, a, y, refit_weight_model, **kwargs)
+
+    def _estimate_corrected_individual_outcome(self, X, a, y, treatment_values=None, predict_proba=None):
+        X_outcome, X_weight = self._prepare_data(X, a)
+        weights = self.weight_model.compute_weights(X_weight, a)
+        propensities = self.weight_model.compute_propensity_matrix(X_weight)
+        propensities = self._reverse_columns(propensities)
+        individual_cf = self.estimate_individual_outcome(X_outcome, a, treatment_values, predict_proba)
+
+        # Use the observed (factual) outcome to create a correction term for the predicted factual outcome:
+        # (This is the bracket terms in final lines of equations 4 and 5 in Glynn and Quinn 2009)
+        outcome_correction = individual_cf * propensities
+        outcome_correction = robust_lookup(outcome_correction, a)
+        corrected_outcome = y - outcome_correction
+        corrected_outcome *= weights
+
+        # Impute the factual outcome predictions with the correction terms
+        individual_cf.loc[a == 0, 0] = corrected_outcome.loc[a == 0]
+        individual_cf.loc[a == 1, 1] = corrected_outcome.loc[a == 1]
+
+        return individual_cf
+
+    @staticmethod
+    def _reverse_columns(X):
+        X = pd.DataFrame(
+            X.values[:, ::-1],  # Reverse the order of the data
+            columns=X.columns,  # But keep the same column order
+            index=X.index,
+        )
+        return X
 
 
 class PropensityFeatureStandardization(BaseDoublyRobust):

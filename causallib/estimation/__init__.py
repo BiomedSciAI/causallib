@@ -1,4 +1,7 @@
-from .doubly_robust import PropensityFeatureStandardization, WeightedStandardization, ResidualCorrectedStandardization
+from .doubly_robust import (
+    PropensityFeatureStandardization, WeightedStandardization,
+    ResidualCorrectedStandardization, AIPW,
+)
 from .ipw import IPW
 from .overlap_weights import OverlapWeights
 from .standardization import Standardization, StratifiedStandardization

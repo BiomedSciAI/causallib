@@ -27,7 +27,8 @@ from sklearn.linear_model import LogisticRegression, LinearRegression
 from warnings import simplefilter, catch_warnings
 
 from causallib.estimation import (
-    ResidualCorrectedStandardization, PropensityFeatureStandardization, WeightedStandardization
+    ResidualCorrectedStandardization, AIPW,
+    PropensityFeatureStandardization, WeightedStandardization
 )
 from causallib.estimation import IPW
 from causallib.estimation import Standardization, StratifiedStandardization
@@ -223,6 +224,78 @@ class TestResidualCorrectedStandardization(TestDoublyRobustBase):
 
     def test_many_models(self):
         self.ensure_many_models()
+
+
+class TestAIPW(TestDoublyRobustBase):
+    @classmethod
+    def setUpClass(cls):
+        TestDoublyRobustBase.setUpClass()
+        # Avoids regularization of the model:
+        ipw = IPW(LogisticRegression(penalty="none", max_iter=2000))
+        std = Standardization(LinearRegression())
+        cls.estimator = AIPW(std, ipw)
+
+    def test_uninformative_tx_leads_to_std_like_results(self):
+        self.ensure_uninformative_tx_leads_to_std_like_results(self.estimator)
+
+    def test_uninformative_ox_leads_to_ipw_like_results(self):
+        self.ensure_uninformative_ox_leads_to_ipw_like_results(self.estimator)
+
+    def test_data_is_separated_between_models(self):
+        self.ensure_data_is_separated_between_models(self.estimator, 1)  # 1 treatment assignment feature
+
+    def test_reverse_columns(self):
+        X = pd.DataFrame({
+            0: [1, 2, 3, 4],
+            1: [10, 20, 30, 40],
+        })
+        X_reversed = self.estimator._reverse_columns(X)
+        X_expected = pd.DataFrame({
+            0: [10, 20, 30, 40],
+            1: [1, 2, 3, 4],
+        })
+        pd.testing.assert_frame_equal(X_reversed, X_expected)
+
+    def multiple_treatments_error(self):
+        data = self.create_uninformative_tx_dataset()
+        data["a"].iloc[-data["a"].shape[0] // 4:] += 1  # Create a dummy third class
+        with self.assertRaises(AssertionError):
+            self.estimator.fit(data["X"], data["a"], data["a"])
+
+    def test_effect_calculation_against_direct_effect_formula(self):
+        from causallib.datasets import load_nhefs
+        data = load_nhefs()
+        X, a, y = data.X, data.a, data.y
+        self.estimator.fit(X, a, y)
+
+        # Estimate the effect from the model:
+        effect_from_model = self.estimator.estimate_population_outcome(X, a, y)   # type:pd.Series
+        effect_from_model = self.estimator.estimate_effect(effect_from_model[1], effect_from_model[0])["diff"]
+
+        # Estimate the effect manually using the direct-effect formula
+        # (not mitigated by counterfactual outcomes)
+        ps = self.estimator.weight_model.learner.predict_proba(X)[:, 1]
+        y_pred = self.estimator.outcome_model.estimate_individual_outcome(X, a)
+        ey0, ey1 = y_pred[0].values, y_pred[1].values
+        effect_from_formula = np.mean(
+            ((a*y)/ps - (1-a)*y/(1-ps))  # IPW
+            - (a-ps)/(ps*(1-ps)) * ((1 - ps)*ey1 + ps*ey0)  # Correction
+        )
+
+        np.testing.assert_allclose(effect_from_formula, effect_from_model)
+
+    def test_effect_recovery(self):
+        from causallib.tests.test_tmle import generate_data
+        data = generate_data(1100, 2, 0, seed=0)
+        data['y'] = data['y_cont']
+
+        self.estimator.fit(data['X'], data['a'], data['y'])
+        pop_outcomes = self.estimator.estimate_population_outcome(data['X'], data['a'], data['y'])
+        effect = pop_outcomes[1] - pop_outcomes[0]
+        np.testing.assert_allclose(
+            data['treatment_effect'], effect,
+            atol=0.01
+        )
 
 
 class TestWeightedStandardization(TestDoublyRobustBase):
