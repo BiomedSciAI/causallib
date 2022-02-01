@@ -84,6 +84,26 @@ class TestDoublyRobustBase(unittest.TestCase):
             self.assertAlmostEqual(doubly_res[0], ipw_res[0])
             self.assertAlmostEqual(doubly_res[1], ipw_res[1])
 
+    def ensure_effect_recovery(self):
+        use_tmle_data = True
+        if use_tmle_data:  # Align the datasets to the same attributes
+            from causallib.tests.test_tmle import generate_data
+            data = generate_data(1100, 2, 0, seed=0)
+            data['y'] = data['y_cont']
+        else:
+            data = self.create_uninformative_ox_dataset()
+            data['treatment_effect'] = data['beta']
+
+        self.estimator.fit(data['X'], data['a'], data['y'])
+        y = data["y"] if isinstance(self.estimator, ResidualCorrectedStandardization) else None  # Avoid warnings
+        pop_outcomes = self.estimator.estimate_population_outcome(data['X'], data['a'], y)
+        effect = pop_outcomes[1] - pop_outcomes[0]
+        np.testing.assert_allclose(
+            data['treatment_effect'], effect,
+            atol=0.01
+        )
+        return data
+
     def ensure_is_fitted(self, estimator):
         data = self.create_uninformative_ox_dataset()
         estimator.fit(data["X"], data["a"], data["y"])
@@ -225,6 +245,9 @@ class TestResidualCorrectedStandardization(TestDoublyRobustBase):
     def test_many_models(self):
         self.ensure_many_models()
 
+    def test_effect_recovery(self):
+        self.ensure_effect_recovery()
+
 
 class TestAIPW(TestDoublyRobustBase):
     @classmethod
@@ -285,17 +308,7 @@ class TestAIPW(TestDoublyRobustBase):
         np.testing.assert_allclose(effect_from_formula, effect_from_model)
 
     def test_effect_recovery(self):
-        from causallib.tests.test_tmle import generate_data
-        data = generate_data(1100, 2, 0, seed=0)
-        data['y'] = data['y_cont']
-
-        self.estimator.fit(data['X'], data['a'], data['y'])
-        pop_outcomes = self.estimator.estimate_population_outcome(data['X'], data['a'], data['y'])
-        effect = pop_outcomes[1] - pop_outcomes[0]
-        np.testing.assert_allclose(
-            data['treatment_effect'], effect,
-            atol=0.01
-        )
+        self.ensure_effect_recovery()
 
 
 class TestWeightedStandardization(TestDoublyRobustBase):
@@ -374,6 +387,9 @@ class TestWeightedStandardization(TestDoublyRobustBase):
                         # not all ML models support that and so calling should fail
                         model.fit(data["X"], data["a"], data["y"], refit_weight_model=False)
 
+    def test_effect_recovery(self):
+        self.ensure_effect_recovery()
+
 
 class TestPropensityFeatureStandardization(TestDoublyRobustBase):
     @classmethod
@@ -431,27 +447,11 @@ class TestPropensityFeatureStandardization(TestDoublyRobustBase):
                     "and its corresponding tests. Did you add a new type without testing?"
                 )
 
-        use_tmle_data = True
-        if use_tmle_data:  # Align the datasets to the same attributes
-            from causallib.tests.test_tmle import generate_data
-            data = generate_data(1100, 2, 0, seed=0)
-            data['y'] = data['y_cont']
-        else:
-            data = self.create_uninformative_ox_dataset()
-            data['treatment_effect'] = data['beta']
-
         for feature_type in feature_types:
             with self.subTest(f"Testing {feature_type}"):
                 self.estimator.feature_type = feature_type
-                self.estimator.fit(data['X'], data['a'], data['y'])
 
-                # Test estimation:
-                pop_outcomes = self.estimator.estimate_population_outcome(data['X'], data['a'])
-                effect = pop_outcomes[1] - pop_outcomes[0]
-                np.testing.assert_allclose(
-                    data['treatment_effect'], effect,
-                    atol=0.05
-                )
+                data = self.ensure_effect_recovery()
 
                 # Test added covariates:
                 X_size = data['X'].shape[1]
