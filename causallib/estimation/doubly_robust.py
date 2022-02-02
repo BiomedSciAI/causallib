@@ -101,25 +101,63 @@ class BaseDoublyRobust(IndividualOutcomeEstimator):
 
 
 class ResidualCorrectedStandardization(BaseDoublyRobust):
-    """
-    Calculates a doubly-robust estimate of the treatment effect by performing
-    potential-outcome prediction (`outcome_model`) and then correcting its
-    prediction-residuals using re-weighting from a treatment model (`weight_model`, like IPW).
+    def __init__(self, outcome_model, weight_model,
+                 outcome_covariates=None, weight_covariates=None,
+                 overlap_weighting=False):
+        """
+        Calculates a doubly-robust estimate of the treatment effect by performing
+        potential-outcome prediction (`outcome_model`) and then correcting its
+        prediction-residuals using re-weighting from a treatment model (`weight_model`, like IPW).
 
-    Let e(X) be the estimated propensity score and m(X, A) is the estimated effect by an estimator,
-    then the individual estimates are:
+        It has two flavors, which slightly change the weighting of the outcome model in the correction term.
+        Let e(X) be the estimated propensity score and m(X, A) is the estimated effect by an estimator,
+        then the individual estimates are:
 
-    | m(X,1) + A*(Y-m(X,1))/e(X), and
-    | m(X,0) + (1-A)*(Y-m(X,0))/(1-e(X))
+        | m(X,1) + A*(Y-m(X,1))/e(X), and
+        | m(X,0) + (1-A)*(Y-m(X,0))/(1-e(X))
 
-    These expressions show that when e(X) is an unbiased estimator of A, or when m is an unbiased estimator of Y
-    then the resulting estimator is unbiased. Note that the term for A==0 is derived from (1-A)-(1-e(X))
+        Which are basically add IP-weighted residuals from the observed predictions.
+        As described in Kang and Schafer (2007) section 3.1 and Robins, Rotnitzky, and Zhao (1994).
 
-    Kang and Schafer (https://dx.doi.org/10.1214/07-STS227) attribute this method to
-    Cassel, Särndal and Wretman.
-    """
+        The additional flavor when `overlap_weighting=True` is from Glynn and Quinn (2010),
+        adds weighting by the propensity-of-the-other-class to the outcome model,
+        so extreme example (with poor covariate overlap) will contribute less to the correction
+        (i.e. rely less on their prediction value that might extrapolate too much).
+        This is a similar notion used in Overlap Weights model (hence the argument name)
+
+        | A * [Y - (1-e(X))m(X,1)]/e(X) + (1-A) * m(X,1), and
+        | (1-A) * [Y - e(X)m(X,0)]/(1-e(X)) + A * m(X,0)
+
+        Args:
+            outcome_model(IndividualOutcomeEstimator): A causal model that estimate on individuals level
+                                                      (e.g. Standardization).
+            weight_model (WeightEstimator | PropensityEstimator): A causal model for weighting individuals (e.g. IPW).
+                If `overlap_weighting=True` then must be a `PropensityEstimator` model.
+            outcome_covariates (array): Covariates to use for outcome model.
+                If None - all covariates passed will be used. Either list of column names or boolean mask.
+            weight_covariates (array): Covariates to use for weight model.
+                If None - all covariates passed will be used. Either list of column names or boolean mask.
+            overlap_weighting (bool): Whether to tweak the outcome-model correction-term to rely less on
+                data-points with poor covariate overlap (extreme propensity).
+                if `True`, requires `weight_model` to be an instance of `PropensityEstimator`.
+
+        References:
+            * Kang and Schafer, 2007, (https://dx.doi.org/10.1214/07-STS227)
+            * Kang and Schafer attribute the original method to Cassel, Särndal and Wretman.
+            * Glynn and Quinn, 2010, https://doi.org/10.1093/pan/mpp036
+            * Robins, Rotnitzky, and Zhao, 1994, https://doi.org/10.1080/01621459.1994.10476818
+        """
+        super().__init__(outcome_model, weight_model,
+                         outcome_covariates, weight_covariates)
+        self.overlap_weighting = overlap_weighting
 
     def fit(self, X, a, y, refit_weight_model=True, **kwargs):
+        if self.overlap_weighting and a.nunique() != 2:
+            raise AssertionError(
+                f"`overlap_weights=True` version can only be used with binary treatment."
+                f"Instead, treatment values are {set(a)}. Try setting it to `False`."
+            )
+
         X_outcome, X_weight = self._prepare_data(X, a)
         weight_model_is_not_fitted = not g_tools.check_learner_is_fitted(self.weight_model.learner)
 
@@ -187,21 +225,30 @@ class ResidualCorrectedStandardization(BaseDoublyRobust):
                           treatment value in the corresponding key.
         """
         X_outcome, X_weight = self._prepare_data(X, a)
-        individual_cf = self.estimate_individual_outcome(X_outcome, a, treatment_values, predict_proba)
         weights = self.weight_model.compute_weights(X_weight, a)
-        # Correct individual-estimation for later averaging:
+        individual_cf = self.estimate_individual_outcome(X_outcome, a, treatment_values, predict_proba)
+        is_predict_proba_classification_result = isinstance(individual_cf.columns, pd.MultiIndex)
+        if is_predict_proba_classification_result:
+            # Classification `outcome_model` with `predict_proba=True` returns a MultiIndex of treatments over outcomes.
+            # Extract the prediction for the maximal outcome class (probably class `1` in binary classification):
+            outcome_values = individual_cf.columns.get_level_values(level=-1)
+            individual_cf = individual_cf.xs(
+                outcome_values.max(), axis="columns", level=-1, drop_level=True,
+            )
+        factual_prediction = robust_lookup(individual_cf, a)
+
+        if self.overlap_weighting:
+            propensities = self.weight_model.compute_propensity_matrix(X_weight)
+            reversed_propensities = robust_lookup(propensities, 1 - a)  # take propensities of opposite treatment group
+            factual_prediction *= reversed_propensities
+            corrected_outcome = (y - factual_prediction) * weights
+        else:
+            outcome_correction = (y - factual_prediction) * weights
+            corrected_outcome = factual_prediction + outcome_correction
+
         for treatment_value in treatment_values:
-            is_treated = a == treatment_value
-            y_cur = y.loc[is_treated]
-            y_pred_cur = individual_cf.loc[is_treated, treatment_value]
-            w_cur = weights.loc[is_treated]
-            # This is a the same as (y_cur - y_pred_cur) * w_cur, but compatible with y_pred being both Series (due to
-            # predict_proba=False) and DataFrame (predict_proba=True).
-            correction = y_pred_cur.mul(-1.0).add(y_cur, axis="index").mul(w_cur, axis="index")
-            individual_cf.loc[is_treated, treatment_value] += correction
-        # NOTE: that we do not use the corrected-counter-factual-outcome vector when we return our individual effect.
-        # This is because this correction "contaminates" the model prediction with the actual outcome.
-        # Causing the model results to be inconsistent with the model itself.
+            individual_cf.loc[a == treatment_value, treatment_value] = corrected_outcome.loc[a == treatment_value]
+
         return individual_cf
 
     def estimate_population_outcome(self, X, a, y=None, treatment_values=None, predict_proba=None, agg_func="mean"):
@@ -247,63 +294,8 @@ class ResidualCorrectedStandardization(BaseDoublyRobust):
                           "not corrected for population effect.\n"
                           "In case you want individual effect use agg='individual', or in case you want population"
                           "effect use the estimate_population_effect() output as your input to this function.")
-        effect = super(ResidualCorrectedStandardization, self).estimate_effect(outcome1, outcome2, agg, effect_types)
+        effect = super().estimate_effect(outcome1, outcome2, agg, effect_types)
         return effect
-
-
-class AIPW(ResidualCorrectedStandardization):
-    """
-    Calculates a doubly-robust estimate of the treatment effect by performing
-    potential-outcome prediction (`outcome_model`) and then imputing its
-    factual-predictions using weighted (`weight_model`) residuals from the observed outcome.
-
-    Let e(X) be the estimated propensity score and m(X, A) is the estimated effect by an estimator,
-    then the individual potential outcome estimates under treatment and controls are:
-
-    | A * [y - (1-e(X))m(X,1)]/e(X) + (1-A) * m(X,1), and
-    | (1-A) * [y - e(X)m(X,0)]/(1-e(X)) + A * m(X,0)
-
-
-    References:
-        * Robins, Rotnitzky, and Zhao, 1994, https://doi.org/10.1080/01621459.1994.10476818
-        * Glynn and Quinn, 2010, https://doi.org/10.1093/pan/mpp036
-    """
-    def fit(self, X, a, y, refit_weight_model=True, **kwargs):
-        if a.nunique() != 2:
-            raise AssertionError(
-                f"can only be used with binary treatment."
-                f"Instead, treatment values are {set(a)}."
-            )
-        super().fit(X, a, y, refit_weight_model, **kwargs)
-
-    def _estimate_corrected_individual_outcome(self, X, a, y, treatment_values=None, predict_proba=None):
-        X_outcome, X_weight = self._prepare_data(X, a)
-        weights = self.weight_model.compute_weights(X_weight, a)
-        propensities = self.weight_model.compute_propensity_matrix(X_weight)
-        propensities = self._reverse_columns(propensities)
-        individual_cf = self.estimate_individual_outcome(X_outcome, a, treatment_values, predict_proba)
-
-        # Use the observed (factual) outcome to create a correction term for the predicted factual outcome:
-        # (This is the bracket terms in final lines of equations 4 and 5 in Glynn and Quinn 2009)
-        outcome_correction = individual_cf * propensities
-        outcome_correction = robust_lookup(outcome_correction, a)
-        corrected_outcome = y - outcome_correction
-        corrected_outcome *= weights
-
-        # Impute the factual outcome predictions with the correction terms
-        individual_cf.loc[a == 0, 0] = corrected_outcome.loc[a == 0]
-        individual_cf.loc[a == 1, 1] = corrected_outcome.loc[a == 1]
-
-        return individual_cf
-
-    @staticmethod
-    def _reverse_columns(X):
-        X = pd.DataFrame(
-            X.values[:, ::-1],  # Reverse the order of the data
-            columns=X.columns,  # But keep the same column order
-            index=X.index,
-        )
-        return X
 
 
 class PropensityFeatureStandardization(BaseDoublyRobust):
