@@ -100,7 +100,7 @@ class BaseDoublyRobust(IndividualOutcomeEstimator):
         return repr_string
 
 
-class ResidualCorrectedStandardization(BaseDoublyRobust):
+class AIPW(BaseDoublyRobust):
     def __init__(self, outcome_model, weight_model,
                  outcome_covariates=None, weight_covariates=None,
                  overlap_weighting=False):

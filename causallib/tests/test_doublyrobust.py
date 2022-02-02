@@ -26,10 +26,7 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from warnings import simplefilter, catch_warnings
 
-from causallib.estimation import (
-    ResidualCorrectedStandardization,
-    PropensityFeatureStandardization, WeightedStandardization
-)
+from causallib.estimation import AIPW, PropensityFeatureStandardization, WeightedStandardization
 from causallib.estimation import IPW
 from causallib.estimation import Standardization, StratifiedStandardization
 
@@ -95,7 +92,7 @@ class TestDoublyRobustBase(unittest.TestCase):
             data['treatment_effect'] = data['beta']
 
         self.estimator.fit(data['X'], data['a'], data['y'])
-        y = data["y"] if isinstance(self.estimator, ResidualCorrectedStandardization) else None  # Avoid warnings
+        y = data["y"] if isinstance(self.estimator, AIPW) else None  # Avoid warnings
         pop_outcomes = self.estimator.estimate_population_outcome(data['X'], data['a'], y)
         effect = pop_outcomes[1] - pop_outcomes[0]
         np.testing.assert_allclose(
@@ -147,7 +144,7 @@ class TestDoublyRobustBase(unittest.TestCase):
                     self.assertTrue(True)  # Dummy assert, didn't crash
                 with self.subTest("Check prediction"):
                     ind_outcome = dr.estimate_individual_outcome(data["X"], data["a"])
-                    y = data["y"] if isinstance(dr, ResidualCorrectedStandardization) else None  # Avoid warnings
+                    y = data["y"] if isinstance(dr, AIPW) else None  # Avoid warnings
                     pop_outcome = dr.estimate_population_outcome(data["X"], data["a"], y)
                     dr.estimate_effect(ind_outcome[1], ind_outcome[0], agg="individual")
                     dr.estimate_effect(pop_outcome[1], pop_outcome[0])
@@ -212,14 +209,14 @@ class TestDoublyRobustBase(unittest.TestCase):
                     self.assertTrue(True)  # Fit did not crash
 
 
-class TestResidualCorrectedStandardization(TestDoublyRobustBase):
+class TestAIPW(TestDoublyRobustBase):
     @classmethod
     def setUpClass(cls):
         TestDoublyRobustBase.setUpClass()
         # Avoids regularization of the model:
         ipw = IPW(LogisticRegression(C=1e6, solver='lbfgs', max_iter=500), use_stabilized=False)
         std = Standardization(LinearRegression(normalize=True))
-        cls.estimator = ResidualCorrectedStandardization(std, ipw)
+        cls.estimator = AIPW(std, ipw)
 
     def test_uninformative_tx_leads_to_std_like_results(self):
         with self.subTest("`overlap_weighting=False`"):
@@ -249,7 +246,7 @@ class TestResidualCorrectedStandardization(TestDoublyRobustBase):
         self.ensure_weight_refitting_refits(self.estimator)
 
     def test_model_combinations_work(self):
-        self.ensure_model_combinations_work(ResidualCorrectedStandardization)
+        self.ensure_model_combinations_work(AIPW)
 
     def test_pipeline_learner(self):
         self.ensure_pipeline_learner()
@@ -271,7 +268,7 @@ class TestResidualCorrectedStandardization(TestDoublyRobustBase):
         data = load_nhefs()
         X, a, y = data.X, data.a, data.y
         a = a.astype(float)  # Test the propensity lookup for non-integer values
-        estimator = ResidualCorrectedStandardization(
+        estimator = AIPW(
             self.estimator.outcome_model, self.estimator.weight_model,
             overlap_weighting=True,
         )
@@ -299,7 +296,7 @@ class TestResidualCorrectedStandardization(TestDoublyRobustBase):
         data['y'] = data['y_bin']
 
         for overlap_weights in [False, True]:
-            estimator = ResidualCorrectedStandardization(
+            estimator = AIPW(
                 Standardization(LogisticRegression(), predict_proba=True),
                 IPW(LogisticRegression()),
                 overlap_weighting=overlap_weights,
@@ -314,7 +311,7 @@ class TestResidualCorrectedStandardization(TestDoublyRobustBase):
             )
 
     def test_multiple_treatments_error(self):
-        estimator = ResidualCorrectedStandardization(
+        estimator = AIPW(
             self.estimator.outcome_model, self.estimator.weight_model,
             overlap_weighting=True,
         )
