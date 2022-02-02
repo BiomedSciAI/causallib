@@ -16,7 +16,7 @@
 
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from causallib.evaluation import PropensityEvaluator, OutcomeEvaluator
-from causallib.estimation import ResidualCorrectedStandardization, IPW, StratifiedStandardization
+from causallib.estimation import AIPW, IPW, StratifiedStandardization
 from causallib.datasets import load_nhefs
 import unittest
 import pandas as pd
@@ -31,7 +31,7 @@ class TestPlots(unittest.TestCase):
         self.data = load_nhefs()
         ipw = IPW(LogisticRegression(solver="liblinear"), clip_min=0.05, clip_max=0.95)
         std = StratifiedStandardization(LinearRegression())
-        self.dr = ResidualCorrectedStandardization(std, ipw)
+        self.dr = AIPW(std, ipw)
         self.dr.fit(self.data.X, self.data.a, self.data.y)
         self.prp_evaluator = PropensityEvaluator(self.dr.weight_model)
         self.out_evaluator = OutcomeEvaluator(self.dr.outcome_model)

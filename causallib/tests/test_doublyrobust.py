@@ -19,6 +19,7 @@ Created on Aug 08, 2018
 
 import unittest
 from itertools import product
+from collections import defaultdict
 import warnings
 
 import numpy as np
@@ -26,9 +27,7 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from warnings import simplefilter, catch_warnings
 
-from causallib.estimation import (
-    ResidualCorrectedStandardization, PropensityFeatureStandardization, WeightedStandardization
-)
+from causallib.estimation import AIPW, PropensityFeatureStandardization, WeightedStandardization
 from causallib.estimation import IPW
 from causallib.estimation import Standardization, StratifiedStandardization
 
@@ -83,6 +82,26 @@ class TestDoublyRobustBase(unittest.TestCase):
             self.assertAlmostEqual(doubly_res[0], ipw_res[0])
             self.assertAlmostEqual(doubly_res[1], ipw_res[1])
 
+    def ensure_effect_recovery(self, n=1100):
+        use_tmle_data = True
+        if use_tmle_data:  # Align the datasets to the same attributes
+            from causallib.tests.test_tmle import generate_data
+            data = generate_data(n, 2, 0, 1, 1, seed=1)
+            data['y'] = data['y_cont']
+        else:
+            data = self.create_uninformative_ox_dataset()
+            data['treatment_effect'] = data['beta']
+
+        self.estimator.fit(data['X'], data['a'], data['y'])
+        y = data["y"] if isinstance(self.estimator, AIPW) else None  # Avoid warnings
+        pop_outcomes = self.estimator.estimate_population_outcome(data['X'], data['a'], y)
+        effect = pop_outcomes[1] - pop_outcomes[0]
+        np.testing.assert_allclose(
+            data['treatment_effect'], effect,
+            atol=0.05
+        )
+        return data
+
     def ensure_is_fitted(self, estimator):
         data = self.create_uninformative_ox_dataset()
         estimator.fit(data["X"], data["a"], data["y"])
@@ -126,7 +145,7 @@ class TestDoublyRobustBase(unittest.TestCase):
                     self.assertTrue(True)  # Dummy assert, didn't crash
                 with self.subTest("Check prediction"):
                     ind_outcome = dr.estimate_individual_outcome(data["X"], data["a"])
-                    y = data["y"] if isinstance(dr, ResidualCorrectedStandardization) else None  # Avoid warnings
+                    y = data["y"] if isinstance(dr, AIPW) else None  # Avoid warnings
                     pop_outcome = dr.estimate_population_outcome(data["X"], data["a"], y)
                     dr.estimate_effect(ind_outcome[1], ind_outcome[0], agg="individual")
                     dr.estimate_effect(pop_outcome[1], pop_outcome[0])
@@ -191,20 +210,32 @@ class TestDoublyRobustBase(unittest.TestCase):
                     self.assertTrue(True)  # Fit did not crash
 
 
-class TestResidualCorrectedStandardization(TestDoublyRobustBase):
+class TestAIPW(TestDoublyRobustBase):
     @classmethod
     def setUpClass(cls):
         TestDoublyRobustBase.setUpClass()
         # Avoids regularization of the model:
-        ipw = IPW(LogisticRegression(C=1e6, solver='lbfgs'), use_stabilized=False)
+        ipw = IPW(LogisticRegression(C=1e6, solver='lbfgs', max_iter=500), use_stabilized=False)
         std = Standardization(LinearRegression(normalize=True))
-        cls.estimator = ResidualCorrectedStandardization(std, ipw)
+        cls.estimator = AIPW(std, ipw)
 
     def test_uninformative_tx_leads_to_std_like_results(self):
-        self.ensure_uninformative_tx_leads_to_std_like_results(self.estimator)
+        with self.subTest("`overlap_weighting=False`"):
+            self.ensure_uninformative_tx_leads_to_std_like_results(self.estimator)
+
+        with self.subTest("`overlap_weighting=True`"):
+            self.estimator.overlap_weighting = True
+            self.ensure_uninformative_tx_leads_to_std_like_results(self.estimator)
+            self.estimator.overlap_weighting = False
 
     def test_uninformative_ox_leads_to_ipw_like_results(self):
-        self.ensure_uninformative_ox_leads_to_ipw_like_results(self.estimator)
+        with self.subTest("`overlap_weighting=False`"):
+            self.ensure_uninformative_ox_leads_to_ipw_like_results(self.estimator)
+
+        with self.subTest("`overlap_weighting=True`"):
+            self.estimator.overlap_weighting = True
+            self.ensure_uninformative_ox_leads_to_ipw_like_results(self.estimator)
+            self.estimator.overlap_weighting = False
 
     def test_is_fitted(self):
         self.ensure_is_fitted(self.estimator)
@@ -216,13 +247,79 @@ class TestResidualCorrectedStandardization(TestDoublyRobustBase):
         self.ensure_weight_refitting_refits(self.estimator)
 
     def test_model_combinations_work(self):
-        self.ensure_model_combinations_work(ResidualCorrectedStandardization)
+        self.ensure_model_combinations_work(AIPW)
 
     def test_pipeline_learner(self):
         self.ensure_pipeline_learner()
 
     def test_many_models(self):
         self.ensure_many_models()
+
+    def test_effect_recovery(self):
+        with self.subTest("`overlap_weighting=False`"):
+            self.ensure_effect_recovery()
+
+        with self.subTest("`overlap_weighting=True`"):
+            self.estimator.overlap_weighting = True
+            self.ensure_effect_recovery()
+            self.estimator.overlap_weighting = False
+
+    def test_effect_calculation_against_direct_effect_formula(self):
+        from causallib.datasets import load_nhefs
+        data = load_nhefs()
+        X, a, y = data.X, data.a, data.y
+        a = a.astype(float)  # Test the propensity lookup for non-integer values
+        estimator = AIPW(
+            self.estimator.outcome_model, self.estimator.weight_model,
+            overlap_weighting=True,
+        )
+        estimator.fit(X, a, y)
+
+        # Estimate the effect from the model:
+        effect_from_model = estimator.estimate_population_outcome(X, a, y)   # type:pd.Series
+        effect_from_model = estimator.estimate_effect(effect_from_model[1], effect_from_model[0])["diff"]
+
+        # Estimate the effect manually using the direct-effect formula
+        # (not mitigated by counterfactual outcomes)
+        ps = estimator.weight_model.learner.predict_proba(X)[:, 1]
+        y_pred = estimator.outcome_model.estimate_individual_outcome(X, a)
+        ey0, ey1 = y_pred[0].values, y_pred[1].values
+        effect_from_formula = np.mean(
+            ((a*y)/ps - (1-a)*y/(1-ps))  # IPW
+            - (a-ps)/(ps*(1-ps)) * ((1 - ps)*ey1 + ps*ey0)  # Correction
+        )
+
+        np.testing.assert_allclose(effect_from_formula, effect_from_model)
+
+    def test_binary_outcome_effect_recovery(self):
+        from causallib.tests.test_tmle import generate_data
+        data = generate_data(1100, 2, 0, seed=0)
+        data['y'] = data['y_bin']
+
+        for overlap_weights in [False, True]:
+            estimator = AIPW(
+                Standardization(LogisticRegression(), predict_proba=True),
+                IPW(LogisticRegression()),
+                overlap_weighting=overlap_weights,
+            )
+            estimator.fit(data['X'], data['a'], data['y'])
+            pop_outcomes = estimator.estimate_population_outcome(data['X'], data['a'], data['y'])
+            effect = estimator.estimate_effect(pop_outcomes[1], pop_outcomes[0])['diff']
+            np.testing.assert_allclose(
+                data["y_propensity"][data['a'] == 1].mean() - data["y_propensity"][data['a'] == 0].mean(),
+                effect,
+                atol=0.1,
+            )
+
+    def test_multiple_treatments_error(self):
+        estimator = AIPW(
+            self.estimator.outcome_model, self.estimator.weight_model,
+            overlap_weighting=True,
+        )
+        data = self.create_uninformative_tx_dataset()
+        data["a"].iloc[-data["a"].shape[0] // 4:] += 1  # Create a dummy third class
+        with self.assertRaises(AssertionError):
+            estimator.fit(data["X"], data["a"], data["a"])
 
 
 class TestWeightedStandardization(TestDoublyRobustBase):
@@ -301,6 +398,9 @@ class TestWeightedStandardization(TestDoublyRobustBase):
                         # not all ML models support that and so calling should fail
                         model.fit(data["X"], data["a"], data["y"], refit_weight_model=False)
 
+    def test_effect_recovery(self):
+        self.ensure_effect_recovery()
+
 
 class TestPropensityFeatureStandardization(TestDoublyRobustBase):
     @classmethod
@@ -346,8 +446,8 @@ class TestPropensityFeatureStandardization(TestDoublyRobustBase):
     def test_many_feature_types(self):
         with self.subTest("Ensure all feature types are tested"):
             feature_types = [
-                "weight_vector",  # "signed_weight_vector",
-                "weight_matrix",  # "masked_weight_matrix",
+                "weight_vector",  "signed_weight_vector",
+                "weight_matrix",  "masked_weight_matrix",
                 "propensity_vector", "propensity_matrix",
                 "logit_propensity_vector",
             ]
@@ -358,27 +458,16 @@ class TestPropensityFeatureStandardization(TestDoublyRobustBase):
                     "and its corresponding tests. Did you add a new type without testing?"
                 )
 
-        use_tmle_data = True
-        if use_tmle_data:  # Align the datasets to the same attributes
-            from causallib.tests.test_tmle import generate_data
-            data = generate_data(1100, 2, 0, seed=0)
-            data['y'] = data['y_cont']
-        else:
-            data = self.create_uninformative_ox_dataset()
-            data['treatment_effect'] = data['beta']
-
+        # These two options are from Bang and Robins, and should be theoretically sound,
+        # however, they do seem to be less efficient (greater variance) than the other methods.
+        sample_size = defaultdict(lambda: 1100)
+        sample_size["signed_weight_vector"] = 20000
+        sample_size["masked_weight_matrix"] = 20000
         for feature_type in feature_types:
             with self.subTest(f"Testing {feature_type}"):
                 self.estimator.feature_type = feature_type
-                self.estimator.fit(data['X'], data['a'], data['y'])
 
-                # Test estimation:
-                pop_outcomes = self.estimator.estimate_population_outcome(data['X'], data['a'])
-                effect = pop_outcomes[1] - pop_outcomes[0]
-                np.testing.assert_allclose(
-                    data['treatment_effect'], effect,
-                    atol=0.05
-                )
+                data = self.ensure_effect_recovery(sample_size[feature_type])
 
                 # Test added covariates:
                 X_size = data['X'].shape[1]
