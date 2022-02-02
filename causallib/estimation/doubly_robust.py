@@ -322,9 +322,16 @@ class PropensityFeatureStandardization(BaseDoublyRobust):
                 *  "weight_vector": uses a signed weight vector. Only defined for binary treatment.
                    For example, if `weight_model` is IPW then: 1/Pr[A=a_i|X] for each sample `i`.
                    As described in Bang and Robins (2005).
+                * "signed_weight_vector": as `'weight_vector'`, but negates the weights of the control group.
+                  For example, if `weight_model` is IPW then: 1/Pr[A|X] for treated and 1/Pr[A|X] for controls.
+                  As described in the correction for Bang and Robins (2008)
                 * "weight_matrix": uses the entire weight matrix.
                    For example, if `weight_model` is IPW then: 1/Pr[A_i=a|X_i=x],
                                 for all treatment values `a` and for every sample `i`.
+                * "masked_weighted_matrix": uses the entire weight matrix, but masks it with a dummy-encoding
+                  of the treatment assignment.
+                  For example, if weight_model` is IPW then: 1/Pr[A=a_i|X=x_i] and 0 for all other `a≠a_i` columns.
+                  As described in Bang and Robins (2005).
                 * "propensity_vector": uses the probabilities for being in treatment group: Pr[A=1|X].
                                        Better defined for binary treatment.
                                        Equivalent to Scharfstein, Rotnitzky, and Robins (1999) that use its inverse.
@@ -391,6 +398,7 @@ class PropensityFeatureStandardization(BaseDoublyRobust):
             return w
 
         def signed_weight_vector(X, a):
+            """Bang and Robins, 2005 / 2008"""
             if a.nunique() != 2:
                 raise AssertionError(
                     f"`feature_type` 'weight_vector' can only be used with binary treatment."
@@ -406,6 +414,7 @@ class PropensityFeatureStandardization(BaseDoublyRobust):
             return W
 
         def masked_weight_matrix(X, a):
+            """Bang and Robins, 2005"""
             W = weight_matrix(X, a)
             A = pd.get_dummies(a)
             A = A.add_prefix("ipf_")  # To match naming of `W`
@@ -432,9 +441,9 @@ class PropensityFeatureStandardization(BaseDoublyRobust):
 
         feature_functions = {
             "weight_vector": weight_vector,
-            # "signed_weight_vector": signed_weight_vector,  # Hernan & Robins Fine Point 13.2, but seems to be biased
+            "signed_weight_vector": signed_weight_vector,
             "weight_matrix": weight_matrix,
-            # "masked_weight_matrix": masked_weight_matrix,  # Seems to be biased
+            "masked_weight_matrix": masked_weight_matrix,
             "propensity_vector": propensity_vector,
             "logit_propensity_vector": logit_propensity_vector,
             "propensity_matrix": propensity_matrix,

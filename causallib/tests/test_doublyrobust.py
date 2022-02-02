@@ -19,6 +19,7 @@ Created on Aug 08, 2018
 
 import unittest
 from itertools import product
+from collections import defaultdict
 import warnings
 
 import numpy as np
@@ -81,11 +82,11 @@ class TestDoublyRobustBase(unittest.TestCase):
             self.assertAlmostEqual(doubly_res[0], ipw_res[0])
             self.assertAlmostEqual(doubly_res[1], ipw_res[1])
 
-    def ensure_effect_recovery(self):
+    def ensure_effect_recovery(self, n=1100):
         use_tmle_data = True
         if use_tmle_data:  # Align the datasets to the same attributes
             from causallib.tests.test_tmle import generate_data
-            data = generate_data(1100, 2, 0, seed=0)
+            data = generate_data(n, 2, 0, 1, 1, seed=1)
             data['y'] = data['y_cont']
         else:
             data = self.create_uninformative_ox_dataset()
@@ -97,7 +98,7 @@ class TestDoublyRobustBase(unittest.TestCase):
         effect = pop_outcomes[1] - pop_outcomes[0]
         np.testing.assert_allclose(
             data['treatment_effect'], effect,
-            atol=0.01
+            atol=0.05
         )
         return data
 
@@ -445,8 +446,8 @@ class TestPropensityFeatureStandardization(TestDoublyRobustBase):
     def test_many_feature_types(self):
         with self.subTest("Ensure all feature types are tested"):
             feature_types = [
-                "weight_vector",  # "signed_weight_vector",
-                "weight_matrix",  # "masked_weight_matrix",
+                "weight_vector",  "signed_weight_vector",
+                "weight_matrix",  "masked_weight_matrix",
                 "propensity_vector", "propensity_matrix",
                 "logit_propensity_vector",
             ]
@@ -457,11 +458,16 @@ class TestPropensityFeatureStandardization(TestDoublyRobustBase):
                     "and its corresponding tests. Did you add a new type without testing?"
                 )
 
+        # These two options are from Bang and Robins, and should be theoretically sound,
+        # however, they do seem to be less efficient (greater variance) than the other methods.
+        sample_size = defaultdict(lambda: 1100)
+        sample_size["signed_weight_vector"] = 20000
+        sample_size["masked_weight_matrix"] = 20000
         for feature_type in feature_types:
             with self.subTest(f"Testing {feature_type}"):
                 self.estimator.feature_type = feature_type
 
-                data = self.ensure_effect_recovery()
+                data = self.ensure_effect_recovery(sample_size[feature_type])
 
                 # Test added covariates:
                 X_size = data['X'].shape[1]
