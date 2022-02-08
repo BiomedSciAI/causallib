@@ -117,4 +117,7 @@ class RegressionCurveFitter:
         # Set index name
         individual_survival_curves.index.name = 't'
 
+        # Round near-zero values (may occur when all subjects "died" at some point)
+        individual_survival_curves[np.abs(individual_survival_curves) < np.finfo(float).resolution] = 0
+
         return individual_survival_curves

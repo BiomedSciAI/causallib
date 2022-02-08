@@ -107,4 +107,8 @@ class UnivariateCurveFitter:
                                  index=pd.Index(data=times, name='t'), name='survival')
         else:
             survival = survival.asof(times).squeeze()
+
+        # Round near-zero values (may occur when using weights and all observed subjects "died" at some point)
+        survival[np.abs(survival) < np.finfo(float).resolution] = 0
+
         return survival
