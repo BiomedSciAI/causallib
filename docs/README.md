@@ -1,6 +1,6 @@
 To generate the `source/causallib.*` files run:
 ```bash
-sphinx-apidoc -o source ../causallib --separate
+sphinx-apidoc -o source ../causallib --separate --force
 ```
 (from within this directory)
 
