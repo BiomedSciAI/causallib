@@ -81,9 +81,14 @@ You can review the [individual CLA document as a PDF](https://www.apache.org/lic
 > email it to us at <ehudk@ibm.com>.
 
 ## Contributors
-Ehud Karavani,
-Yishai Shimoni,
-Michael Danziger,
-Chirag Nagpal,
-Tal Kozlovski,
-Dennis Wei
+Ehud Karavani  
+Yishai Shimoni  
+Michael Danziger  
+Lior Ness  
+Itay Manes  
+Yoav Kan-Tor  
+Chirag Nagpal   
+Tal Kozlovski  
+Liran Szlak  
+Onkar Bhardwaj  
+Dennis Wei  
