@@ -140,15 +140,17 @@ class OutcomeEvaluator(BaseEvaluator):
         """Score a single prediction based on whether `y_true` is classification or regression"""
         if outcome_is_binary:
             score = self.score_binary_prediction(
-                y_true = y_true,
-                y_pred = prediction,
-                y_pred_proba = prediction_prob,
-                metrics_to_evaluate =metrics_to_evaluate)
+                y_true=y_true,
+                y_pred=prediction,
+                y_pred_proba=prediction_prob,
+                metrics_to_evaluate=metrics_to_evaluate
+            )
         else:
             score = self.score_regression_prediction(
-                y_true = y_true,
-                y_pred = prediction,
-                metrics_to_evaluate = metrics_to_evaluate)
+                y_true=y_true,
+                y_pred=prediction,
+                metrics_to_evaluate=metrics_to_evaluate
+            )
         # score = pd.DataFrame(score).T
         # score = score.apply(pd.to_numeric, errors="ignore")  # change dtype of each column to numerical if possible.
         return score
