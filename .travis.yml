@@ -10,7 +10,7 @@ before_script:
   - chmod +x ./cc-test-reporter
   - ./cc-test-reporter before-build
 install:
-  - pip install --upgrade pip
+  - pip install --upgrade pip setuptools
   - pip install -r requirements.txt
   - pip install -r causallib/contrib/requirements.txt
   - pip install --upgrade pytest coverage
