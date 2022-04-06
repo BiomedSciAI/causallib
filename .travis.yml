@@ -11,6 +11,7 @@ before_script:
   - ./cc-test-reporter before-build
 install:
   - pip install --upgrade pip
+  - pip install --upgrade importlib-metadata  # Solve a python 3.7 install bug: https://app.travis-ci.com/github/IBM/causallib/jobs/566048347
   - pip install -r requirements.txt
   - pip install -r causallib/contrib/requirements.txt
   - pip install --upgrade pytest coverage
