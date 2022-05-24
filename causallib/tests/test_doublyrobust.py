@@ -444,19 +444,14 @@ class TestPropensityFeatureStandardization(TestDoublyRobustBase):
         self.ensure_many_models(clip_min=0.001, clip_max=1-0.001)
 
     def test_many_feature_types(self):
-        with self.subTest("Ensure all feature types are tested"):
+        with self.subTest("Ensure all expected feature types are supported"):
             feature_types = [
                 "weight_vector",  "signed_weight_vector",
                 "weight_matrix",  "masked_weight_matrix",
                 "propensity_vector", "propensity_matrix",
                 "logit_propensity_vector",
             ]
-            model_feature_types = set(self.estimator._feature_functions.keys())
-            if set(feature_types) != model_feature_types:
-                raise AssertionError(
-                    "Hey there, there's a mismatch between `PropensityFeatureStandardization._feature_types"
-                    "and its corresponding tests. Did you add a new type without testing?"
-                )
+            assert all(self.estimator._get_feature_function(name) for name in feature_types)
 
         # These two options are from Bang and Robins, and should be theoretically sound,
         # however, they do seem to be less efficient (greater variance) than the other methods.
@@ -481,3 +476,10 @@ class TestPropensityFeatureStandardization(TestDoublyRobustBase):
         #     self.estimator.feature_type = "signed_weight_vector"
         #     with self.assertRaises(AssertionError):
         #         self.estimator.fit(data['X'], a, data['y'])
+
+    def test_can_fit_after_deepcopy(self):
+        # added following https://github.ibm.com/CausalDev/CausalInference/issues/101
+        from copy import deepcopy
+        estimator_copy = deepcopy(self.estimator)
+        data = self.create_uninformative_ox_dataset()
+        estimator_copy.fit(data['X'], data['a'], data['y'])

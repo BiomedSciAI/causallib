@@ -344,7 +344,6 @@ class PropensityFeatureStandardization(BaseDoublyRobust):
                          outcome_covariates, weight_covariates)
         self.feature_type = feature_type
 
-        self._feature_functions = self._define_feature_functions()
 
     def estimate_individual_outcome(self, X, a, treatment_values=None, predict_proba=None):
         X_augmented = self._augment_outcome_model_data(X, a)
@@ -365,12 +364,7 @@ class PropensityFeatureStandardization(BaseDoublyRobust):
                           matrix (W | X).
         """
         X_outcome, X_weight = self._prepare_data(X, a)
-        feature_func = self._feature_functions.get(self.feature_type)
-        if feature_func is None:
-            raise ValueError(
-                f"feature type {self.feature_type} is not recognized."
-                f"Supported options are: {set(self._feature_functions.keys())}"
-            )
+        feature_func = self._get_feature_function(self.feature_type)
         weights_feature = feature_func(X_weight, a)
         # Let standardization deal with incorporating treatment assignment (a) into the data:
         X_augmented = pd.concat([weights_feature, X_outcome], join="outer", axis="columns")
@@ -390,7 +384,7 @@ class PropensityFeatureStandardization(BaseDoublyRobust):
         self.outcome_model.fit(X=X_augmented, y=y, a=a)
         return self
 
-    def _define_feature_functions(self):
+    def _get_feature_function(self, function_name):
 
         def weight_vector(X, a):
             w = self.weight_model.compute_weights(X, a)
@@ -448,7 +442,7 @@ class PropensityFeatureStandardization(BaseDoublyRobust):
             "logit_propensity_vector": logit_propensity_vector,
             "propensity_matrix": propensity_matrix,
         }
-        return feature_functions
+        return feature_functions[function_name]
 
 
 class WeightedStandardization(BaseDoublyRobust):
