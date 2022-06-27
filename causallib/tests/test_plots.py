@@ -38,15 +38,32 @@ class TestPlots(unittest.TestCase):
 
     def propensity_plot_by_name(self, test_names, alternate_a=None):
         a = self.data.a if alternate_a is None else alternate_a
-        nhefs_plots = self.prp_evaluator.evaluate_simple(
-            self.data.X, a, self.data.y, plots=test_names)
-        [self.assertIsNotNone(x) for x in nhefs_plots.plots.values()]
+        nhefs_results = self.prp_evaluator.evaluate_simple(
+            self.data.X, a, self.data.y, )
+        nhefs_plots = self.prp_evaluator.plot_cv(
+            predictions=nhefs_results.predictions, 
+            X=self.data.X, 
+            a=a, 
+            y=self.data.y, 
+            plots=test_names,
+            cv=nhefs_results.cv,
+            )
+        [self.assertIsNotNone(x) for x in nhefs_plots.values()]
         return True
 
     def outcome_plot_by_name(self, test_names):
-        nhefs_plots = self.out_evaluator.evaluate_simple(
-            self.data.X, self.data.a, self.data.y, plots=test_names)
-        [self.assertIsNotNone(x) for x in nhefs_plots.plots.values()]
+        nhefs_results = self.out_evaluator.evaluate_simple(
+            self.data.X, self.data.a, self.data.y)
+        nhefs_plots = self.out_evaluator.plot_cv(
+            predictions=nhefs_results.predictions,
+            X=self.data.X, 
+            a=self.data.a, 
+            y=self.data.y, 
+            plots=test_names,
+            cv=nhefs_results.cv,
+            )
+        
+        [self.assertIsNotNone(x) for x in nhefs_plots.values()]
         return True
 
     def propensity_plot_multiple_a(self, test_names):

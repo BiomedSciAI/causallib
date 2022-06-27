@@ -22,8 +22,6 @@ import numpy as np
 import pandas as pd
 
 from .evaluator import BaseEvaluator
-from .plots import plot_mean_features_imbalance_slope_folds, plot_mean_features_imbalance_love_folds
-from .plots import plot_propensity_score_distribution_folds
 from ..estimation.base_weight import WeightEstimator, PropensityEstimator
 from ..utils.stat_utils import calc_weighted_standardized_mean_differences, calc_weighted_ks2samp, robust_lookup
 
@@ -90,9 +88,7 @@ class WeightEvaluator(BaseEvaluator):
             raise TypeError("WeightEvaluator should be initialized with WeightEstimator, got ({}) instead."
                             .format(type(estimator)))
         super(WeightEvaluator, self).__init__(estimator)
-        self._plot_functions.update({"weight_distribution": plot_propensity_score_distribution_folds,
-                                     "covariate_balance_love": plot_mean_features_imbalance_love_folds,
-                                     "covariate_balance_slope": plot_mean_features_imbalance_slope_folds})
+
 
     def _estimator_fit(self, X, a, y=None):
         """ Fit estimator. `y` is ignored.

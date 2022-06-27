@@ -22,8 +22,6 @@ import numpy as np
 import pandas as pd
 
 from .evaluator import BaseEvaluator
-from .plots import plot_counterfactual_common_support_folds, plot_continuous_prediction_accuracy_folds, \
-    plot_residual_folds
 from ..estimation.base_estimator import IndividualOutcomeEstimator
 from ..utils.stat_utils import is_vector_binary
 from ..utils.stat_utils import robust_lookup
@@ -47,9 +45,7 @@ class OutcomeEvaluator(BaseEvaluator):
             raise TypeError("OutcomeEvaluator should be initialized with IndividualOutcomeEstimator, got ({}) instead."
                             .format(type(estimator)))
         super(OutcomeEvaluator, self).__init__(estimator)
-        self._plot_functions.update({"continuous_accuracy": plot_continuous_prediction_accuracy_folds,
-                                     "residuals": plot_residual_folds,
-                                     "common_support": plot_counterfactual_common_support_folds})
+
 
     def _estimator_fit(self, X, a, y):
         """Fit estimator."""

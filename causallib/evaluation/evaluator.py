@@ -18,6 +18,8 @@ Created on Dec 25, 2018
 """
 
 import abc
+from dataclasses import dataclass
+from typing import Any, List, Literal, Tuple, Union, Dict
 import warnings
 from copy import deepcopy
 
@@ -26,25 +28,25 @@ import pandas as pd
 from sklearn import metrics
 from sklearn.model_selection import StratifiedKFold
 
-from .plots import get_subplots, plot_calibration_folds, plot_roc_curve_folds, plot_precision_recall_curve_folds
-
-
+from .plots import lookup_name, get_subplots
+from ..estimation.base_weight import WeightEstimator
+from ..estimation.base_estimator import IndividualOutcomeEstimator
 # TODO: How doubly robust fits in to show both weight and outcome model (at least show the plots on the same figure?)
 
-class EvaluationResults:
-    """Data structure to hold evaluation results"""
 
-    def __init__(self, scores, plots, models):
-        """
+@dataclass
+class EvaluationResults:
+    """Data structure to hold evaluation results.
         Args:
             scores (pd.DataFrame or WeightEvaluatorScores):
             plots (dict): plot names to plot axes mapping.
                           Can be further nested by phase ("train"/"valid")
             models (list[WeightEstimator or IndividualOutcomeEstimator]): Models trained during evaluation
         """
-        self.scores = scores
-        self.plots = plots
-        self.models = models
+    evaluation_metrics: Union[pd.DataFrame, Any] #really Any is WeightEvaluatorScores
+    models: List[Union[WeightEstimator, IndividualOutcomeEstimator]]
+    predictions: Dict[Union[Literal["train"], Literal["valid"]], List[Any]] #really Any is one of the Predictions objects
+    cv: List[Tuple[List[int], List[int]]]
 
 
 class BaseEvaluator:
@@ -56,7 +58,7 @@ class BaseEvaluator:
                                          "avg_precision": metrics.average_precision_score,
                                          "hinge": metrics.hinge_loss,
                                          "matthews": metrics.matthews_corrcoef,
-                                         "0/1": metrics.zero_one_loss,
+                                         "0_1": metrics.zero_one_loss,
                                          "brier": metrics.brier_score_loss}
     _nonnumerical_classification_metrics = {"confusion_matrix": metrics.confusion_matrix,
                                             "roc_curve": metrics.roc_curve,
@@ -78,9 +80,7 @@ class BaseEvaluator:
             estimator (causallib.estimation.base_weight.WeightEstimator | causallib.estimation.base_estimator.IndividualOutcomeEstimator):
         """
         self.estimator = estimator
-        self._plot_functions = {"roc_curve": plot_roc_curve_folds,
-                                "pr_curve": plot_precision_recall_curve_folds,
-                                "calibration": plot_calibration_folds}
+
 
     def score_binary_prediction(self, y_true, y_pred_proba=None, y_pred=None, sample_weight=None,
                                 metrics_to_evaluate=None, only_numeric_metric=True):
@@ -140,14 +140,14 @@ class BaseEvaluator:
             pd.Series: name of metric as index and the evaluated score as value.
         """
         metrics_to_evaluate = metrics_to_evaluate or self._regression_metrics
-        scores = {}
+        metrics = {}
         for metric_name, metric_func in metrics_to_evaluate.items():
             try:
-                scores[metric_name] = metric_func(y_true, y_pred, sample_weight=sample_weight)
+                metrics[metric_name] = metric_func(y_true, y_pred, sample_weight=sample_weight)
             except ValueError as v:
-                scores[metric_name] = np.nan
+                metrics[metric_name] = np.nan
                 warnings.warn('While evaluating ' + metric_name + ': ' + str(v))
-        return pd.Series(scores)
+        return pd.Series(metrics)
 
     def evaluate_simple(self, X, a, y, metrics_to_evaluate=None, plots=None):
         """Evaluate model on the provided data
@@ -174,11 +174,10 @@ class BaseEvaluator:
                                    metrics_to_evaluate=metrics_to_evaluate, plots=plots)
 
         # Remove redundant information accumulated due to the use of cross-validation process
-        results.plots = results.plots.pop('train', results.plots)
         results.models = results.models[0]
-        scores = [results.scores] if isinstance(results.scores, pd.DataFrame) else results.scores
-        for score in scores:
-            score.reset_index(level=["phase", "fold"], drop=True, inplace=True)
+        evaluation_metrics = [results.evaluation_metrics] if isinstance(results.evaluation_metrics, pd.DataFrame) else results.evaluation_metrics
+        for metric in evaluation_metrics:
+            metric.reset_index(level=["phase", "fold"], drop=True, inplace=True)
 
         return results
 
@@ -223,10 +222,10 @@ class BaseEvaluator:
 
         # Remove redundant information accumulated due to the use of cross-validation process:
         results.models = results.models[0] if len(results.models) == 1 else results.models
-        scores = [results.scores] if isinstance(results.scores, pd.DataFrame) else results.scores
-        for score in scores:
-            score.reset_index(level=["phase"], drop=True, inplace=True)
-            score.index.rename("sample", "fold", inplace=True)
+        evaluation_metrics = [results.evaluation_metrics] if isinstance(results.evaluation_metrics, pd.DataFrame) else results.evaluation_metrics
+        for metric in evaluation_metrics:
+            metric.reset_index(level=["phase"], drop=True, inplace=True)
+            metric.index.rename("sample", "fold", inplace=True)
         return results
 
     def evaluate_cv(self, X, a, y, cv=None, kfold=None, refit=True, phases=("train", "valid"),
@@ -264,14 +263,15 @@ class BaseEvaluator:
 
         predictions, models = self.predict_cv(X, a, y, cv, refit, phases)
 
-        scores = self.score_cv(predictions, X, a, y, cv, metrics_to_evaluate)
+        evaluation_metrics = self.score_cv(predictions, X, a, y, cv, metrics_to_evaluate)
+        return_values = EvaluationResults(evaluation_metrics=evaluation_metrics,
+                                          predictions=predictions,
+                                          cv=cv,
+                                          models=models if refit is True else [self.estimator])
 
         if plots is not None:
-            plots = self.plot_cv(predictions, X, a, y, cv, plots)
+           self.plot_cv(predictions, X, a, y, cv, plots)
 
-        return_values = EvaluationResults(scores=scores,
-                                          plots=plots if plots is not None else {},
-                                          models=models if refit is True else [self.estimator])
         return return_values
 
     def predict_cv(self, X, a, y, cv, refit=True, phases=("train", "valid")):
@@ -382,7 +382,7 @@ class BaseEvaluator:
                 #       expanded when calling plot_func: plot_func(*plot_args, **plot_kwargs).
                 #       This will allow more flexible specification of parameters by the caller
                 #       (For example, Propensity Distribution with kde=True and Weight Distribution with kde=False)
-                plot_func = self._plot_functions.get(plot_name)
+                plot_func = lookup_name(plot_name)
                 if plot_func is None or plot_data is None:
                     plot_ax = None
                 else:

@@ -37,6 +37,20 @@ from sklearn import metrics
 # TODO: consider making plot module be class-based instead, taking its argument during init
 #       and having a `plot()` interface
 
+def lookup_name(name: str):
+    return \
+    {
+        "continuous_accuracy": plot_continuous_prediction_accuracy_folds,
+        "residuals": plot_residual_folds,
+        "common_support": plot_counterfactual_common_support_folds,
+        "roc_curve": plot_roc_curve_folds,
+        "pr_curve": plot_precision_recall_curve_folds,
+        "calibration": plot_calibration_folds,
+        "weight_distribution": plot_propensity_score_distribution_folds,
+        "covariate_balance_love": plot_mean_features_imbalance_love_folds,
+        "covariate_balance_slope": plot_mean_features_imbalance_slope_folds,
+    }[name]
+
 
 def _calculate_mutual_bins(x, y, bins="auto"):
     """
