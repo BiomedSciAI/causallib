@@ -19,7 +19,7 @@ Created on Dec 25, 2018
 
 import abc
 from dataclasses import dataclass
-from typing import Any, List, Literal, Tuple, Union, Dict
+from typing import Any, List, Tuple, Union, Dict
 import warnings
 from copy import deepcopy
 
@@ -45,7 +45,7 @@ class EvaluationResults:
         """
     evaluation_metrics: Union[pd.DataFrame, Any] #really Any is WeightEvaluatorScores
     models: List[Union[WeightEstimator, IndividualOutcomeEstimator]]
-    predictions: Dict[Union[Literal["train"], Literal["valid"]], List[Any]] #really Any is one of the Predictions objects
+    predictions: Dict[str, List[Any]] #really Any is one of the Predictions objects and key is "train" or "valid"
     cv: List[Tuple[List[int], List[int]]]
 
 
