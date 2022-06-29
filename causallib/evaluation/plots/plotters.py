@@ -1,16 +1,15 @@
 import abc
-from sklearn import metrics
-from typing import List
-import pandas as pd
-import numpy as np
-
-from .plots import lookup_name, get_subplots
-from ..metrics import calculate_covariate_balance
-from ...estimation.base_weight import PropensityEstimator, WeightEstimator
-from ...estimation.base_estimator import IndividualOutcomeEstimator
 import warnings
-from ...utils.stat_utils import is_vector_binary
-from ...utils.stat_utils import robust_lookup
+
+import numpy as np
+import pandas as pd
+from sklearn import metrics
+
+from ...estimation.base_estimator import IndividualOutcomeEstimator
+from ...estimation.base_weight import PropensityEstimator, WeightEstimator
+from ...utils.stat_utils import is_vector_binary, robust_lookup
+from ..metrics import calculate_covariate_balance
+from .plots import get_subplots, lookup_name
 
 
 # Calculating ROC/PR curves:

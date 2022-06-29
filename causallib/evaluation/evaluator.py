@@ -116,7 +116,7 @@ class Predictor:
 
 
 
-class BaseEvaluator:
+class Evaluator:
 
 
     def __init__(self, estimator):

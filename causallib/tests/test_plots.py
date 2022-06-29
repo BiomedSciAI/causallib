@@ -15,7 +15,7 @@
 # Created on Nov 12, 2020
 
 from sklearn.linear_model import LogisticRegression, LinearRegression
-from causallib.evaluation.evaluator import BaseEvaluator
+from causallib.evaluation.evaluator import Evaluator
 from causallib.estimation import AIPW, IPW, StratifiedStandardization
 from causallib.datasets import load_nhefs
 import unittest
@@ -33,8 +33,8 @@ class TestPlots(unittest.TestCase):
         std = StratifiedStandardization(LinearRegression())
         self.dr = AIPW(std, ipw)
         self.dr.fit(self.data.X, self.data.a, self.data.y)
-        self.prp_evaluator = BaseEvaluator(self.dr.weight_model)
-        self.out_evaluator = BaseEvaluator(self.dr.outcome_model)
+        self.prp_evaluator = Evaluator(self.dr.weight_model)
+        self.out_evaluator = Evaluator(self.dr.outcome_model)
 
     def propensity_plot_by_name(self, test_names, alternate_a=None):
         a = self.data.a if alternate_a is None else alternate_a
