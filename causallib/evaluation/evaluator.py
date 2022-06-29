@@ -126,7 +126,7 @@ class Evaluator:
             estimator (causallib.estimation.base_weight.WeightEstimator | causallib.estimation.base_estimator.IndividualOutcomeEstimator):
         """
         self.predictor = Predictor.from_estimator(estimator)(estimator)
-        self.scorer = Scorer.from_estimator(estimator)()
+        self.scorer = Scorer.from_estimator(estimator)
         self.plotter = Plotter.from_estimator(estimator)()
 
 

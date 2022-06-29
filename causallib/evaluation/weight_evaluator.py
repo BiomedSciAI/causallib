@@ -20,10 +20,10 @@ Created on Dec 25, 2018
 import numpy as np
 import pandas as pd
 
-from .evaluator import Predictor, Plotter
+from .evaluator import Predictor
 from ..estimation.base_weight import WeightEstimator, PropensityEstimator
 from ..utils.stat_utils import robust_lookup
-
+from .metrics import Scorer, calculate_covariate_balance, WeightEvaluatorScores
 # TODO: decide what implementation stays - the one with the '2' suffix or the one without.
 #       The one with is based on matrix input and does all the vector extraction by itself.
 #       The one without is simpler one the receive the vectors already (more general, as not all models may have matrix.
@@ -40,6 +40,44 @@ class WeightEvaluatorPredictions:
         self.weight_by_treatment_assignment = weight_by_treatment_assignment
         self.weight_for_being_treated = weight_for_being_treated
         self.treatment_assignment_pred = treatment_assignment_pred
+
+    def calculate_metrics(self, X, a_true, metrics_to_evaluate):
+        """
+
+        Args:
+            X (pd.DataFrame): Covariates.
+            targets (pd.Series): Target variable - true treatment assignment
+            predict_scores (pd.Series): Continuous prediction of the treatment assignment
+                                        (as is `predict_proba` or `decision_function`).
+            predict_assignment (pd.Series): Class prediction of the treatment assignment
+                                            (i.e. prediction of the assignment it self).
+            predict_weights (pd.Series): The weights derived to balance between the treatment groups
+                                         (here, called `targets`).
+            metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives true labels, prediction
+                                               and sample_weights (the latter is allowed to be ignored).
+                                               If not provided, default are used.
+
+        Returns:
+            WeightEvaluatorScores: Data-structure holding scores on the predictions
+                                   and covariate balancing table ("table 1")
+        """    
+
+        prediction_scores = Scorer.score_binary_prediction(
+            y_true=a_true,
+            y_pred_proba=self.weight_for_being_treated,
+            y_pred=self.treatment_assignment_pred,
+            metrics_to_evaluate=metrics_to_evaluate,
+        )
+        # Convert single-dtype Series to a row in a DataFrame:
+        prediction_scores = pd.DataFrame(prediction_scores).T
+        # change dtype of each column to numerical if possible:
+        prediction_scores = prediction_scores.apply(pd.to_numeric, errors="ignore")
+
+        covariate_balance = calculate_covariate_balance(X, a_true, self.weight_by_treatment_assignment)
+
+        results = WeightEvaluatorScores(prediction_scores, covariate_balance)
+        return results
+
 
 
 class WeightEvaluatorPredictions2:

@@ -55,14 +55,13 @@ class Scorer:
 
     @staticmethod
     def from_estimator(estimator):
-        if isinstance(estimator, PropensityEstimator):
-            return PropensityScorer
-        if isinstance(estimator, WeightEstimator):
+        if isinstance(estimator, (PropensityEstimator, WeightEstimator)):
             return WeightScorer
         if isinstance(estimator, IndividualOutcomeEstimator):
             return OutcomeScorer
 
-    def score_cv(self, predictions, X, a, y, cv, metrics_to_evaluate=None):
+    @classmethod
+    def score_cv(cls, predictions, X, a, y, cv, metrics_to_evaluate=None):
         """Evaluate the prediction against the true data using evaluation score metrics.
 
         Args:
@@ -105,12 +104,12 @@ class Scorer:
                 )
                 prediction = predictions[phase][i]
 
-                fold_scores = self.score_estimation(
+                fold_scores = cls.score_estimation(
                     prediction, X_fold, a_fold, y_fold, metrics_to_evaluate
                 )
                 scores[phase].append(fold_scores)
 
-        scores = self._combine_fold_scores(scores)
+        scores = cls._combine_fold_scores(scores)
         return scores
 
     @classmethod
@@ -242,8 +241,9 @@ class Scorer:
 
 
 class OutcomeScorer(Scorer):
+    @classmethod
     def score_estimation(
-        self,
+        cls,
         prediction,
         X,
         a_true,
@@ -268,87 +268,12 @@ class OutcomeScorer(Scorer):
                           on the set {y_i | a_i = 0}, y^1 on the set {y_i | a_i = 1} and non-stratified using the
                           factual treatment assignment: y^(a_i) on `y_true`.
         """
-        y_is_binary = y_true.nunique() == 2
-        treatment_values = np.sort(np.unique(a_true))
-        scores = {}
-        for treatment_value in treatment_values:
-            # Stratify based on treatment assignment:
-            current_strata_mask = a_true == treatment_value
-            y_true_strata = y_true.loc[current_strata_mask]
-            prediction_strata = prediction.prediction.loc[
-                current_strata_mask, treatment_value
-            ]
-            if y_is_binary:
-                prediction_prob_strata = prediction.prediction_event_prob.loc[
-                    current_strata_mask, treatment_value
-                ]
-            else:
-                prediction_prob_strata = None
-
-            score = self._score_single(
-                y_true_strata,
-                prediction_strata,
-                prediction_prob_strata,
-                y_is_binary,
-                metrics_to_evaluate,
-            )
-
-            scores[str(treatment_value)] = score
-
-        # Score overall:
-        # # Extract prediction on actual treatment
-        prediction_strata = robust_lookup(prediction.prediction, a_true)
-        if y_is_binary:
-            prediction_prob_strata = robust_lookup(
-                prediction.prediction_event_prob, a_true
-            )
-        else:
-            prediction_prob_strata = None
-        score = self._score_single(
-            y_true,
-            prediction_strata,
-            prediction_prob_strata,
-            y_is_binary,
-            metrics_to_evaluate,
-        )
-        scores["actual"] = score
-
-        scores = pd.concat(scores, names=["model_strata"], axis="columns").T
-        scores = scores.apply(
-            pd.to_numeric, errors="ignore"
-        )  # change dtype of each column to numerical if possible.
-        return scores
-
-    def _score_single(
-        self,
-        y_true,
-        prediction,
-        prediction_prob,
-        outcome_is_binary,
-        metrics_to_evaluate,
-    ):
-        """Score a single prediction based on whether `y_true` is classification or regression"""
-        if outcome_is_binary:
-            score = self.score_binary_prediction(
-                y_true=y_true,
-                y_pred=prediction,
-                y_pred_proba=prediction_prob,
-                metrics_to_evaluate=metrics_to_evaluate,
-            )
-        else:
-            score = self.score_regression_prediction(
-                y_true=y_true,
-                y_pred=prediction,
-                metrics_to_evaluate=metrics_to_evaluate,
-            )
-        # score = pd.DataFrame(score).T
-        # score = score.apply(pd.to_numeric, errors="ignore")  # change dtype of each column to numerical if possible.
-        return score
-
+        return prediction.calculate_metrics(a_true, y_true, metrics_to_evaluate)
 
 class WeightScorer(Scorer):
+    @classmethod
     def score_estimation(
-        self, prediction, X, a_true, y_true=None, metrics_to_evaluate=None
+        cls, prediction, X, a_true, y_true=None, metrics_to_evaluate=None
     ):
         """Scores a prediction against true labels.
 
@@ -365,61 +290,10 @@ class WeightScorer(Scorer):
             WeightEvaluatorScores: Data-structure holding scores on the predictions
                                    and covariate balancing table ("table 1")
         """
-        results = self._score_estimation(
-            X,
-            a_true,
-            prediction.weight_for_being_treated,
-            prediction.treatment_assignment_pred,
-            prediction.weight_by_treatment_assignment,
-            metrics_to_evaluate,
-        )
-        return results
+        return prediction.calculate_metrics(X, a_true, metrics_to_evaluate)
 
-    def _score_estimation(
-        self,
-        X,
-        targets,
-        predict_scores,
-        predict_assignment,
-        predict_weights,
-        metrics_to_evaluate=None,
-    ):
-        """
-
-        Args:
-            X (pd.DataFrame): Covariates.
-            targets (pd.Series): Target variable - true treatment assignment
-            predict_scores (pd.Series): Continuous prediction of the treatment assignment
-                                        (as is `predict_proba` or `decision_function`).
-            predict_assignment (pd.Series): Class prediction of the treatment assignment
-                                            (i.e. prediction of the assignment it self).
-            predict_weights (pd.Series): The weights derived to balance between the treatment groups
-                                         (here, called `targets`).
-            metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives true labels, prediction
-                                               and sample_weights (the latter is allowed to be ignored).
-                                               If not provided, default are used.
-
-        Returns:
-            WeightEvaluatorScores: Data-structure holding scores on the predictions
-                                   and covariate balancing table ("table 1")
-        """
-        prediction_scores = self.score_binary_prediction(
-            y_true=targets,
-            y_pred_proba=predict_scores,
-            y_pred=predict_assignment,
-            metrics_to_evaluate=metrics_to_evaluate,
-        )
-        # Convert single-dtype Series to a row in a DataFrame:
-        prediction_scores = pd.DataFrame(prediction_scores).T
-        # change dtype of each column to numerical if possible:
-        prediction_scores = prediction_scores.apply(pd.to_numeric, errors="ignore")
-
-        covariate_balance = calculate_covariate_balance(X, targets, predict_weights)
-
-        results = WeightEvaluatorScores(prediction_scores, covariate_balance)
-        return results
-
-    def _combine_fold_scores(self, scores):
+    @classmethod
+    def _combine_fold_scores(cls, scores):
         # `scores` are provided as WeightEvaluatorScores object for each fold in each phase,
         # Namely, dict[list[WeightEvaluatorScores]], which in turn hold two DataFrames components.
         # In order to combine the underlying DataFrames into a multilevel DataFrame, one must first extract them from
@@ -436,48 +310,14 @@ class WeightScorer(Scorer):
         }
 
         # Combine the dict[list[DataFrames]] of each component into a multilevel DataFrame separately:
-        prediction_scores = super(WeightScorer, self)._combine_fold_scores(
-            prediction_scores
-        )
-        covariate_balance = super(WeightScorer, self)._combine_fold_scores(
-            covariate_balance
-        )
+        prediction_scores = Scorer._combine_fold_scores(prediction_scores)
+        covariate_balance = Scorer._combine_fold_scores(covariate_balance)
         # TODO: consider reordering the levels, such that the covariate will be the first one and then phase and fold
         # covariate_balance = covariate_balance.reorder_levels(["covariate", "phase", "fold"])
 
         # Create a new WeightEvaluatorScores object with the combined (i.e., multilevel DataFrame) results:
         scores = WeightEvaluatorScores(prediction_scores, covariate_balance)
         return scores
-
-
-class PropensityScorer(WeightScorer):
-    def score_estimation(
-        self, prediction, X, a_true, y_true=None, metrics_to_evaluate=None
-    ):
-        """Scores a prediction against true labels.
-
-        Args:
-            prediction (PropensityEvaluatorPredictions): Prediction on the data.
-            X (pd.DataFrame): Covariates.
-            a_true (pd.Series): Target variable - treatment assignment
-            y_true: *IGNORED*
-            metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives true labels, prediction
-                                               and sample_weights (the latter is allowed to be ignored).
-                                               If not provided, default are used.
-
-        Returns:
-            WeightEvaluatorScores: Data-structure holding scores on the predictions
-                                   and covariate balancing table ("table 1")
-        """
-        results = self._score_estimation(
-            X,
-            a_true,
-            prediction.propensity,
-            prediction.treatment_assignment_pred,
-            prediction.weight_by_treatment_assignment,
-            metrics_to_evaluate,
-        )
-        return results
 
 
 # ################# #
