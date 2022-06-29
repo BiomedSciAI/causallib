@@ -15,7 +15,7 @@
 # Created on Nov 12, 2020
 
 from sklearn.linear_model import LogisticRegression, LinearRegression
-from causallib.evaluation import PropensityEvaluator, OutcomeEvaluator
+from causallib.evaluation.evaluator import BaseEvaluator
 from causallib.estimation import AIPW, IPW, StratifiedStandardization
 from causallib.datasets import load_nhefs
 import unittest
@@ -33,14 +33,14 @@ class TestPlots(unittest.TestCase):
         std = StratifiedStandardization(LinearRegression())
         self.dr = AIPW(std, ipw)
         self.dr.fit(self.data.X, self.data.a, self.data.y)
-        self.prp_evaluator = PropensityEvaluator(self.dr.weight_model)
-        self.out_evaluator = OutcomeEvaluator(self.dr.outcome_model)
+        self.prp_evaluator = BaseEvaluator(self.dr.weight_model)
+        self.out_evaluator = BaseEvaluator(self.dr.outcome_model)
 
     def propensity_plot_by_name(self, test_names, alternate_a=None):
         a = self.data.a if alternate_a is None else alternate_a
         nhefs_results = self.prp_evaluator.evaluate_simple(
             self.data.X, a, self.data.y, )
-        nhefs_plots = self.prp_evaluator.plot_cv(
+        nhefs_plots = self.prp_evaluator.plotter.plot_cv(
             predictions=nhefs_results.predictions, 
             X=self.data.X, 
             a=a, 
@@ -54,7 +54,7 @@ class TestPlots(unittest.TestCase):
     def outcome_plot_by_name(self, test_names):
         nhefs_results = self.out_evaluator.evaluate_simple(
             self.data.X, self.data.a, self.data.y)
-        nhefs_plots = self.out_evaluator.plot_cv(
+        nhefs_plots = self.out_evaluator.plotter.plot_cv(
             predictions=nhefs_results.predictions,
             X=self.data.X, 
             a=self.data.a, 
