@@ -37,6 +37,8 @@ from sklearn import metrics
 # TODO: consider making plot module be class-based instead, taking its argument during init
 #       and having a `plot()` interface
 
+
+
 def lookup_name(name: str):
     return \
     {
@@ -720,3 +722,24 @@ def _add_diagonal(ax, fraction=0.04, label="x=y", color="grey", linestyle="--", 
         # ax.plot(diagonal, diagonal, color="black")  # extend diagonal
         lim_range_frac = np.array([np.diff(ax.get_xlim()), np.diff(ax.get_ylim())]) * fraction
     ax.plot(diagonal, diagonal, color=color, label=label, linestyle=linestyle, zorder=zorder)  # plot diagonal
+
+
+WEIGHT_PLOTS = {
+    "weight_distribution": plot_propensity_score_distribution_folds,
+    "covariate_balance_love": plot_mean_features_imbalance_love_folds,
+    "covariate_balance_slope": plot_mean_features_imbalance_slope_folds,
+}
+
+OUTCOME_PLOTS = {
+    "continuous_accuracy": plot_continuous_prediction_accuracy_folds,
+    "residuals": plot_residual_folds,
+    "common_support": plot_counterfactual_common_support_folds,
+}
+
+SHARED_PLOTS = {
+    "roc_curve": plot_roc_curve_folds,
+    "pr_curve": plot_precision_recall_curve_folds,
+    "calibration": plot_calibration_folds,
+}
+OUTCOME_PLOTS.update(SHARED_PLOTS)
+WEIGHT_PLOTS.update(SHARED_PLOTS)
