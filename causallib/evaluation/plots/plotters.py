@@ -1,4 +1,5 @@
 import abc
+from typing import List
 import warnings
 
 import numpy as np
@@ -9,8 +10,8 @@ from ...estimation.base_estimator import IndividualOutcomeEstimator
 from ...estimation.base_weight import PropensityEstimator, WeightEstimator
 from ...utils.stat_utils import is_vector_binary, robust_lookup
 from ..metrics import calculate_covariate_balance
-from .plots import get_subplots, lookup_name
 
+from .plots import get_subplots, lookup_name
 
 # Calculating ROC/PR curves:
 def _calculate_roc_curve_data(curve_data):
@@ -471,38 +472,22 @@ class OutcomePlotter(Plotter):
         Returns:
             tuple: Plot data
         """
-        if plot_name in {"continuous_accuracy", "residuals"}:
-            folds_predictions_by_actual_treatment = []
-            for fold_prediction in folds_predictions:
-                if fold_prediction.prediction_event_prob is not None:
-                    fold_prediction = fold_prediction.prediction_event_prob
-                else:
-                    fold_prediction = fold_prediction.prediction
-                fold_prediction_by_actual_treatment = robust_lookup(
-                    fold_prediction, a[fold_prediction.index]
-                )
-                folds_predictions_by_actual_treatment.append(
-                    fold_prediction_by_actual_treatment
-                )
+        from ..outcome_evaluator import OutcomeEvaluatorPredictions
 
+        assert isinstance(folds_predictions[0], OutcomeEvaluatorPredictions)
+
+        if plot_name in {"continuous_accuracy", "residuals"}:
+            folds_predictions_by_actual_treatment = [
+                x.get_prediction_by_treatment(a) for x in folds_predictions
+            ]
             return folds_predictions_by_actual_treatment, y, a
 
         elif plot_name in {"calibration"}:
-            folds_predictions = [
-                robust_lookup(
-                    prediction.prediction_event_prob, a[prediction.prediction.index]
-                )
-                for prediction in folds_predictions
-            ]
+            folds_predictions = [x.get_calibration(a) for x in folds_predictions]
             return folds_predictions, y
 
         elif plot_name in {"roc_curve"}:
-            folds_predictions = [
-                robust_lookup(
-                    prediction.prediction_event_prob, a[prediction.prediction.index]
-                )
-                for prediction in folds_predictions
-            ]
+            folds_predictions = [x.get_calibration(a) for x in folds_predictions]
             curve_data = self._calculate_curve_data(
                 folds_predictions,
                 y,
@@ -514,12 +499,7 @@ class OutcomePlotter(Plotter):
             return (roc_curve_data,)
 
         elif plot_name in {"pr_curve"}:
-            folds_predictions = [
-                robust_lookup(
-                    prediction.prediction_event_prob, a[prediction.prediction.index]
-                )
-                for prediction in folds_predictions
-            ]
+            folds_predictions = [x.get_calibration(a) for x in folds_predictions]
             curve_data = self._calculate_curve_data(
                 folds_predictions,
                 y,

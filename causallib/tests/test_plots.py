@@ -79,9 +79,9 @@ class TestPlots(unittest.TestCase):
         self.propensity_plot_multiple_a(['roc_curve'])
 
     def test_precision_plots(self):
-        self.propensity_plot_multiple_a(['precision'])
+        self.propensity_plot_multiple_a(['pr_curve'])
 
-    def test_precision_plots(self):
+    def test_covariate_balance_plots(self):
         self.propensity_plot_multiple_a(['covariate_balance_love'])
 
     def test_propensity_multiple_plots(self):
