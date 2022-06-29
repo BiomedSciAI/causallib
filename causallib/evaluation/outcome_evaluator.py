@@ -23,8 +23,8 @@ from ..estimation.base_estimator import IndividualOutcomeEstimator
 from ..utils.stat_utils import robust_lookup
 from .metrics import Scorer
 
-import numpy as np
 import pandas as pd
+
 
 class OutcomeEvaluatorPredictions:
     """Data structure to hold outcome-model predictions"""
@@ -35,40 +35,50 @@ class OutcomeEvaluatorPredictions:
 
     def calculate_metrics(self, a_true, y_true, metrics_to_evaluate):
 
-        y_is_binary = y_true.nunique() == 2
-        treatment_values = np.sort(np.unique(a_true))
-        scores = {}
-        for treatment_value in treatment_values:
-            # Stratify based on treatment assignment:
-            current_strata_mask = a_true == treatment_value
-            y_true_strata = y_true.loc[current_strata_mask]
-            prediction_strata = self.prediction.loc[
-                current_strata_mask, treatment_value
-            ]
-            if y_is_binary:
-                prediction_prob_strata = self.prediction_event_prob.loc[
-                    current_strata_mask, treatment_value
-                ]
-            else:
-                prediction_prob_strata = None
+        scores = {"actual": self.get_overall_score(a_true, y_true, metrics_to_evaluate)}
 
-            score = self._score_single(
-                y_true_strata,
-                prediction_strata,
-                prediction_prob_strata,
-                y_is_binary,
-                metrics_to_evaluate,
+        for treatment_value in sorted(set(a_true)):
+            score = self.get_treatment_value_score(
+                a_true, y_true, metrics_to_evaluate, treatment_value
             )
-
             scores[str(treatment_value)] = score
 
+        scores = pd.concat(scores, names=["model_strata"], axis="columns").T
+        scores = scores.apply(pd.to_numeric, errors="ignore")
+        return scores
+
+    def get_treatment_value_score(
+        self, a_true, y_true, metrics_to_evaluate, treatment_value
+    ):
+        # Stratify based on treatment assignment:
+        y_is_binary = y_true.nunique() == 2
+        treatment_value_idx = a_true == treatment_value
+        y_true_strata = y_true.loc[treatment_value_idx]
+        prediction_strata = self.prediction.loc[treatment_value_idx, treatment_value]
+        if y_is_binary:
+            prediction_prob_strata = self.prediction_event_prob.loc[
+                treatment_value_idx, treatment_value
+            ]
+        else:
+            prediction_prob_strata = None
+
+        score = self._score_single(
+            y_true_strata,
+            prediction_strata,
+            prediction_prob_strata,
+            y_is_binary,
+            metrics_to_evaluate,
+        )
+
+        return score
+
+    def get_overall_score(self, a_true, y_true, metrics_to_evaluate):
         # Score overall:
         # # Extract prediction on actual treatment
+        y_is_binary = y_true.nunique() == 2
         prediction_strata = robust_lookup(self.prediction, a_true)
         if y_is_binary:
-            prediction_prob_strata = robust_lookup(
-                self.prediction_event_prob, a_true
-            )
+            prediction_prob_strata = robust_lookup(self.prediction_event_prob, a_true)
         else:
             prediction_prob_strata = None
         score = self._score_single(
@@ -78,13 +88,8 @@ class OutcomeEvaluatorPredictions:
             y_is_binary,
             metrics_to_evaluate,
         )
-        scores["actual"] = score
 
-        scores = pd.concat(scores, names=["model_strata"], axis="columns").T
-        scores = scores.apply(
-            pd.to_numeric, errors="ignore"
-        )  # change dtype of each column to numerical if possible.
-        return scores
+        return score
 
     @staticmethod
     def _score_single(
@@ -113,7 +118,6 @@ class OutcomeEvaluatorPredictions:
         return score
 
 
-
 class OutcomePredictor(Predictor):
     def __init__(self, estimator):
         """
@@ -121,8 +125,11 @@ class OutcomePredictor(Predictor):
             estimator (IndividualOutcomeEstimator):
         """
         if not isinstance(estimator, IndividualOutcomeEstimator):
-            raise TypeError("OutcomeEvaluator should be initialized with IndividualOutcomeEstimator, got ({}) instead."
-                            .format(type(estimator)))
+            raise TypeError(
+                "OutcomeEvaluator should be initialized with IndividualOutcomeEstimator, got ({}) instead.".format(
+                    type(estimator)
+                )
+            )
         self.estimator = estimator
 
     def _estimator_fit(self, X, a, y):
@@ -131,11 +138,17 @@ class OutcomePredictor(Predictor):
 
     def _estimator_predict(self, X, a):
         """Predict on data."""
-        prediction = self.estimator.estimate_individual_outcome(X, a, predict_proba=False)
+        prediction = self.estimator.estimate_individual_outcome(
+            X, a, predict_proba=False
+        )
         # Use predict_probability if possible since it is needed for most evaluations:
-        prediction_event_prob = self.estimator.estimate_individual_outcome(X, a, predict_proba=True)
+        prediction_event_prob = self.estimator.estimate_individual_outcome(
+            X, a, predict_proba=True
+        )
 
-        prediction_event_prob = self._correct_predict_proba_estimate(prediction, prediction_event_prob)
+        prediction_event_prob = self._correct_predict_proba_estimate(
+            prediction, prediction_event_prob
+        )
 
         fold_prediction = OutcomeEvaluatorPredictions(prediction, prediction_event_prob)
         return fold_prediction
@@ -146,19 +159,21 @@ class OutcomePredictor(Predictor):
         # Either way, it means there are no prediction probabilities
         if prediction_event_prob.columns.tolist() == prediction.columns.tolist():
             return None
-        
+
         # predict_proba=True was able to predict probabilities. However,
         # Prediction probability evaluation is only applicable for binary outcome:
         y_values = prediction_event_prob.columns.get_level_values("y").unique()
         # Note: on pandas 23.0.0 you could do prediction_event_prob.columns.unique(level='y')
         if y_values.size == 2:
-            event_value = y_values.max()  # get the maximal value, assumes binary 0-1 (1: event, 0: non-event)
+            event_value = (
+                y_values.max()
+            )  # get the maximal value, assumes binary 0-1 (1: event, 0: non-event)
             # Extract the probability for event:
             return prediction_event_prob.xs(key=event_value, axis="columns", level="y")
-        
-        warnings.warn("Multiclass probabilities are not well defined  and supported for evaluation.\n"
-                        "Falling back to class predictions.\n"
-                        "Plots might be uninformative due to input being classes and not probabilities.")
-        return None
-        
 
+        warnings.warn(
+            "Multiclass probabilities are not well defined  and supported for evaluation.\n"
+            "Falling back to class predictions.\n"
+            "Plots might be uninformative due to input being classes and not probabilities."
+        )
+        return None

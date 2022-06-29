@@ -43,7 +43,7 @@ class WeightEvaluatorPredictions:
 
     def calculate_metrics(self, X, a_true, metrics_to_evaluate):
         """
-
+        TODO: fix these docs
         Args:
             X (pd.DataFrame): Covariates.
             targets (pd.Series): Target variable - true treatment assignment
