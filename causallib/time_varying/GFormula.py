@@ -1,160 +1,15 @@
 #!/usr/bin/env python3
 
-import abc
 import pandas as pd
-from typing import Optional, Any, OrderedDict
-from causallib.time_varying.base_GFormula import TimeVaryingBaseEstimator
+from typing import Optional, Any
+from causallib.time_varying.base import BaseGMethod
 from causallib.utils import general_tools as g_tools
 
 
-class GFormulaBase(TimeVaryingBaseEstimator):
-    """
-        GFormula base Estimator
-    """
-    def __init__(self,
-                 outcome_model: None,
-                 treatment_model: Any,
-                 covariate_models: OrderedDict,
-                 refit_models=True):
-        """
-            outcome_model(IndividualOutcomeEstimator): A causal model that estimate on individuals level
-                                                      (e.g. Standardization).
-            treatment_model (???):
-            covariate_models (OrderedDict): {
-                        ‘x1’: Standardization(LogisticRegression()),
-                        ‘x2’: Standardization(LinearRegression()),
-                            so forth
-                        },
-            refit_models (bool): if True, re-fit a the treatment model and covariate models.
-
-        """
-        super(GFormulaBase, self).__init__(lambda **x: None)
-        self.outcome_model = outcome_model
-        self.treatment_model = treatment_model
-        self.covariate_models = covariate_models
-        self.refit_models = refit_models
-
-
-    @abc.abstractmethod
-    def fit(self,
-            X: pd.DataFrame,
-            a: pd.Series,
-            t: pd.Series,
-            y: Optional[Any] = None,
-            refit_models: bool = True,
-            **kwargs
-            ):
-        """
-            Fits parametric models and calculates prediction curves.
-
-            Args:
-                X (pd.DataFrame): Baseline covariate matrix of size (num_subjects, num_features).
-                a (pd.Series): Treatment assignment of size (num_subjects,).
-                t (pd.Series): Followup duration, size (num_subjects,).
-                y (pd.Series): Observed outcome (1) or right censoring event (0), size (num_subjects,).
-                refit_models (bool): if True, re-fit a the treatment model and covariate models.
-                kwargs (dict): Optional kwargs for fit call of survival model
-
-            Returns:
-                self
-        """
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def estimate_individual_outcome(self,
-                                    X: pd.DataFrame,
-                                    a: pd.Series,
-                                    t: pd.Series,
-                                    y: Optional[Any] = None,
-                                    timeline_start: Optional[int] = None,
-                                    timeline_end: Optional[int] = None
-                                    ) -> pd.DataFrame:
-        """
-              Returns individual estimated curves for each subject row in X/a/t
-
-              Args:
-                  X (pd.DataFrame): Baseline covariate matrix of size (num_subjects, num_features).
-                  a (pd.Series): Treatment assignment of size (num_subjects,).
-                  t (pd.Series): Followup durations, size (num_subjects,).
-                  y: NOT USED (for API compatibility only).
-                  timeline_start (int): Common start time-step. If provided, will generate survival curves starting
-                                        from 'timeline_start' for all patients.
-                                        If None, will predict from first observed event (t.min()).
-                  timeline_end (int): Common end time-step. If provided, will generate survival curves up to 'timeline_end'
-                                      for all patients.
-                                      If None, will predict up to last observed event (t.max()).
-
-              Returns:
-                  pd.DataFrame: with time-step index, subject IDs (X.index) as columns and ??
-              """
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def estimate_population_outcome(self,
-                                    X: pd.DataFrame,
-                                    a: pd.Series,
-                                    t: pd.Series,
-                                    y: Optional[Any] = None,
-                                    timeline_start: Optional[int] = None,
-                                    timeline_end: Optional[int] = None
-                                    ) -> pd.DataFrame:
-        """
-              Returns Population estimated curves.
-
-              Args:
-                  X (pd.DataFrame): Baseline covariate matrix of size (num_subjects, num_features).
-                  a (pd.Series): Treatment assignment of size (num_subjects,).
-                  t (pd.Series): Followup durations, size (num_subjects,).
-                  y: NOT USED (for API compatibility only).
-                  timeline_start (int): Common start time-step. If provided, will generate survival curves starting
-                                        from 'timeline_start' for all patients.
-                                        If None, will predict from first observed event (t.min()).
-                  timeline_end (int): Common end time-step. If provided, will generate survival curves up to 'timeline_end'
-                                      for all patients.
-                                      If None, will predict up to last observed event (t.max()).
-
-              Returns:
-                  pd.DataFrame: with time-step index, subject IDs (X.index) as columns and ??
-              """
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def apply_noise(self):
-        pass
-
-    def _prepare_data(self, X, a, t, y):
-        return pd.DataFrame()
-
-
-    @staticmethod
-    def _predict_trajectory(self, X, a, t) -> pd.DataFrame:
-        """ Predicts the trajectories for all covariates X and treatment a.
-
-            Args:
-                  X (pd.DataFrame): Baseline covariate matrix of size (num_subjects, num_features).
-                  a (pd.Series): Treatment assignment of size (num_subjects,).
-                  t (pd.Series): Followup durations, size (num_subjects,).
-
-            Returns:
-                 pd.DataFrame: with time-step index, subject IDs (X.index and a) columns and
-                  point values for each column as entries
-        """
-        pass
-
-
-class GFormula(GFormulaBase):
+class GFormula(BaseGMethod):
     """
         GFormula class that is based on Monte Carlo Simulation for creating the noise.
     """
-    def __init__(self,
-                 outcome_model,
-                 treatment_model,
-                 covariate_models,
-                 refit_models=True
-                 ):
-        super().__init__(outcome_model, treatment_model,
-                         covariate_models, refit_models)
-
     def fit(self,
             X: pd.DataFrame,
             a: pd.Series,
@@ -167,7 +22,7 @@ class GFormula(GFormulaBase):
         if kwargs is None:
             kwargs = {}
 
-        #TODO More to work on preparing data to be feed into the model
+        #TODO More to work on preparing data to be fed into the model
 
         treatment_model_is_not_fitted = not g_tools.check_learner_is_fitted(self.treatment_model.learner)
         if refit_models or treatment_model_is_not_fitted:
@@ -181,7 +36,7 @@ class GFormula(GFormulaBase):
                 cov_model.fit(X, a, y, **kwargs)
 
         self.outcome_model.fit(X, a, y, **kwargs)
-        return self
+        raise NotImplementedError
 
 
     def estimate_individual_outcome(self, X: pd.DataFrame, a: pd.Series, t: pd.Series, y: Optional[Any] = None,
@@ -197,7 +52,7 @@ class GFormula(GFormulaBase):
         # TODO
         # logic to get the prediction curve for individual treatment types
 
-        return res
+        raise NotImplementedError
 
     def estimate_population_outcome(self, X: pd.DataFrame, a: pd.Series, t: pd.Series, y: Optional[Any] = None,
                                     timeline_start: Optional[int] = None,
@@ -216,9 +71,10 @@ class GFormula(GFormulaBase):
         # Setting index/column names
         res.index.name = t.name
         res.columns.name = a.name
-        return res
 
-    def apply_noise(self):
+        raise NotImplementedError
+
+    def _apply_noise(self):
         pass
 
 
