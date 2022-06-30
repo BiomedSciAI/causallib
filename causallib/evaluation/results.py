@@ -13,19 +13,7 @@ from .plots.helpers import (
     calculate_pr_curve,
     calculate_roc_curve,
 )
-
-
-def make_results(evaluated_metrics, predictions, cv, models):
-    
-    named_args={"evaluated_metrics":evaluated_metrics, "predictions":predictions,
-    "cv":cv, "models":models}
-    fitted_model = models["train"][0] if isinstance(models, dict) else models[0]
-    if isinstance(fitted_model, PropensityEstimator):
-        return PropensityEvaluationResults(**named_args)
-    if isinstance(fitted_model, WeightEstimator):
-        return WeightEvaluationResults(**named_args)
-    if isinstance(fitted_model, IndividualOutcomeEstimator):
-        return OutcomeEvaluationResults(**named_args)
+from .weight_evaluator import WeightEvaluatorPredictions, PropensityEvaluatorPredictions
 
 
 @dataclass
@@ -40,19 +28,45 @@ class EvaluationResults:
 
     evaluated_metrics: Union[pd.DataFrame, Any]
     models: Union[List[WeightEstimator], List[IndividualOutcomeEstimator]]
-    predictions: Dict[
-        str, List[Any]
-    ]  # really Any is one of the Predictions objects and key is "train" or "valid"
+    predictions: Dict[str, List[Any]]
+    # really Any is one of the Predictions objects and key is "train" or "valid"
     cv: List[Tuple[List[int], List[int]]]
 
+    @property
+    def extractor(self):
+        if isinstance(self.models, dict):
+            fitted_model = self.models["train"][0]
+        elif isinstance(self.models, list):
+            fitted_model = self.models[0]
+        else:
+            fitted_model = self.models
 
-@dataclass
-class WeightEvaluationResults(EvaluationResults):
-    from .weight_evaluator import WeightEvaluatorPredictions
+        if isinstance(fitted_model, PropensityEstimator):
+            return PropensityPlotDataExtractor(self)
+        if isinstance(fitted_model, WeightEstimator):
+            return WeightPlotDataExtractor(self)
+        if isinstance(fitted_model, IndividualOutcomeEstimator):
+            return OutcomePlotDataExtractor(self)
 
-    evaluated_metrics: WeightEvaluatorScores
-    models: List[WeightEstimator]
-    predictions: Dict[str, List[WeightEvaluatorPredictions]]
+    def get_data_for_plot(self, plot_name, X, a, y, phase="train"):
+        return self.extractor._get_data_for_plot(plot_name, X, a, y, phase)
+
+
+class EvaluationPlotDataExtractor:
+    available_plot_names = set()
+
+    def __init__(self, evaluation_results):
+        self.predictions = evaluation_results.predictions
+
+
+class WeightPlotDataExtractor(EvaluationPlotDataExtractor):
+    available_plot_names = {
+        "weight_distribution",
+        "roc_curve",
+        "pr_curve",
+        "covariate_balance_love",
+        "covariate_balance_slope",
+    }
 
     def _get_data_for_plot(self, plot_name, X, a, y, phase="train"):
         """Retrieve the data needed for each provided plot.
@@ -126,7 +140,7 @@ class WeightEvaluationResults(EvaluationResults):
                 On general: {curve_name: {metric1: [evaluation_fold_1, ...]}}.
                 For example: {"weighted": {"FPR": [FPR_fold_1, FPR_fold_2, FPR_fold3]}}
         """
-        from .plots.plotters import calculate_performance_curve_data_on_folds
+        from .plots.helpers import calculate_performance_curve_data_on_folds
 
         folds_treatment_weight = [p.weight_for_being_treated for p in folds_predictions]
         folds_targets = []
@@ -174,13 +188,11 @@ class WeightEvaluationResults(EvaluationResults):
         return curve_data
 
 
-@dataclass
-class PropensityEvaluationResults(WeightEvaluationResults):
-    from .weight_evaluator import PropensityEvaluatorPredictions
-
-    evaluated_metrics: WeightEvaluatorScores
-    models: List[PropensityEstimator]
-    predictions: Dict[str, List[PropensityEvaluatorPredictions]]
+class PropensityPlotDataExtractor(WeightPlotDataExtractor):
+    available_plot_names = WeightPlotDataExtractor.available_plot_names | {
+        "weight_distribution",
+        "calibration",
+    }
 
     def _get_data_for_plot(self, plot_name, X, a, y, phase="train"):
         """Retrieve the data needed for each provided plot.
@@ -207,7 +219,7 @@ class PropensityEvaluationResults(WeightEvaluationResults):
 
         # Common plots are implemented at top-most level possible.
         # Plot might be implemented by WeightEvaluator:
-        return super(PropensityEvaluationResults, self)._get_data_for_plot(
+        return super(PropensityPlotDataExtractor, self)._get_data_for_plot(
             plot_name, X, a, y, phase=phase
         )
 
@@ -238,7 +250,7 @@ class PropensityEvaluationResults(WeightEvaluationResults):
                 On general: {curve_name: {metric1: [evaluation_fold_1, ...]}}.
                 For example: {"weighted": {"FPR": [FPR_fold_1, FPR_fold_2, FPR_fold3]}}
         """
-        from .plots.plotters import calculate_performance_curve_data_on_folds
+        from .plots.helpers import calculate_performance_curve_data_on_folds
 
         curves_sample_weights = {
             "unweighted": [None for _ in fold_predictions],
@@ -317,13 +329,15 @@ class PropensityEvaluationResults(WeightEvaluationResults):
         return curve_data
 
 
-@dataclass
-class OutcomeEvaluationResults(EvaluationResults):
-    from .outcome_evaluator import OutcomeEvaluatorPredictions
-
-    evaluated_metrics: pd.DataFrame
-    models: List[IndividualOutcomeEstimator]
-    predictions: Dict[str, List[OutcomeEvaluatorPredictions]]
+class OutcomePlotDataExtractor(EvaluationPlotDataExtractor):
+    available_plot_names = {
+        "continuous_accuracy",
+        "residuals",
+        "calibration",
+        "roc_curve",
+        "pr_curve",
+        "common_support",
+    }
 
     def _get_data_for_plot(self, plot_name, X, a, y, phase="train"):
         """Retrieve the data needed for each provided plot.

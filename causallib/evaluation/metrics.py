@@ -13,34 +13,6 @@ WeightEvaluatorScores = namedtuple(
 )
 
 
-def _combine_weight_evaluator_fold_scores(scores):
-    # `scores` are provided as WeightEvaluatorScores object for each fold in each phase,
-    # Namely, dict[list[WeightEvaluatorScores]], which in turn hold two DataFrames components.
-    # In order to combine the underlying DataFrames into a multilevel DataFrame, one must first extract them from
-    # the WeightEvaluatorScores object, into two separate components.
-
-    # Extract the two components of WeightEvaluatorScores:
-    prediction_scores_unfolded = {
-        phase: [fold_score.prediction_scores for fold_score in phase_scores]
-        for phase, phase_scores in scores.items()
-    }
-    prediction_scores = _combine_fold_scores(prediction_scores_unfolded)
-
-    covariate_balance_unfolded = {
-        phase: [fold_score.covariate_balance for fold_score in phase_scores]
-        for phase, phase_scores in scores.items()
-    }
-    covariate_balance = _combine_fold_scores(covariate_balance_unfolded)
-
-    # Combine the dict[list[DataFrames]] of each component into a multilevel DataFrame separately:
-    # TODO: consider reordering the levels, such that the covariate will be the first one and then phase and fold
-    # covariate_balance = covariate_balance.reorder_levels(["covariate", "phase", "fold"])
-
-    # Create a new WeightEvaluatorScores object with the combined (i.e., multilevel DataFrame) results:
-    scores = WeightEvaluatorScores(prediction_scores, covariate_balance)
-    return scores
-
-
 NUMERICAL_CLASSIFICATION_METRICS = {
     "accuracy": metrics.accuracy_score,
     "precision": metrics.precision_score,
@@ -127,6 +99,27 @@ def score_cv(predictions, X, a, y, cv, metrics_to_evaluate=None):
     if isinstance(fold_scores, WeightEvaluatorScores):
         return _combine_weight_evaluator_fold_scores(scores)
     return _combine_fold_scores(scores)
+
+
+def score_estimation(prediction, X, a_true, y_true, metrics_to_evaluate=None):
+    """Should know how to handle the _estimator_predict output provided in `prediction`.
+    Can utilize any of the true values provided (covariates `X`, treatment assignment `a` or outcome `y`)."""
+    from .outcome_evaluator import OutcomeEvaluatorPredictions
+
+    if isinstance(prediction, OutcomeEvaluatorPredictions):
+        return prediction.calculate_metrics(a_true, y_true, metrics_to_evaluate)
+    # propensity and weight both have the same interface
+    # no need to differentiate
+    from .weight_evaluator import (
+        PropensityEvaluatorPredictions,
+        WeightEvaluatorPredictions,
+    )
+
+    if isinstance(
+        prediction, (PropensityEvaluatorPredictions, WeightEvaluatorPredictions)
+    ):
+        return prediction.calculate_metrics(X, a_true, metrics_to_evaluate)
+    raise ValueError(f"Invalid type for prediciton: {type(prediction)}")
 
 
 def score_binary_prediction(
@@ -249,25 +242,32 @@ def _combine_fold_scores(scores):
     return scores
 
 
-def score_estimation(prediction, X, a_true, y_true, metrics_to_evaluate=None):
-    """Should know how to handle the _estimator_predict output provided in `prediction`.
-    Can utilize any of the true values provided (covariates `X`, treatment assignment `a` or outcome `y`)."""
-    from .outcome_evaluator import OutcomeEvaluatorPredictions
+def _combine_weight_evaluator_fold_scores(scores):
+    # `scores` are provided as WeightEvaluatorScores object for each fold in each phase,
+    # Namely, dict[list[WeightEvaluatorScores]], which in turn hold two DataFrames components.
+    # In order to combine the underlying DataFrames into a multilevel DataFrame, one must first extract them from
+    # the WeightEvaluatorScores object, into two separate components.
 
-    if isinstance(prediction, OutcomeEvaluatorPredictions):
-        return prediction.calculate_metrics(a_true, y_true, metrics_to_evaluate)
-    # propensity and weight both have the same interface
-    # no need to differentiate
-    from .weight_evaluator import (
-        PropensityEvaluatorPredictions,
-        WeightEvaluatorPredictions,
-    )
+    # Extract the two components of WeightEvaluatorScores:
+    prediction_scores_unfolded = {
+        phase: [fold_score.prediction_scores for fold_score in phase_scores]
+        for phase, phase_scores in scores.items()
+    }
+    prediction_scores = _combine_fold_scores(prediction_scores_unfolded)
 
-    if isinstance(
-        prediction, (PropensityEvaluatorPredictions, WeightEvaluatorPredictions)
-    ):
-        return prediction.calculate_metrics(X, a_true, metrics_to_evaluate)
-    raise ValueError(f"Invalid type for prediciton: {type(prediction)}")
+    covariate_balance_unfolded = {
+        phase: [fold_score.covariate_balance for fold_score in phase_scores]
+        for phase, phase_scores in scores.items()
+    }
+    covariate_balance = _combine_fold_scores(covariate_balance_unfolded)
+
+    # Combine the dict[list[DataFrames]] of each component into a multilevel DataFrame separately:
+    # TODO: consider reordering the levels, such that the covariate will be the first one and then phase and fold
+    # covariate_balance = covariate_balance.reorder_levels(["covariate", "phase", "fold"])
+
+    # Create a new WeightEvaluatorScores object with the combined (i.e., multilevel DataFrame) results:
+    scores = WeightEvaluatorScores(prediction_scores, covariate_balance)
+    return scores
 
 
 # ################# #

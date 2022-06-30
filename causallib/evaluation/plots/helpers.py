@@ -2,14 +2,13 @@ import numpy as np
 import warnings
 from sklearn import metrics
 
-
-
 import warnings
 
 from .plots import get_subplots, lookup_name
 
-
-def plot_evaluation_results(results, X, a, y, plot_names):
+def plot_evaluation_results(results, X, a, y, plot_names="all"):
+    if plot_names=="all":
+        plot_names = results.extractor.available_plot_names
     phases = results.predictions.keys()
     all_axes = {phase: {} for phase in phases}
 
@@ -23,7 +22,9 @@ def plot_evaluation_results(results, X, a, y, plot_names):
         for i, name in enumerate(plot_names):
             ax = phase_axes[i]
             try:
-                plot_ax = plot_single_evaluation_result(results, X, a, y, phase, name, ax)
+                plot_ax = plot_single_evaluation_result(
+                    results, X, a, y, phase, name, ax
+                )
             except Exception as e:
                 warnings.warn(f"Failed to plot {name} with error {e}")
                 plot_ax = None
@@ -37,12 +38,13 @@ def plot_single_evaluation_result(results, X, a, y, phase, plot_name, ax=None):
         fold_idx[0] if phase == "train" else fold_idx[1] for fold_idx in results.cv
     ]
     plot_func = lookup_name(plot_name)
-    plot_data = results._get_data_for_plot(plot_name, X, a, y, phase=phase)
+    plot_data = results.get_data_for_plot(plot_name, X, a, y, phase=phase)
     # TODO: ^ consider _get_data_for_plot returning args (tuple) and kwargs (dictionary) which will be
     #       expanded when calling plot_func: plot_func(*plot_args, **plot_kwargs).
     #       This will allow more flexible specification of param-eters by the caller
     #       (For example, Propensity Distribution with kde=True and Weight Distribution with kde=False)
     return plot_func(*plot_data, cv=cv_idx_folds, ax=ax)
+
 
 # Calculating ROC/PR curves:
 def calculate_roc_curve(curve_data):

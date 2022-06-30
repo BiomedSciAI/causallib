@@ -25,7 +25,7 @@ from sklearn.model_selection import StratifiedKFold
 from .plots import plot_evaluation_results
 from .predictor import Predictor
 from .metrics import score_cv
-from .results import make_results
+from .results import EvaluationResults
 
 # TODO: How doubly robust fits in to show both weight and outcome model (at least show the plots on the same figure?)
 
@@ -210,7 +210,7 @@ class Evaluator:
         evaluation_metrics = score_cv(
             predictions, X, a, y, cv, metrics_to_evaluate
         )
-        evaluation_results = make_results(
+        evaluation_results = EvaluationResults(
             evaluated_metrics=evaluation_metrics,
             predictions=predictions,
             cv=cv,
