@@ -39,7 +39,7 @@ class TimeVaryingBaseEstimator(IndividualOutcomeEstimator):
         raise NotImplementedError
 
 
-class BaseGMethod(TimeVaryingBaseEstimator):
+class GMethodBase(TimeVaryingBaseEstimator):
     """
         GFormula base Estimator
     """
