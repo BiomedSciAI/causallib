@@ -34,6 +34,8 @@ def plot_evaluation_results(results, X, a, y, plot_names="all"):
 
 
 def plot_single_evaluation_result(results, X, a, y, phase, plot_name, ax=None):
+    if plot_name not in results.extractor.available_plot_names:
+        raise ValueError(f"Plot name '{plot_name}' not supported for this result.")
     cv_idx_folds = [
         fold_idx[0] if phase == "train" else fold_idx[1] for fold_idx in results.cv
     ]
