@@ -104,6 +104,8 @@ class Plotter:
             ]
             predictions_folds = predictions[phase]
 
+            
+
             for i, plot_name in enumerate(plots):
                 plot_data = self._get_data_for_plot(
                     plot_name, predictions_folds, X, a, y, cv_idx_folds

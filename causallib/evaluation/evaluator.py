@@ -37,15 +37,25 @@ from .plots import Plotter
 class EvaluationResults:
     """Data structure to hold evaluation results.
         Args:
-            scores (pd.DataFrame or WeightEvaluatorScores):
-            plots (dict): plot names to plot axes mapping.
-                          Can be further nested by phase ("train"/"valid")
+            evaluated_metrics (pd.DataFrame or WeightEvaluatorScores):
             models (list[WeightEstimator or IndividualOutcomeEstimator]): Models trained during evaluation
+            predictions (dict[str, List[Predictions]])
+            cv (list[tuple[list[int], list[int]]])
         """
-    evaluation_metrics: Union[pd.DataFrame, Any] #really Any is WeightEvaluatorScores
+    evaluated_metrics: Union[pd.DataFrame, Any] #really Any is WeightEvaluatorScores
     models: List[Union[WeightEstimator, IndividualOutcomeEstimator]]
     predictions: Dict[str, List[Any]] #really Any is one of the Predictions objects and key is "train" or "valid"
     cv: List[Tuple[List[int], List[int]]]
+
+    def get_data_for_plot(self, plot_name, X, a, y, phase="train"):
+        # Retrieve all indices of the different folds in the phase [idx_fold_1, idx_folds_2, ...]
+        cv_idx_folds = [
+                fold_idx[0] if phase == "train" else fold_idx[1] for fold_idx in self.cv
+            ]
+        predictions_folds = self.predictions[phase]
+
+
+            
 
 class Predictor:
     @staticmethod
@@ -126,7 +136,7 @@ class Evaluator:
             estimator (causallib.estimation.base_weight.WeightEstimator | causallib.estimation.base_estimator.IndividualOutcomeEstimator):
         """
         self.predictor = Predictor.from_estimator(estimator)(estimator)
-        self.scorer = Scorer.from_estimator(estimator)
+        self.scorer = Scorer()
         self.plotter = Plotter.from_estimator(estimator)()
 
 
@@ -157,7 +167,7 @@ class Evaluator:
 
         # Remove redundant information accumulated due to the use of cross-validation process
         results.models = results.models[0]
-        evaluation_metrics = [results.evaluation_metrics] if isinstance(results.evaluation_metrics, pd.DataFrame) else results.evaluation_metrics
+        evaluation_metrics = [results.evaluated_metrics] if isinstance(results.evaluated_metrics, pd.DataFrame) else results.evaluated_metrics
         for metric in evaluation_metrics:
             metric.reset_index(level=["phase", "fold"], drop=True, inplace=True)
 
@@ -204,7 +214,7 @@ class Evaluator:
 
         # Remove redundant information accumulated due to the use of cross-validation process:
         results.models = results.models[0] if len(results.models) == 1 else results.models
-        evaluation_metrics = [results.evaluation_metrics] if isinstance(results.evaluation_metrics, pd.DataFrame) else results.evaluation_metrics
+        evaluation_metrics = [results.evaluated_metrics] if isinstance(results.evaluated_metrics, pd.DataFrame) else results.evaluated_metrics
         for metric in evaluation_metrics:
             metric.reset_index(level=["phase"], drop=True, inplace=True)
             metric.index.rename("sample", "fold", inplace=True)
@@ -246,7 +256,7 @@ class Evaluator:
         predictions, models = self.predictor.predict_cv(X, a, y, cv, refit, phases)
 
         evaluation_metrics = self.scorer.score_cv(predictions, X, a, y, cv, metrics_to_evaluate)
-        return_values = EvaluationResults(evaluation_metrics=evaluation_metrics,
+        return_values = EvaluationResults(evaluated_metrics=evaluation_metrics,
                                           predictions=predictions,
                                           cv=cv,
                                           models=models if refit is True else [self.predictor.estimator])

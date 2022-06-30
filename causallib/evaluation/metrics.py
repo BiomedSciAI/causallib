@@ -5,17 +5,40 @@ from collections import namedtuple
 from ..utils.stat_utils import (
     calc_weighted_standardized_mean_differences,
     calc_weighted_ks2samp,
-    robust_lookup,
 )
-from ..estimation.base_weight import PropensityEstimator, WeightEstimator
-from ..estimation.base_estimator import IndividualOutcomeEstimator
 import warnings
-import abc
 
 WeightEvaluatorScores = namedtuple(
     "WeightEvaluatorScores", ["prediction_scores", "covariate_balance"]
 )
 
+
+def _combine_weight_evaluator_fold_scores(scores):
+    # `scores` are provided as WeightEvaluatorScores object for each fold in each phase,
+    # Namely, dict[list[WeightEvaluatorScores]], which in turn hold two DataFrames components.
+    # In order to combine the underlying DataFrames into a multilevel DataFrame, one must first extract them from
+    # the WeightEvaluatorScores object, into two separate components.
+
+    # Extract the two components of WeightEvaluatorScores:
+    prediction_scores_unfolded = {
+        phase: [fold_score.prediction_scores for fold_score in phase_scores]
+        for phase, phase_scores in scores.items()
+    }
+    prediction_scores = Scorer._combine_fold_scores(prediction_scores_unfolded)
+
+    covariate_balance_unfolded = {
+        phase: [fold_score.covariate_balance for fold_score in phase_scores]
+        for phase, phase_scores in scores.items()
+    }
+    covariate_balance = Scorer._combine_fold_scores(covariate_balance_unfolded)
+
+    # Combine the dict[list[DataFrames]] of each component into a multilevel DataFrame separately:
+    # TODO: consider reordering the levels, such that the covariate will be the first one and then phase and fold
+    # covariate_balance = covariate_balance.reorder_levels(["covariate", "phase", "fold"])
+
+    # Create a new WeightEvaluatorScores object with the combined (i.e., multilevel DataFrame) results:
+    scores = WeightEvaluatorScores(prediction_scores, covariate_balance)
+    return scores
 
 class Scorer:
     _numerical_classification_metrics = {
@@ -51,13 +74,6 @@ class Scorer:
         ),
         "r2": metrics.r2_score,
     }
-
-    @staticmethod
-    def from_estimator(estimator):
-        if isinstance(estimator, (PropensityEstimator, WeightEstimator)):
-            return WeightScorer
-        if isinstance(estimator, IndividualOutcomeEstimator):
-            return OutcomeScorer
 
     @classmethod
     def score_cv(cls, predictions, X, a, y, cv, metrics_to_evaluate=None):
@@ -108,8 +124,10 @@ class Scorer:
                 )
                 scores[phase].append(fold_scores)
 
-        scores = cls._combine_fold_scores(scores)
-        return scores
+        if isinstance(fold_scores, WeightEvaluatorScores):
+            return _combine_weight_evaluator_fold_scores(scores) 
+        return cls._combine_fold_scores(scores)
+        
 
     @classmethod
     def score_binary_prediction(
@@ -232,92 +250,19 @@ class Scorer:
         scores = pd.concat(scores, axis="index", names=["phase"])
         return scores
 
-    @abc.abstractmethod
-    def score_estimation(self, prediction, X, a_true, y_true, metrics_to_evaluate=None):
+    @classmethod
+    def score_estimation(cls, prediction, X, a_true, y_true, metrics_to_evaluate=None):
         """Should know how to handle the _estimator_predict output provided in `prediction`.
         Can utilize any of the true values provided (covariates `X`, treatment assignment `a` or outcome `y`)."""
-        raise NotImplementedError
-
-
-class OutcomeScorer(Scorer):
-    @classmethod
-    def score_estimation(
-        cls,
-        prediction,
-        X,
-        a_true,
-        y_true,
-        metrics_to_evaluate=None,
-    ):
-        """Scores a prediction against true labels.
-
-        Args:
-            prediction (OutcomeEvaluatorPredictions): Prediction on the data.
-            X (pd.DataFrame): Covariates.
-            a_true (pd.Series): Stratify by - treatment assignment
-            y_true: Target variable - outcome.
-            metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives true labels, prediction
-                                               and sample_weights (the latter is allowed to be ignored).
-                                               If not provided, default are used.
-
-        Returns:
-            pd.DataFrame: metric names (keys of `metrics_to_evaluate`) as columns and rows are stratification based
-                          on `a_true`, plus unstratified results.
-                          For example, binary treatment assignment weill results in three rows: scoring y^0 prediction
-                          on the set {y_i | a_i = 0}, y^1 on the set {y_i | a_i = 1} and non-stratified using the
-                          factual treatment assignment: y^(a_i) on `y_true`.
-        """
-        return prediction.calculate_metrics(a_true, y_true, metrics_to_evaluate)
-
-class WeightScorer(Scorer):
-    @classmethod
-    def score_estimation(
-        cls, prediction, X, a_true, y_true=None, metrics_to_evaluate=None
-    ):
-        """Scores a prediction against true labels.
-
-        Args:
-            prediction (WeightEvaluatorPredictions): Prediction on the data.
-            X (pd.DataFrame): Covariates.
-            a_true (pd.Series): Target variable - treatment assignment
-            y_true: *IGNORED*
-            metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives true labels, prediction
-                                               and sample_weights (the latter is allowed to be ignored).
-                                               If not provided, default are used.
-
-        Returns:
-            WeightEvaluatorScores: Data-structure holding scores on the predictions
-                                   and covariate balancing table ("table 1")
-        """
-        return prediction.calculate_metrics(X, a_true, metrics_to_evaluate)
-
-    @classmethod
-    def _combine_fold_scores(cls, scores):
-        # `scores` are provided as WeightEvaluatorScores object for each fold in each phase,
-        # Namely, dict[list[WeightEvaluatorScores]], which in turn hold two DataFrames components.
-        # In order to combine the underlying DataFrames into a multilevel DataFrame, one must first extract them from
-        # the WeightEvaluatorScores object, into two separate components.
-
-        # Extract the two components of WeightEvaluatorScores:
-        prediction_scores = {
-            phase: [fold_score.prediction_scores for fold_score in phase_scores]
-            for phase, phase_scores in scores.items()
-        }
-        covariate_balance = {
-            phase: [fold_score.covariate_balance for fold_score in phase_scores]
-            for phase, phase_scores in scores.items()
-        }
-
-        # Combine the dict[list[DataFrames]] of each component into a multilevel DataFrame separately:
-        prediction_scores = Scorer._combine_fold_scores(prediction_scores)
-        covariate_balance = Scorer._combine_fold_scores(covariate_balance)
-        # TODO: consider reordering the levels, such that the covariate will be the first one and then phase and fold
-        # covariate_balance = covariate_balance.reorder_levels(["covariate", "phase", "fold"])
-
-        # Create a new WeightEvaluatorScores object with the combined (i.e., multilevel DataFrame) results:
-        scores = WeightEvaluatorScores(prediction_scores, covariate_balance)
-        return scores
-
+        from .outcome_evaluator import OutcomeEvaluatorPredictions
+        if isinstance(prediction, OutcomeEvaluatorPredictions):
+            return prediction.calculate_metrics(a_true, y_true, metrics_to_evaluate)
+        # propensity and weight both have the same interface
+        # no need to differentiate
+        from .weight_evaluator import PropensityEvaluatorPredictions, WeightEvaluatorPredictions
+        if isinstance(prediction, (PropensityEvaluatorPredictions, WeightEvaluatorPredictions)):
+            return prediction.calculate_metrics(X, a_true, metrics_to_evaluate)
+        raise ValueError(f"Invalid type for prediciton: {type(prediction)}")
 
 # ################# #
 # Covariate Balance #
