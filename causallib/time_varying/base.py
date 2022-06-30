@@ -62,7 +62,7 @@ class GMethodBase(TimeVaryingBaseEstimator):
         """
         super().__init__(outcome_model, treatment_model,
                          covariate_models, refit_models)
-        super(BaseGMethod, self).__init__(lambda **x: None)
+        super(GMethodBase, self).__init__(lambda **x: None)
         self.outcome_model = outcome_model
         self.treatment_model = treatment_model
         self.covariate_models = covariate_models
