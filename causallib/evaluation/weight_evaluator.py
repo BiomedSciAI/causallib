@@ -23,7 +23,7 @@ import pandas as pd
 from .predictor import Predictor
 from ..estimation.base_weight import WeightEstimator, PropensityEstimator
 from ..utils.stat_utils import robust_lookup
-from .metrics import Scorer, calculate_covariate_balance, WeightEvaluatorScores
+from .metrics import score_binary_prediction, calculate_covariate_balance, WeightEvaluatorScores
 # TODO: decide what implementation stays - the one with the '2' suffix or the one without.
 #       The one with is based on matrix input and does all the vector extraction by itself.
 #       The one without is simpler one the receive the vectors already (more general, as not all models may have matrix.
@@ -62,7 +62,7 @@ class WeightEvaluatorPredictions:
                                    and covariate balancing table ("table 1")
         """    
 
-        prediction_scores = Scorer.score_binary_prediction(
+        prediction_scores = score_binary_prediction(
             y_true=a_true,
             y_pred_proba=self.weight_for_being_treated,
             y_pred=self.treatment_assignment_pred,

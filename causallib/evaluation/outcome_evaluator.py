@@ -21,7 +21,7 @@ import warnings
 from .predictor import Predictor
 from ..estimation.base_estimator import IndividualOutcomeEstimator
 from ..utils.stat_utils import robust_lookup
-from .metrics import Scorer
+from .metrics import score_binary_prediction, score_regression_prediction
 
 import pandas as pd
 
@@ -128,14 +128,14 @@ class OutcomeEvaluatorPredictions:
     ):
         """Score a single prediction based on whether `y_true` is classification or regression"""
         if outcome_is_binary:
-            score = Scorer.score_binary_prediction(
+            score = score_binary_prediction(
                 y_true=y_true,
                 y_pred=prediction,
                 y_pred_proba=prediction_prob,
                 metrics_to_evaluate=metrics_to_evaluate,
             )
         else:
-            score = Scorer.score_regression_prediction(
+            score = score_regression_prediction(
                 y_true=y_true,
                 y_pred=prediction,
                 metrics_to_evaluate=metrics_to_evaluate,
