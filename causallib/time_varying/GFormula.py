@@ -3,7 +3,8 @@
 import abc
 import pandas as pd
 from typing import Optional, Any, OrderedDict
-from .base_GFormula import TimeVaryingBaseEstimator
+from causallib.time_varying.base_GFormula import TimeVaryingBaseEstimator
+from causallib.utils import general_tools as g_tools
 
 
 class GFormulaBase(TimeVaryingBaseEstimator):
@@ -19,7 +20,7 @@ class GFormulaBase(TimeVaryingBaseEstimator):
             outcome_model(IndividualOutcomeEstimator): A causal model that estimate on individuals level
                                                       (e.g. Standardization).
             treatment_model (???):
-            covariate_models (dict): {
+            covariate_models (OrderedDict): {
                         ‘x1’: Standardization(LogisticRegression()),
                         ‘x2’: Standardization(LinearRegression()),
                             so forth
@@ -40,7 +41,7 @@ class GFormulaBase(TimeVaryingBaseEstimator):
             a: pd.Series,
             t: pd.Series,
             y: Optional[Any] = None,
-            refit_models=True,
+            refit_models: bool = True,
             **kwargs
             ):
         """
@@ -98,7 +99,7 @@ class GFormulaBase(TimeVaryingBaseEstimator):
                                     timeline_end: Optional[int] = None
                                     ) -> pd.DataFrame:
         """
-              Returns individual estimated curves for each subject row in X/a/t
+              Returns Population estimated curves.
 
               Args:
                   X (pd.DataFrame): Baseline covariate matrix of size (num_subjects, num_features).
@@ -143,7 +144,7 @@ class GFormulaBase(TimeVaryingBaseEstimator):
 
 class GFormula(GFormulaBase):
     """
-        GFormula class that is based on Monte Carlo Simulation for creating noise. #TODO more on this
+        GFormula class that is based on Monte Carlo Simulation for creating the noise.
     """
     def __init__(self,
                  outcome_model,
@@ -159,19 +160,25 @@ class GFormula(GFormulaBase):
             a: pd.Series,
             t: pd.Series,
             y: Optional[Any] = None,
-            refit_models=True,
+            refit_models: bool = True,
             **kwargs
             ):
 
         if kwargs is None:
             kwargs = {}
 
-        #TODO preprocess data to fit in the model
-        if refit_models:
+        #TODO More to work on preparing data to be feed into the model
+
+        treatment_model_is_not_fitted = not g_tools.check_learner_is_fitted(self.treatment_model.learner)
+        if refit_models or treatment_model_is_not_fitted:
             self.treatment_model.fit(X, a, y, **kwargs)
 
-            for cov in self.covariate_models:
-                self.covariate_models[cov].fit(X, a, y, **kwargs)
+        for cov in self.covariate_models:
+            cov_model = self.covariate_models[cov]
+            cov_model_is_not_fitted = not g_tools.check_learner_is_fitted(cov_model.learner)
+
+            if refit_models or cov_model_is_not_fitted:
+                cov_model.fit(X, a, y, **kwargs)
 
         self.outcome_model.fit(X, a, y, **kwargs)
         return self

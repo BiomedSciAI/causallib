@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 
 from causallib.estimation.base_estimator import IndividualOutcomeEstimator
 
 
-class TimeVaryingBaseEstimator(ABC, IndividualOutcomeEstimator):
+class TimeVaryingBaseEstimator(IndividualOutcomeEstimator):
     """
     Interface class for Time Varying analysis with fixed baseline covariates.
     """
