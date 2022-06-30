@@ -78,9 +78,6 @@ class WeightEvaluationResults(EvaluationResults):
         """
         from .plots.plotters import _calculate_roc_curve_data, _calculate_pr_curve_data
 
-        cv_idx_folds = [
-            fold_idx[0] if phase == "train" else fold_idx[1] for fold_idx in self.cv
-        ]
         folds_predictions = self.predictions[phase]
         if plot_name in {"weight_distribution"}:
             folds_predictions = [

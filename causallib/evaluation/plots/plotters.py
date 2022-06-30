@@ -164,7 +164,7 @@ class Plotter:
 
             for i, plot_name in enumerate(plots):
                 plot_data = self._get_data_for_plot(
-                    plot_name, predictions_folds, X, a, y, cv_idx_folds
+                    plot_name, predictions_folds, X, a, y
                 )
                 # TODO: ^ consider _get_data_for_plot returning args (tuple) and kwargs (dictionary) which will be
                 #       expanded when calling plot_func: plot_func(*plot_args, **plot_kwargs).
@@ -181,7 +181,7 @@ class Plotter:
         return all_axes
 
     @abc.abstractmethod
-    def _get_data_for_plot(self, plot_name, folds_predictions, X, a, y, cv):
+    def _get_data_for_plot(self, plot_name, folds_predictions, X, a, y):
         """Return a tuple containing the relevant data needed for the specific plot provided in `plot_name`"""
         raise NotImplementedError
 
@@ -199,7 +199,7 @@ class Plotter:
 
 
 class WeightPlotter(Plotter):
-    def _get_data_for_plot(self, plot_name, folds_predictions, X, a, y, cv):
+    def _get_data_for_plot(self, plot_name, folds_predictions, X, a, y):
         """Retrieve the data needed for each provided plot.
         Plot interfaces are at the plots.py module.
 
@@ -319,7 +319,7 @@ class WeightPlotter(Plotter):
 
 
 class PropensityPlotter(WeightPlotter):
-    def _get_data_for_plot(self, plot_name, folds_predictions, X, a, y, cv):
+    def _get_data_for_plot(self, plot_name, folds_predictions, X, a, y):
         """Retrieve the data needed for each provided plot.
         Plot interfaces are at the plots.py module.
 
@@ -348,7 +348,7 @@ class PropensityPlotter(WeightPlotter):
             # Common plots are implemented at top-most level possible.
             # Plot might be implemented by WeightEvaluator:
             return super(PropensityPlotter, self)._get_data_for_plot(
-                plot_name, folds_predictions, X, a, y, cv
+                plot_name, folds_predictions, X, a, y
             )
 
     def _calculate_curve_data(
@@ -453,7 +453,7 @@ class PropensityPlotter(WeightPlotter):
 
 
 class OutcomePlotter(Plotter):
-    def _get_data_for_plot(self, plot_name, folds_predictions, X, a, y, cv):
+    def _get_data_for_plot(self, plot_name, folds_predictions, X, a, y):
         """Retrieve the data needed for each provided plot.
         Plot interfaces are at the plots.py module.
 
