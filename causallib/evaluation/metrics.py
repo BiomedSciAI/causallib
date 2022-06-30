@@ -40,6 +40,7 @@ def _combine_weight_evaluator_fold_scores(scores):
     scores = WeightEvaluatorScores(prediction_scores, covariate_balance)
     return scores
 
+
 class Scorer:
     _numerical_classification_metrics = {
         "accuracy": metrics.accuracy_score,
@@ -125,7 +126,7 @@ class Scorer:
                 scores[phase].append(fold_scores)
 
         if isinstance(fold_scores, WeightEvaluatorScores):
-            return _combine_weight_evaluator_fold_scores(scores) 
+            return _combine_weight_evaluator_fold_scores(scores)
         return cls._combine_fold_scores(scores)
         
 

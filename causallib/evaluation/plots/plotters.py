@@ -63,6 +63,64 @@ def _calculate_pr_curve_data(curve_data, targets):
     return curve_data
 
 
+def _calculate_performance_curve_data_on_folds(
+    folds_predictions,
+    folds_targets,
+    sample_weights=None,
+    area_metric=metrics.roc_auc_score,
+    curve_metric=metrics.roc_curve,
+    pos_label=None,
+):
+    """Calculates performance curves (either ROC or precision-recall) of the predictions across folds.
+
+    Args:
+        folds_predictions (list[pd.Series]): Score prediction (as in continuous output of classifier,
+                                                `predict_proba` or `decision_function`) for every fold.
+        folds_targets (list[pd.Series]): True labels for every fold.
+        sample_weights (list[pd.Series] | None): weight for each sample for every fold.
+        area_metric (callable): Performance metric of the area under the curve.
+        curve_metric (callable): Performance metric returning 3 output vectors - metric1, metric2 and thresholds.
+                                Where metric1 and metric2 depict the curve when plotted on x-axis and y-axis.
+        pos_label: What label in `targets` is considered the positive label.
+
+    Returns:
+        (list[np.ndarray], list[np.ndarray], list[np.ndarray], list[float]):
+            For every fold, the calculated metric1 and metric2 (the curves), the thresholds and the area calculations.
+    """
+    sample_weights = (
+        [None] * len(folds_predictions) if sample_weights is None else sample_weights
+    )
+    # Scikit-learn precision_recall_curve and roc_curve do not return values in a consistent way.
+    # Namely, roc_curve returns `fpr`, `tpr`, which correspond to x_axis, y_axis,
+    # whereas precision_recall_curve returns `precision`, `recall`, which correspond to y_axis, x_axis.
+    # That's why this function will return the values the same order as the Scikit's curves, and leave it up to the
+    # caller to put labels on what those return values actually are (specifically, whether they're x_axis or y-axis)
+    first_ret_folds, second_ret_folds, threshold_folds, area_folds = [], [], [], []
+    for fold_prediction, fold_target, fold_weights in zip(
+        folds_predictions, folds_targets, sample_weights
+    ):
+        first_ret_fold, second_ret_fold, threshold_fold = curve_metric(
+            fold_target,
+            fold_prediction,
+            pos_label=pos_label,
+            sample_weight=fold_weights,
+        )
+        try:
+            area_fold = area_metric(
+                fold_target, fold_prediction, sample_weight=fold_weights
+            )
+        except ValueError as v:  # AUC cannot be evaluated if targets are constant
+            warnings.warn(f"metric {area_metric.__name__} could not be evaluated")
+            warnings.warn(str(v))
+            area_fold = np.nan
+
+        first_ret_folds.append(first_ret_fold)
+        second_ret_folds.append(second_ret_fold)
+        threshold_folds.append(threshold_fold)
+        area_folds.append(area_fold)
+    return area_folds, first_ret_folds, second_ret_folds, threshold_folds
+
+
 class Plotter:
     @staticmethod
     def from_estimator(estimator):
@@ -104,8 +162,6 @@ class Plotter:
             ]
             predictions_folds = predictions[phase]
 
-            
-
             for i, plot_name in enumerate(plots):
                 plot_data = self._get_data_for_plot(
                     plot_name, predictions_folds, X, a, y, cv_idx_folds
@@ -140,68 +196,6 @@ class Plotter:
         `first_ret_value` `first_ret_value`, `Thresholds` and `area` of that curve` in list
         with each entry corresponding to each fold."""
         raise NotImplementedError
-
-    @staticmethod
-    def _calculate_performance_curve_data_on_folds(
-        folds_predictions,
-        folds_targets,
-        sample_weights=None,
-        area_metric=metrics.roc_auc_score,
-        curve_metric=metrics.roc_curve,
-        pos_label=None,
-    ):
-        """Calculates performance curves (either ROC or precision-recall) of the predictions across folds.
-
-        Args:
-            folds_predictions (list[pd.Series]): Score prediction (as in continuous output of classifier,
-                                                 `predict_proba` or `decision_function`) for every fold.
-            folds_targets (list[pd.Series]): True labels for every fold.
-            sample_weights (list[pd.Series] | None): weight for each sample for every fold.
-            area_metric (callable): Performance metric of the area under the curve.
-            curve_metric (callable): Performance metric returning 3 output vectors - metric1, metric2 and thresholds.
-                                    Where metric1 and metric2 depict the curve when plotted on x-axis and y-axis.
-            pos_label: What label in `targets` is considered the positive label.
-
-        Returns:
-            (list[np.ndarray], list[np.ndarray], list[np.ndarray], list[float]):
-             For every fold, the calculated metric1 and metric2 (the curves), the thresholds and the area calculations.
-        """
-        sample_weights = (
-            [None] * len(folds_predictions)
-            if sample_weights is None
-            else sample_weights
-        )
-        # Scikit-learn precision_recall_curve and roc_curve do not return values in a consistent way.
-        # Namely, roc_curve returns `fpr`, `tpr`, which correspond to x_axis, y_axis,
-        # whereas precision_recall_curve returns `precision`, `recall`, which correspond to y_axis, x_axis.
-        # That's why this function will return the values the same order as the Scikit's curves, and leave it up to the
-        # caller to put labels on what those return values actually are (specifically, whether they're x_axis or y-axis)
-        first_ret_folds, second_ret_folds, threshold_folds, area_folds = [], [], [], []
-        for fold_prediction, fold_target, fold_weights in zip(
-            folds_predictions, folds_targets, sample_weights
-        ):
-            first_ret_fold, second_ret_fold, threshold_fold = curve_metric(
-                fold_target,
-                fold_prediction,
-                pos_label=pos_label,
-                sample_weight=fold_weights,
-            )
-            try:
-                area_fold = area_metric(
-                    fold_target, fold_prediction, sample_weight=fold_weights
-                )
-            except ValueError as v:  # AUC cannot be evaluated if targets are constant
-                warnings.warn(
-                    "metric {} could not be evaluated".format(area_metric.__name__)
-                )
-                warnings.warn(str(v))
-                area_fold = np.nan
-
-            first_ret_folds.append(first_ret_fold)
-            second_ret_folds.append(second_ret_fold)
-            threshold_folds.append(threshold_fold)
-            area_folds.append(area_fold)
-        return area_folds, first_ret_folds, second_ret_folds, threshold_folds
 
 
 class WeightPlotter(Plotter):
@@ -303,7 +297,7 @@ class WeightPlotter(Plotter):
                 first_ret_folds,
                 second_ret_folds,
                 threshold_folds,
-            ) = self._calculate_performance_curve_data_on_folds(
+            ) = _calculate_performance_curve_data_on_folds(
                 folds_predictions,
                 folds_targets,
                 sample_weights,
@@ -436,7 +430,7 @@ class PropensityPlotter(WeightPlotter):
                 first_ret_folds,
                 second_ret_folds,
                 threshold_folds,
-            ) = self._calculate_performance_curve_data_on_folds(
+            ) = _calculate_performance_curve_data_on_folds(
                 folds_predictions,
                 folds_targets,
                 sample_weights,
@@ -570,7 +564,7 @@ class OutcomePlotter(Plotter):
                 first_ret_folds,
                 second_ret_folds,
                 threshold_folds,
-            ) = self._calculate_performance_curve_data_on_folds(
+            ) = _calculate_performance_curve_data_on_folds(
                 folds_stratum_predictions,
                 folds_stratum_targets,
                 None,
