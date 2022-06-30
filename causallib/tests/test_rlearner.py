@@ -327,7 +327,6 @@ class TestRlearner(unittest.TestCase):
         self.estimator.fit(data["X"], data["a"], data["y"])
         with self.subTest("Test Outcome Evaluator with R-learner"):
             evaluator = Evaluator(self.estimator)
-            evaluator.scorer.REGRESSION_METRICS.pop("msle")
             evaluator.evaluate_simple(data['X'], data['a'], data['y'])
             self.assertTrue(True)  # Dummy assert for not thrown exception
 
