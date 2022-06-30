@@ -1,27 +1,19 @@
 #!/usr/bin/env python3
 
 import abc
-from typing import Optional, Any, OrderedDict
 import pandas as pd
-from ..estimation.base_estimator import IndividualOutcomeEstimator
-from sklearn.base import BaseEstimator as SKLearnBaseEstimator
-from .regression_curve_fitter import RegressionCurveFitter #TODO Referenced from Survival module. Assuming we need have similar wrapper class for fitting curve
+from typing import Optional, Any, OrderedDict
+from .base_GFormula import TimeVaryingBaseEstimator
 
 
-#TODO
-class CovariateModels(OrderedDict):
-    covariate: str
-    model: IndividualOutcomeEstimator
-
-
-class GFormulaBase(IndividualOutcomeEstimator):
+class GFormulaBase(TimeVaryingBaseEstimator):
     """
         GFormula base Estimator
     """
     def __init__(self,
                  outcome_model: None,
                  treatment_model: Any,
-                 covariate_models: CovariateModels,
+                 covariate_models: OrderedDict,
                  refit_models=True):
         """
             outcome_model(IndividualOutcomeEstimator): A causal model that estimate on individuals level
@@ -37,18 +29,10 @@ class GFormulaBase(IndividualOutcomeEstimator):
         """
         super(GFormulaBase, self).__init__(lambda **x: None)
         self.outcome_model = outcome_model
-        self.treatment_model = self._init_regressor(treatment_model)
-        self.covariate_models = covariate_models #TODO call _init_regressor() for all covariate_models
+        self.treatment_model = treatment_model
+        self.covariate_models = covariate_models
         self.refit_models = refit_models
 
-    def _init_regressor(self, model):
-        """method to check and wrap the default learner class with RegressionCurveFitter."""
-        if isinstance(model, SKLearnBaseEstimator):
-            # Construct default curve fitter, parametric with a scikit-learn estimator
-            return RegressionCurveFitter(model)
-        else:
-            # Initialized lifelines RegressionFitter (or any implementation with a compatible API)
-            return model
 
     @abc.abstractmethod
     def fit(self,
@@ -102,7 +86,7 @@ class GFormulaBase(IndividualOutcomeEstimator):
               Returns:
                   pd.DataFrame: with time-step index, subject IDs (X.index) as columns and ??
               """
-        pass
+        raise NotImplementedError
 
     @abc.abstractmethod
     def estimate_population_outcome(self,
@@ -131,15 +115,15 @@ class GFormulaBase(IndividualOutcomeEstimator):
               Returns:
                   pd.DataFrame: with time-step index, subject IDs (X.index) as columns and ??
               """
-        pass
+        raise NotImplementedError
 
     @abc.abstractmethod
     def apply_noise(self):
         pass
 
-    @abc.abstractmethod
-    def prepare_data(self, pat_data):
-        pass
+    def _prepare_data(self, X, a, t, y):
+        return pd.DataFrame()
+
 
     @staticmethod
     def _predict_trajectory(self, X, a, t) -> pd.DataFrame:
@@ -167,8 +151,8 @@ class GFormula(GFormulaBase):
                  covariate_models,
                  refit_models=True
                  ):
-
-        super(GFormulaBase).__init__(outcome_model, treatment_model, covariate_models, refit_models)
+        super().__init__(outcome_model, treatment_model,
+                         covariate_models, refit_models)
 
     def fit(self,
             X: pd.DataFrame,
@@ -178,21 +162,56 @@ class GFormula(GFormulaBase):
             refit_models=True,
             **kwargs
             ):
+
+        if kwargs is None:
+            kwargs = {}
+
+        #TODO preprocess data to fit in the model
         if refit_models:
-
-            self.treatment_model.fit(df=X, duration_col=t, event_col=y,
-                                    **kwargs)
-            self.treatment_model.fit(X, a)
-
-
+            self.treatment_model.fit(X, a, y, **kwargs)
 
             for cov in self.covariate_models:
-                self.covariate_models[cov].fit(X, a)
+                self.covariate_models[cov].fit(X, a, y, **kwargs)
 
-        self.outcome_model.fit(X, a, t, y)
+        self.outcome_model.fit(X, a, y, **kwargs)
         return self
 
-    def predict(self, X, a, t):
+
+    def estimate_individual_outcome(self, X: pd.DataFrame, a: pd.Series, t: pd.Series, y: Optional[Any] = None,
+                                    timeline_start: Optional[int] = None,
+                                    timeline_end: Optional[int] = None) -> pd.DataFrame:
+
+        min_time = timeline_start if timeline_start is not None else int(t.min())
+        max_time = timeline_end if timeline_end is not None else int(t.max())
+
+        contiguous_times = pd.Series(data=range(min_time, max_time + 1), name=t.name)  # contiguous time steps for inference
+        unique_treatment_values = a.unique()
+        res = pd.DataFrame()
+        # TODO
+        # logic to get the prediction curve for individual treatment types
+
+        return res
+
+    def estimate_population_outcome(self, X: pd.DataFrame, a: pd.Series, t: pd.Series, y: Optional[Any] = None,
+                                    timeline_start: Optional[int] = None,
+                                    timeline_end: Optional[int] = None) -> pd.DataFrame:
+
+        unique_treatment_values = a.unique()
+        res = {}
+        for treatment_value in unique_treatment_values:
+            assignment = pd.Series(data=treatment_value, index=X.index, name=a.name)
+            individual_survival_curves = self.estimate_individual_outcome(X=X, a=assignment, t=t,
+                                                                          timeline_start=timeline_start,
+                                                                          timeline_end=timeline_end)
+            res[treatment_value] = individual_survival_curves.mean(axis='columns')
+        res = pd.DataFrame(res)
+
+        # Setting index/column names
+        res.index.name = t.name
+        res.columns.name = a.name
+        return res
+
+    def apply_noise(self):
         pass
 
 

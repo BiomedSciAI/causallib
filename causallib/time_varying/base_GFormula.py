@@ -2,8 +2,10 @@
 
 from abc import ABC, abstractmethod
 
+from causallib.estimation.base_estimator import IndividualOutcomeEstimator
 
-class TimeVaryingBaseEstimator(ABC):
+
+class TimeVaryingBaseEstimator(ABC, IndividualOutcomeEstimator):
     """
     Interface class for Time Varying analysis with fixed baseline covariates.
     """
