@@ -1,2 +1,3 @@
-from .plots import lookup_name, get_subplots
-from .plotters import Plotter
+from .helpers import plot_evaluation_results, plot_single_evaluation_result
+
+__all__ = ["plot_evaluation_results", "plot_single_evaluation_result"]

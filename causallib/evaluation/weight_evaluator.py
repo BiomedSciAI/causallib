@@ -20,7 +20,7 @@ Created on Dec 25, 2018
 import numpy as np
 import pandas as pd
 
-from .evaluator import Predictor
+from .predictor import Predictor
 from ..estimation.base_weight import WeightEstimator, PropensityEstimator
 from ..utils.stat_utils import robust_lookup
 from .metrics import Scorer, calculate_covariate_balance, WeightEvaluatorScores

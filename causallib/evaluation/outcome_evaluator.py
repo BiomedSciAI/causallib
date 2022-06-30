@@ -18,7 +18,7 @@ Created on Dec 25, 2018
 """
 import warnings
 
-from .evaluator import Predictor
+from .predictor import Predictor
 from ..estimation.base_estimator import IndividualOutcomeEstimator
 from ..utils.stat_utils import robust_lookup
 from .metrics import Scorer
