@@ -34,7 +34,7 @@ class TimeVaryingBaseEstimator(IndividualOutcomeEstimator):
             Returns population averaged estimated curves.
 
             Returns:
-               pd.DataFrame: with time-step index, co-variates as columns and co-variates' values as entries
+               pd.DataFrame: with time-step index, treatment (a) as columns and treatment values as entries
         """
         raise NotImplementedError
 
@@ -86,7 +86,7 @@ class GMethodBase(TimeVaryingBaseEstimator):
                 a (pd.Series): Treatment assignment of size (num_subjects,).
                 t (pd.Series): Followup duration, size (num_subjects,).
                 y (pd.Series): Observed outcome (1) or right censoring event (0), size (num_subjects,).
-                refit_models (bool): if True, re-fit a the treatment model and covariate models.
+                refit_models (bool): if True, re-fit the treatment model and covariate models.
                 kwargs (dict): Optional kwargs for fit call of survival model
 
             Returns:
@@ -163,22 +163,7 @@ class GMethodBase(TimeVaryingBaseEstimator):
         raise NotImplementedError
 
     def _prepare_data(self, X, a, t, y):
-        return pd.DataFrame()
-
-
-    @staticmethod
-    def _predict_trajectory(self, X, a, t) -> pd.DataFrame:
-        """ Predicts the trajectories for all covariates X and treatment a.
-
-            Args:
-                  X (pd.DataFrame): Baseline covariate matrix of size (num_subjects, num_features).
-                  a (pd.Series): Treatment assignment of size (num_subjects,).
-                  t (pd.Series): Followup durations, size (num_subjects,).
-
-            Returns:
-                 pd.DataFrame: with time-step index, subject IDs (X.index and a) columns and
-                               point values for each column as entries
-        """
+        # return pd.DataFrame()
         raise NotImplementedError
 
 

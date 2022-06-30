@@ -2,14 +2,15 @@
 
 import pandas as pd
 from typing import Optional, Any
-from causallib.time_varying.base import BaseGMethod
+from causallib.time_varying.base import GMethodBase
 from causallib.utils import general_tools as g_tools
 
 
-class GFormula(BaseGMethod):
+class GFormula(GMethodBase):
     """
         GFormula class that is based on Monte Carlo Simulation for creating the noise.
     """
+
     def fit(self,
             X: pd.DataFrame,
             a: pd.Series,
@@ -51,7 +52,7 @@ class GFormula(BaseGMethod):
         res = pd.DataFrame()
         # TODO
         # logic to get the prediction curve for individual treatment types
-
+        # return res
         raise NotImplementedError
 
     def estimate_population_outcome(self, X: pd.DataFrame, a: pd.Series, t: pd.Series, y: Optional[Any] = None,
@@ -71,10 +72,17 @@ class GFormula(BaseGMethod):
         # Setting index/column names
         res.index.name = t.name
         res.columns.name = a.name
-
+        # return res
         raise NotImplementedError
 
     def _apply_noise(self):
+        pass
+
+    def _prepare_data(self, X, a, t, y):
+        pass
+
+    @staticmethod
+    def _predict_trajectory(self, X, a, t) -> pd.DataFrame:
         pass
 
 
