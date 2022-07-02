@@ -1,12 +1,11 @@
+import warnings
+
 import numpy as np
 import pandas as pd
 from sklearn import metrics
-from ..utils.stat_utils import (
-    calc_weighted_standardized_mean_differences,
-    calc_weighted_ks2samp,
-)
-import warnings
 
+from ..utils.stat_utils import (calc_weighted_ks2samp,
+                                calc_weighted_standardized_mean_differences)
 
 NUMERICAL_CLASSIFICATION_METRICS = {
     "accuracy": metrics.accuracy_score,

@@ -16,6 +16,8 @@ limitations under the License.
 Created on Aug 22, 2018
 
 """
+import warnings
+
 import matplotlib.colors
 import matplotlib.pyplot as plt
 import matplotlib.ticker
@@ -24,9 +26,7 @@ import pandas as pd
 import statsmodels.api as sm
 from scipy import interp as scipy_interp
 from scipy.stats import gaussian_kde
-import warnings
 from sklearn import metrics
-
 
 # TODO: propensity distribution using CDF (and not reflecting if so)
 # TODO: Make plot "names" (as in the string which are their common name in the code) global variables in this module
@@ -592,6 +592,7 @@ def plot_mean_features_imbalance_love_folds(table1_folds, cv=None, aggregate_fol
         table1_folds = [aggregated_table1.mean()]  # place in iterable to make compatible with input
 
     from itertools import cycle
+
     # Plot:
     for table1 in table1_folds:
         color_cycle = cycle(plt.rcParams['axes.prop_cycle'].by_key()['color'])

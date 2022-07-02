@@ -8,17 +8,12 @@ from ..estimation.base_estimator import IndividualOutcomeEstimator
 from ..estimation.base_weight import PropensityEstimator, WeightEstimator
 from ..utils.stat_utils import is_vector_binary
 from .metrics import calculate_covariate_balance
-from .plots.helpers import (
-    calculate_performance_curve_data_on_folds,
-    calculate_pr_curve,
-    calculate_roc_curve,
-)
-from .weight_predictor import (
-    PropensityEvaluatorPredictions,
-    WeightEvaluatorPredictions,
-    WeightEvaluatorScores,
-)
 from .outcome_predictor import OutcomeEvaluatorPredictions
+from .plots.helpers import (calculate_performance_curve_data_on_folds,
+                            calculate_pr_curve, calculate_roc_curve)
+from .weight_predictor import (PropensityEvaluatorPredictions,
+                               WeightEvaluatorPredictions,
+                               WeightEvaluatorScores)
 
 SingleFoldPrediction = Union[
     PropensityEvaluatorPredictions,

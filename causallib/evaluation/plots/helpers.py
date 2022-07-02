@@ -1,8 +1,7 @@
-import numpy as np
 import warnings
-from sklearn import metrics
 
-import warnings
+import numpy as np
+from sklearn import metrics
 
 from .plots import get_subplots, lookup_name
 

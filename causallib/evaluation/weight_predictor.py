@@ -17,13 +17,16 @@ Created on Dec 25, 2018
 
 """
 
+from collections import namedtuple
+
 import numpy as np
 import pandas as pd
 
-from .predictor import BasePredictor
-from ..estimation.base_weight import WeightEstimator, PropensityEstimator
+from ..estimation.base_weight import PropensityEstimator, WeightEstimator
 from ..utils.stat_utils import robust_lookup
-from .metrics import evaluate_binary_metrics, calculate_covariate_balance
+from .metrics import calculate_covariate_balance, evaluate_binary_metrics
+from .predictor import BasePredictor
+
 # TODO: decide what implementation stays - the one with the '2' suffix or the one without.
 #       The one with is based on matrix input and does all the vector extraction by itself.
 #       The one without is simpler one the receive the vectors already (more general, as not all models may have matrix.
@@ -33,7 +36,6 @@ from .metrics import evaluate_binary_metrics, calculate_covariate_balance
 # Weight Evaluator #
 # ################ #
 
-from collections import namedtuple
 
 WeightEvaluatorScores = namedtuple(
     "WeightEvaluatorScores", ["prediction_scores", "covariate_balance"]

@@ -1,9 +1,10 @@
 
 import abc
-
 from copy import deepcopy
-from ..estimation.base_weight import PropensityEstimator, WeightEstimator
+
 from ..estimation.base_estimator import IndividualOutcomeEstimator
+from ..estimation.base_weight import PropensityEstimator, WeightEstimator
+
 
 class BasePredictor:
     @staticmethod

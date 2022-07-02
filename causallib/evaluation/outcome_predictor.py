@@ -18,12 +18,12 @@ Created on Dec 25, 2018
 """
 import warnings
 
-from .predictor import BasePredictor
+import pandas as pd
+
 from ..estimation.base_estimator import IndividualOutcomeEstimator
 from ..utils.stat_utils import robust_lookup
 from .metrics import evaluate_binary_metrics, evaluate_regression_metrics
-
-import pandas as pd
+from .predictor import BasePredictor
 
 
 class OutcomeEvaluatorPredictions:
