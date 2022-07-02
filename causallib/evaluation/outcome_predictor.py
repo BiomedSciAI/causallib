@@ -18,10 +18,10 @@ Created on Dec 25, 2018
 """
 import warnings
 
-from .predictor import Predictor
+from .predictor import BasePredictor
 from ..estimation.base_estimator import IndividualOutcomeEstimator
 from ..utils.stat_utils import robust_lookup
-from .metrics import score_binary_prediction, score_regression_prediction
+from .metrics import evaluate_binary_metrics, evaluate_regression_metrics
 
 import pandas as pd
 
@@ -128,14 +128,14 @@ class OutcomeEvaluatorPredictions:
     ):
         """Score a single prediction based on whether `y_true` is classification or regression"""
         if outcome_is_binary:
-            score = score_binary_prediction(
+            score = evaluate_binary_metrics(
                 y_true=y_true,
                 y_pred=prediction,
                 y_pred_proba=prediction_prob,
                 metrics_to_evaluate=metrics_to_evaluate,
             )
         else:
-            score = score_regression_prediction(
+            score = evaluate_regression_metrics(
                 y_true=y_true,
                 y_pred=prediction,
                 metrics_to_evaluate=metrics_to_evaluate,
@@ -155,7 +155,7 @@ class OutcomeEvaluatorPredictions:
         return robust_lookup(self.prediction_event_prob, a[self.prediction.index])
 
 
-class OutcomePredictor(Predictor):
+class OutcomePredictor(BasePredictor):
     def __init__(self, estimator):
         """
         Args:

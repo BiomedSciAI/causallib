@@ -20,10 +20,10 @@ Created on Dec 25, 2018
 import numpy as np
 import pandas as pd
 
-from .predictor import Predictor
+from .predictor import BasePredictor
 from ..estimation.base_weight import WeightEstimator, PropensityEstimator
 from ..utils.stat_utils import robust_lookup
-from .metrics import score_binary_prediction, calculate_covariate_balance, WeightEvaluatorScores
+from .metrics import evaluate_binary_metrics, calculate_covariate_balance
 # TODO: decide what implementation stays - the one with the '2' suffix or the one without.
 #       The one with is based on matrix input and does all the vector extraction by itself.
 #       The one without is simpler one the receive the vectors already (more general, as not all models may have matrix.
@@ -32,6 +32,13 @@ from .metrics import score_binary_prediction, calculate_covariate_balance, Weigh
 # ################ #
 # Weight Evaluator #
 # ################ #
+
+from collections import namedtuple
+
+WeightEvaluatorScores = namedtuple(
+    "WeightEvaluatorScores", ["prediction_scores", "covariate_balance"]
+)
+
 
 class WeightEvaluatorPredictions:
     """Data structure to hold weight-model predictions"""
@@ -62,7 +69,7 @@ class WeightEvaluatorPredictions:
                                    and covariate balancing table ("table 1")
         """    
 
-        prediction_scores = score_binary_prediction(
+        prediction_scores = evaluate_binary_metrics(
             y_true=a_true,
             y_pred_proba=self.weight_for_being_treated,
             y_pred=self.treatment_assignment_pred,
@@ -113,7 +120,7 @@ class WeightEvaluatorPredictions2:
 
 
 
-class WeightPredictor(Predictor):
+class WeightPredictor(BasePredictor):
     def __init__(self, estimator):
         """
         Args:
