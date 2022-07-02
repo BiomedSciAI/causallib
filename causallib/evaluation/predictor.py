@@ -5,19 +5,19 @@ from copy import deepcopy
 from ..estimation.base_weight import PropensityEstimator, WeightEstimator
 from ..estimation.base_estimator import IndividualOutcomeEstimator
 
-class Predictor:
+class BasePredictor:
     @staticmethod
     def from_estimator(estimator):
         if isinstance(estimator, PropensityEstimator):
-            from .weight_evaluator import PropensityPredictor
+            from .weight_predictor import PropensityPredictor
 
             return PropensityPredictor
         if isinstance(estimator, WeightEstimator):
-            from .weight_evaluator import WeightPredictor
+            from .weight_predictor import WeightPredictor
 
             return WeightPredictor
         if isinstance(estimator, IndividualOutcomeEstimator):
-            from .outcome_evaluator import OutcomePredictor
+            from .outcome_predictor import OutcomePredictor
 
             return OutcomePredictor
 

@@ -7,14 +7,14 @@ from sklearn import metrics
 from ..estimation.base_estimator import IndividualOutcomeEstimator
 from ..estimation.base_weight import PropensityEstimator, WeightEstimator
 from ..utils.stat_utils import is_vector_binary
-from .metrics import WeightEvaluatorScores, calculate_covariate_balance
+from .metrics import calculate_covariate_balance
 from .plots.helpers import (
     calculate_performance_curve_data_on_folds,
     calculate_pr_curve,
     calculate_roc_curve,
 )
-from .weight_evaluator import PropensityEvaluatorPredictions, WeightEvaluatorPredictions
-from .outcome_evaluator import OutcomeEvaluatorPredictions
+from .weight_predictor import PropensityEvaluatorPredictions, WeightEvaluatorPredictions
+from .outcome_predictor import OutcomeEvaluatorPredictions
 
 SingleFoldPrediction = Union[
     PropensityEvaluatorPredictions,
