@@ -1,19 +1,26 @@
 from dataclasses import dataclass
+from typing import Any, Dict, List, Tuple, Union
+
 import pandas as pd
-from typing import Any, List, Tuple, Union, Dict
-from .metrics import WeightEvaluatorScores, calculate_covariate_balance
 from sklearn import metrics
 
-from ..estimation.base_weight import PropensityEstimator, WeightEstimator
 from ..estimation.base_estimator import IndividualOutcomeEstimator
-
+from ..estimation.base_weight import PropensityEstimator, WeightEstimator
 from ..utils.stat_utils import is_vector_binary
+from .metrics import WeightEvaluatorScores, calculate_covariate_balance
 from .plots.helpers import (
     calculate_performance_curve_data_on_folds,
     calculate_pr_curve,
     calculate_roc_curve,
 )
-from .weight_evaluator import WeightEvaluatorPredictions, PropensityEvaluatorPredictions
+from .weight_evaluator import PropensityEvaluatorPredictions, WeightEvaluatorPredictions
+from .outcome_evaluator import OutcomeEvaluatorPredictions
+
+SingleFoldPrediction = Union[
+    PropensityEvaluatorPredictions,
+    WeightEvaluatorPredictions,
+    OutcomeEvaluatorPredictions,
+]
 
 
 @dataclass
@@ -28,8 +35,7 @@ class EvaluationResults:
 
     evaluated_metrics: Union[pd.DataFrame, Any]
     models: Union[List[WeightEstimator], List[IndividualOutcomeEstimator]]
-    predictions: Dict[str, List[Any]]
-    # really Any is one of the Predictions objects and key is "train" or "valid"
+    predictions: Dict[str, List[SingleFoldPrediction]]
     cv: List[Tuple[List[int], List[int]]]
 
     @property
@@ -48,6 +54,10 @@ class EvaluationResults:
         if isinstance(fitted_model, IndividualOutcomeEstimator):
             return OutcomePlotDataExtractor(self)
 
+    @property
+    def available_plot_names(self):
+        return self.extractor.available_plot_names
+
     def get_data_for_plot(self, plot_name, X, a, y, phase="train"):
         return self.extractor._get_data_for_plot(plot_name, X, a, y, phase)
 
@@ -55,7 +65,7 @@ class EvaluationResults:
 class EvaluationPlotDataExtractor:
     available_plot_names = set()
 
-    def __init__(self, evaluation_results):
+    def __init__(self, evaluation_results: EvaluationResults):
         self.predictions = evaluation_results.predictions
 
 
@@ -140,7 +150,6 @@ class WeightPlotDataExtractor(EvaluationPlotDataExtractor):
                 On general: {curve_name: {metric1: [evaluation_fold_1, ...]}}.
                 For example: {"weighted": {"FPR": [FPR_fold_1, FPR_fold_2, FPR_fold3]}}
         """
-        from .plots.helpers import calculate_performance_curve_data_on_folds
 
         folds_treatment_weight = [p.weight_for_being_treated for p in folds_predictions]
         folds_targets = []
@@ -330,14 +339,25 @@ class PropensityPlotDataExtractor(WeightPlotDataExtractor):
 
 
 class OutcomePlotDataExtractor(EvaluationPlotDataExtractor):
-    available_plot_names = {
+    continuous_output_plot_names = {
         "continuous_accuracy",
         "residuals",
+        "common_support",
+    }
+    binary_output_plot_names = {
         "calibration",
         "roc_curve",
         "pr_curve",
-        "common_support",
     }
+
+    def __init__(self, evaluation_results):
+        super().__init__(evaluation_results)
+        if any(
+            x and any(y.is_binary_outcome for y in x) for x in self.predictions.values()
+        ):
+            self.available_plot_names = self.binary_output_plot_names
+        else:
+            self.available_plot_names = self.continuous_output_plot_names
 
     def _get_data_for_plot(self, plot_name, X, a, y, phase="train"):
         """Retrieve the data needed for each provided plot.

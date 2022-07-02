@@ -32,6 +32,7 @@ class OutcomeEvaluatorPredictions:
     def __init__(self, prediction, prediction_event_prob=None):
         self.prediction = prediction
         self.prediction_event_prob = self._correct_predict_proba_estimate(prediction, prediction_event_prob)
+        self.is_binary_outcome = self.prediction_event_prob is not None
 
     @staticmethod
     def _correct_predict_proba_estimate(prediction, prediction_event_prob):
@@ -46,14 +47,13 @@ class OutcomeEvaluatorPredictions:
         y_values = prediction_event_prob.columns.get_level_values("y").unique()
         # Note: on pandas 23.0.0 you could do prediction_event_prob.columns.unique(level='y')
         if y_values.size == 2:
-            event_value = (
-                y_values.max()
-            )  # get the maximal value, assumes binary 0-1 (1: event, 0: non-event)
+            event_value = y_values.max()
+            # get the maximal value, assumes binary 0-1 (1: event, 0: non-event)
             # Extract the probability for event:
             return prediction_event_prob.xs(key=event_value, axis="columns", level="y")
 
         warnings.warn(
-            "Multiclass probabilities are not well defined  and supported for evaluation.\n"
+            "Multiclass probabilities are not well defined and supported for evaluation.\n"
             "Falling back to class predictions.\n"
             "Plots might be uninformative due to input being classes and not probabilities."
         )
@@ -145,13 +145,11 @@ class OutcomeEvaluatorPredictions:
         return score
 
     def get_prediction_by_treatment(self, a):
-        if self.prediction_event_prob is not None:
+        if self.is_binary_outcome:
             pred = self.prediction_event_prob
         else:
             pred = self.prediction
-        prediction_by_treatment = robust_lookup(pred, a[pred.index])
-
-        return prediction_by_treatment
+        return robust_lookup(pred, a[pred.index])
 
     def get_calibration(self, a):
         return robust_lookup(self.prediction_event_prob, a[self.prediction.index])

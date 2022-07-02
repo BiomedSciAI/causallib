@@ -6,8 +6,9 @@ import warnings
 
 from .plots import get_subplots, lookup_name
 
+
 def plot_evaluation_results(results, X, a, y, plot_names="all"):
-    if plot_names=="all":
+    if plot_names == "all":
         plot_names = results.extractor.available_plot_names
     phases = results.predictions.keys()
     all_axes = {phase: {} for phase in phases}
