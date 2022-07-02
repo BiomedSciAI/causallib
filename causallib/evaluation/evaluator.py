@@ -215,6 +215,6 @@ class Evaluator:
         )
 
         if plots is not None:
-            plot_evaluation_results(evaluation_results, X, a, y, cv, plots)
+            plot_evaluation_results(evaluation_results, X, a, y, plots)
 
         return evaluation_results

@@ -24,7 +24,7 @@ def plot_evaluation_results(results, X, a, y, plot_names="all"):
             ax = phase_axes[i]
             try:
                 plot_ax = plot_single_evaluation_result(
-                    results, X, a, y, phase, name, ax
+                    results, X, a, y, name, phase, ax
                 )
             except Exception as e:
                 warnings.warn(f"Failed to plot {name} with error {e}")
@@ -34,7 +34,7 @@ def plot_evaluation_results(results, X, a, y, plot_names="all"):
     return all_axes
 
 
-def plot_single_evaluation_result(results, X, a, y, phase, plot_name, ax=None):
+def plot_single_evaluation_result(results, X, a, y, plot_name, phase, ax=None):
     if plot_name not in results.extractor.available_plot_names:
         raise ValueError(f"Plot name '{plot_name}' not supported for this result.")
     cv_idx_folds = [

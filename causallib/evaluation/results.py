@@ -13,7 +13,11 @@ from .plots.helpers import (
     calculate_pr_curve,
     calculate_roc_curve,
 )
-from .weight_predictor import PropensityEvaluatorPredictions, WeightEvaluatorPredictions
+from .weight_predictor import (
+    PropensityEvaluatorPredictions,
+    WeightEvaluatorPredictions,
+    WeightEvaluatorScores,
+)
 from .outcome_predictor import OutcomeEvaluatorPredictions
 
 SingleFoldPrediction = Union[
@@ -26,20 +30,30 @@ SingleFoldPrediction = Union[
 @dataclass
 class EvaluationResults:
     """Data structure to hold evaluation results.
-    Args:
+    Attrs:
         evaluated_metrics (pd.DataFrame or WeightEvaluatorScores):
-        models (list[WeightEstimator or IndividualOutcomeEstimator]): Models trained during evaluation
-        predictions (dict[str, List[Predictions]])
-        cv (list[tuple[list[int], list[int]]])
+        models (dict[str, Union[list[WeightEstimator], list[IndividualOutcomeEstimator]):
+            Models trained during evaluation. May be dict or list or a model
+            directly.
+        predictions (dict[str, List[SingleFoldPredictions]]): dict with keys
+            "train" and "valid" (if produced through cross-validation) and
+            values of the predictions for the respective fold
+        cv (list[tuple[list[int], list[int]]]): the cross validation indices,
+            used to generate the results, used for constructing plots correctly
     """
 
-    evaluated_metrics: Union[pd.DataFrame, Any]
-    models: Union[List[WeightEstimator], List[IndividualOutcomeEstimator]]
+    evaluated_metrics: Union[pd.DataFrame, WeightEvaluatorScores]
+    models: Union[
+        List[WeightEstimator],
+        List[IndividualOutcomeEstimator],
+        List[PropensityEstimator],
+    ]
     predictions: Dict[str, List[SingleFoldPrediction]]
     cv: List[Tuple[List[int], List[int]]]
 
     @property
     def extractor(self):
+        """Plot data extractor for these results."""
         if isinstance(self.models, dict):
             fitted_model = self.models["train"][0]
         elif isinstance(self.models, list):
@@ -56,20 +70,38 @@ class EvaluationResults:
 
     @property
     def available_plot_names(self):
+        """Available plot names.
+
+        Returns:
+            set[str]: string names of supported plot names for these results
+        """
         return self.extractor.available_plot_names
 
     def get_data_for_plot(self, plot_name, X, a, y, phase="train"):
+        """Get data for a given plot
+
+        Args:
+            plot_name (str): plot name from `self.available_plot_names`
+            X (pd.DataFrame): feature data
+            a (pd.Series): treatment assignment vector
+            y (pd.Series): outcome data
+            phase (str, optional): phase of interest. Defaults to "train".
+
+        Returns:
+            Any: the data required for the plot in question
+        """
         return self.extractor._get_data_for_plot(plot_name, X, a, y, phase)
 
 
-class EvaluationPlotDataExtractor:
+class BaseEvaluationPlotDataExtractor:
+    """Class for extracting plot data from EvaluationResults."""
     available_plot_names = set()
 
     def __init__(self, evaluation_results: EvaluationResults):
         self.predictions = evaluation_results.predictions
 
 
-class WeightPlotDataExtractor(EvaluationPlotDataExtractor):
+class WeightPlotDataExtractor(BaseEvaluationPlotDataExtractor):
     available_plot_names = {
         "weight_distribution",
         "roc_curve",
@@ -338,7 +370,7 @@ class PropensityPlotDataExtractor(WeightPlotDataExtractor):
         return curve_data
 
 
-class OutcomePlotDataExtractor(EvaluationPlotDataExtractor):
+class OutcomePlotDataExtractor(BaseEvaluationPlotDataExtractor):
     continuous_output_plot_names = {
         "continuous_accuracy",
         "residuals",
