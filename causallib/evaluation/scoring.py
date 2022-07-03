@@ -21,14 +21,16 @@ def score_cv(predictions, X, a, y, cv, metrics_to_evaluate=None):
         X (pd.DataFrame): Covariates.
         a (pd.Series): Treatment assignment.
         y (pd.Series): Outcome.
-        cv (list[tuples]): list the number of folds containing tuples of indices (train_idx, validation_idx)
-        metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives true labels, prediction
-                                            and sample_weights (the latter is allowed to be ignored).
-                                            If not provided, default are used.
+        cv (list[tuples]): list the number of folds containing tuples of indices:
+            (train_idx, validation_idx)
+        metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives
+            true labels, prediction and sample_weights (the latter is allowed to be ignored).
+            If not provided, default metrics from causallib.evaluation.metrics are used.
 
     Returns:
         pd.DataFrame | WeightEvaluatorScores:
-            DataFrame whose columns are different metrics and each row is a product of phase x fold x strata.
+            DataFrame whose columns are different metrics and each row is a
+            product of phase x fold x strata.
             WeightEvaluatorScores also has a covariate-balance result in a DataFrame.
     """
     phases = predictions.keys()
@@ -46,7 +48,8 @@ def score_cv(predictions, X, a, y, cv, metrics_to_evaluate=None):
                 "y": y.iloc[valid_idx],
             },
         }
-        # TODO: use dict-comprehension to map between phases[0] to cv[0] instead writing "train" explicitly
+        # TODO: use dict-comprehension to map between phases[0] to cv[0]
+        # instead of writing "train" explicitly
 
         for phase in phases:
             X_fold, a_fold, y_fold = (
@@ -68,7 +71,9 @@ def score_cv(predictions, X, a, y, cv, metrics_to_evaluate=None):
 
 def score_estimation(prediction, X, a_true, y_true, metrics_to_evaluate=None):
     """Should know how to handle the _estimator_predict output provided in `prediction`.
-    Can utilize any of the true values provided (covariates `X`, treatment assignment `a` or outcome `y`)."""
+    Can utilize any of the true values provided:
+        covariates `X`, treatment assignment `a` or outcome `y`.
+    """
 
     if isinstance(prediction, OutcomeEvaluatorPredictions):
         return prediction.evaluate_metrics(a_true, y_true, metrics_to_evaluate)
@@ -87,15 +92,18 @@ def _combine_fold_scores(scores):
     Combines scores of each phase and fold into a single object (DataFrame) of scores.
 
     Args:
-        scores (dict[str, list[pd.DataFrame]]):
-            scores of each fold of each phase. The structure is {phase_name: [fold_1_score, fold_2_score...]}.
-            Where phase_name is usually "train" or "valid", and each fold_i_score is a DataFrame which columns are
-            evaluation metrics and rows are results of that metrics in that fold.
+        scores (dict[str, list[pd.DataFrame]]): scores of each fold of each phase.
+            The structure is {phase_name: [fold_1_score, fold_2_score...]}.
+            Where phase_name is usually "train" or "valid", and each fold_i_score
+            is a DataFrame which columns are evaluation metrics and rows are
+            results of that metrics in that fold.
 
     Returns:
-        pd.DataFrame: Row-concatenated DataFrame with MultiIndex accounting for the concatenated folds and phases.
+        pd.DataFrame: Row-concatenated DataFrame with MultiIndex accounting for the
+            concatenated folds and phases.
     """
-    # Concatenate the scores from list of folds to DataFrame with rows as folds, keeping it by different phases:
+    # Concatenate the scores from list of folds to DataFrame with rows as folds,
+    # keeping it by different phases:
     scores = {
         phase: pd.concat(
             scores_fold, axis="index", keys=range(len(scores_fold)), names=["fold"]
@@ -110,8 +118,8 @@ def _combine_fold_scores(scores):
 def _combine_weight_evaluator_fold_scores(scores):
     # `scores` are provided as WeightEvaluatorScores object for each fold in each phase,
     # Namely, dict[list[WeightEvaluatorScores]], which in turn hold two DataFrames components.
-    # In order to combine the underlying DataFrames into a multilevel DataFrame, one must first extract them from
-    # the WeightEvaluatorScores object, into two separate components.
+    # In order to combine the underlying DataFrames into a multilevel DataFrame,
+    # one must first extract them from the WeightEvaluatorScores object, then recombine.
 
     # Extract the two components of WeightEvaluatorScores:
     prediction_scores_unfolded = {
@@ -127,9 +135,11 @@ def _combine_weight_evaluator_fold_scores(scores):
     covariate_balance = _combine_fold_scores(covariate_balance_unfolded)
 
     # Combine the dict[list[DataFrames]] of each component into a multilevel DataFrame separately:
-    # TODO: consider reordering the levels, such that the covariate will be the first one and then phase and fold
+    # TODO: consider reordering the levels, such that the covariate will be the first one and then
+    # phase and fold
     # covariate_balance = covariate_balance.reorder_levels(["covariate", "phase", "fold"])
 
-    # Create a new WeightEvaluatorScores object with the combined (i.e., multilevel DataFrame) results:
+    # Create a new WeightEvaluatorScores object
+    # with the combined (i.e., multilevel DataFrame) results:
     scores = WeightEvaluatorScores(prediction_scores, covariate_balance)
     return scores
