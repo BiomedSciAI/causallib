@@ -1,5 +1,6 @@
 """Evaluation results objects for plotting and further analysis."""
 
+import abc
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Union
 
@@ -96,9 +97,10 @@ class EvaluationResults:
         Returns:
             Any: the data required for the plot in question
         """
-        return self.extractor._get_data_for_plot(plot_name, X, a, y, phase)
+        return self.extractor.get_data_for_plot(plot_name, X, a, y, phase)
 
 
+@abc.ABC
 class BaseEvaluationPlotDataExtractor:
     """Extractor to get plot data from EvaluationResults."""
 
@@ -106,6 +108,24 @@ class BaseEvaluationPlotDataExtractor:
 
     def __init__(self, evaluation_results: EvaluationResults):
         self.predictions = evaluation_results.predictions
+
+
+@abc.abstractmethod
+def get_data_for_plot(self, plot_name, X, a, y, phase="train"):
+    """Get data for plot with name `plot_name`."""
+    raise NotImplementedError
+
+
+@abc.abstractmethod
+def calculate_curve_data(
+    self,
+    fold_predictions: List[SingleFoldPrediction],
+    targets,
+    curve_metric,
+    area_metric,
+):
+    """Calculate metrics to generate curve data for given list of predictions."""
+    raise NotImplementedError
 
 
 class WeightPlotDataExtractor(BaseEvaluationPlotDataExtractor):
@@ -119,7 +139,7 @@ class WeightPlotDataExtractor(BaseEvaluationPlotDataExtractor):
         "covariate_balance_slope",
     }
 
-    def _get_data_for_plot(self, plot_name, X, a, y, phase="train"):
+    def get_data_for_plot(self, plot_name, X, a, y, phase="train"):
         """Retrieve the data needed for each provided plot.
 
         Plot functions are in plots module.
@@ -139,13 +159,13 @@ class WeightPlotDataExtractor(BaseEvaluationPlotDataExtractor):
             return [p.weight_for_being_treated for p in folds_predictions], a
 
         elif plot_name in {"roc_curve"}:
-            curve_data = self._calculate_curve_data(
+            curve_data = self.calculate_curve_data(
                 folds_predictions, a, metrics.roc_curve, metrics.roc_auc_score
             )
             roc_curve = calculate_roc_curve(curve_data)
             return (roc_curve,)
         elif plot_name in {"pr_curve"}:
-            curve_data = self._calculate_curve_data(
+            curve_data = self.calculate_curve_data(
                 folds_predictions,
                 a,
                 metrics.precision_recall_curve,
@@ -165,9 +185,9 @@ class WeightPlotDataExtractor(BaseEvaluationPlotDataExtractor):
         else:
             return None
 
-    def _calculate_curve_data(
+    def calculate_curve_data(
         self,
-        folds_predictions: List[WeightEvaluatorPredictions],
+        fold_predictions: List[WeightEvaluatorPredictions],
         targets,
         curve_metric,
         area_metric,
@@ -192,7 +212,7 @@ class WeightPlotDataExtractor(BaseEvaluationPlotDataExtractor):
                 For example: {"weighted": {"FPR": [FPR_fold_1, FPR_fold_2, FPR_fold3]}}
         """
 
-        folds_treatment_weight = [p.weight_for_being_treated for p in folds_predictions]
+        folds_treatment_weight = [p.weight_for_being_treated for p in fold_predictions]
         folds_targets = []
         for fold_predictions in folds_treatment_weight:
             # Since this is weight estimator, which takes the inverse of a class prediction
@@ -207,8 +227,8 @@ class WeightPlotDataExtractor(BaseEvaluationPlotDataExtractor):
             folds_targets.append(fold_targets)
 
         folds_sample_weights = {
-            "unweighted": [None for _ in folds_predictions],
-            "weighted": [p.weight_by_treatment_assignment for p in folds_predictions],
+            "unweighted": [None for _ in fold_predictions],
+            "weighted": [p.weight_by_treatment_assignment for p in fold_predictions],
         }
         curve_data = {}
         for curve_name, sample_weights in folds_sample_weights.items():
@@ -246,7 +266,7 @@ class PropensityPlotDataExtractor(WeightPlotDataExtractor):
         "calibration",
     }
 
-    def _get_data_for_plot(self, plot_name, X, a, y, phase="train"):
+    def get_data_for_plot(self, plot_name, X, a, y, phase="train"):
         """Retrieve the data needed for each provided plot.
         Plot interfaces are at the plots.py module.
 
@@ -271,9 +291,9 @@ class PropensityPlotDataExtractor(WeightPlotDataExtractor):
 
         # Common plots are implemented at top-most level possible.
         # Plot might be implemented by WeightEvaluator:
-        return super()._get_data_for_plot(plot_name, X, a, y, phase=phase)
+        return super().get_data_for_plot(plot_name, X, a, y, phase=phase)
 
-    def _calculate_curve_data(
+    def calculate_curve_data(
         self,
         fold_predictions: List[PropensityEvaluatorPredictions],
         targets,
@@ -405,7 +425,7 @@ class OutcomePlotDataExtractor(BaseEvaluationPlotDataExtractor):
         else:
             self.available_plot_names = self.continuous_output_plot_names
 
-    def _get_data_for_plot(self, plot_name, X, a, y, phase="train"):
+    def get_data_for_plot(self, plot_name, X, a, y, phase="train"):
         """Retrieve the data needed for each provided plot.
         Plot interfaces are at the plots module.
 
@@ -425,7 +445,7 @@ class OutcomePlotDataExtractor(BaseEvaluationPlotDataExtractor):
             return [x.get_proba_by_treatment(a) for x in fold_predictions], y
         if plot_name in {"roc_curve"}:
             proba_list = [x.get_proba_by_treatment(a) for x in fold_predictions]
-            curve_data = self._calculate_curve_data(
+            curve_data = self.calculate_curve_data(
                 proba_list,
                 y,
                 metrics.roc_curve,
@@ -437,7 +457,7 @@ class OutcomePlotDataExtractor(BaseEvaluationPlotDataExtractor):
 
         elif plot_name in {"pr_curve"}:
             proba_list = [x.get_proba_by_treatment(a) for x in fold_predictions]
-            curve_data = self._calculate_curve_data(
+            curve_data = self.calculate_curve_data(
                 fold_predictions,
                 y,
                 metrics.precision_recall_curve,
@@ -455,7 +475,7 @@ class OutcomePlotDataExtractor(BaseEvaluationPlotDataExtractor):
         else:
             return None
 
-    def _calculate_curve_data(
+    def calculate_curve_data(
         self, folds_predictions, targets, curve_metric, area_metric, stratify_by=None
     ):
         """Calculate different performance (ROC or PR) curves
