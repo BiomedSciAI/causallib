@@ -31,7 +31,8 @@ from .predictor import BasePredictor
 
 # TODO: decide what implementation stays - the one with the '2' suffix or the one without.
 #       The one with is based on matrix input and does all the vector extraction by itself.
-#       The one without is simpler one the receive the vectors already (more general, as not all models may have matrix.
+#       The one without is simpler one the receive the vectors already (more general,
+#       as not all models may have matrix.
 
 
 # ################ #
@@ -59,23 +60,18 @@ class WeightEvaluatorPredictions:
 
     def evaluate_metrics(self, X, a_true, metrics_to_evaluate):
         """
-        TODO: fix these docs
+        Evaluate metrics on prediction.
+
         Args:
             X (pd.DataFrame): Covariates.
-            targets (pd.Series): Target variable - true treatment assignment
-            predict_scores (pd.Series): Continuous prediction of the treatment assignment
-                                        (as is `predict_proba` or `decision_function`).
-            predict_assignment (pd.Series): Class prediction of the treatment assignment
-                                            (i.e. prediction of the assignment it self).
-            predict_weights (pd.Series): The weights derived to balance between the treatment groups
-                                         (here, called `targets`).
-            metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives true labels, prediction
-                                               and sample_weights (the latter is allowed to be ignored).
-                                               If not provided, default are used.
+            a_true (pd.Series): ground truth treatment assignment
+            metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives
+                true labels, prediction and sample_weights (the latter may be ignored).
+                If not provided, default values from causallib.evaluation.metrics are used.
 
         Returns:
-            WeightEvaluatorScores: Data-structure holding scores on the predictions
-                                   and covariate balancing table ("table 1")
+            WeightEvaluatorScores: Object with two data attributes: "predictions"
+                and "covariate_balance"
         """
 
         prediction_scores = evaluate_binary_metrics(
@@ -109,6 +105,7 @@ class WeightEvaluatorPredictions2:
 
     @property
     def weight_by_treatment_assignment(self):
+        """Return weight by treatment assignment."""
         weight_by_treatment_assignment = self._extract_vector_from_matrix(
             self.weight_matrix, self._treatment_assignment
         )
@@ -116,6 +113,7 @@ class WeightEvaluatorPredictions2:
 
     @property
     def weight_for_being_treated(self):
+        """Return weight for treated samples only."""
         weight_for_being_treated = self._extract_vector_from_matrix(
             self.weight_matrix, self._treatment_assignment.max()
         )
@@ -133,6 +131,8 @@ class WeightEvaluatorPredictions2:
 
 
 class WeightPredictor(BasePredictor):
+    """Generate evaluation predictions for WeightEstimator models."""
+
     def __init__(self, estimator):
         """
         Args:
@@ -140,11 +140,10 @@ class WeightPredictor(BasePredictor):
         """
         if not isinstance(estimator, WeightEstimator):
             raise TypeError(
-                "WeightEvaluator should be initialized with WeightEstimator, got ({}) instead.".format(
-                    type(estimator)
-                )
+                "WeightEvaluator must be initialized with WeightEstimator."
+                f"Received got ({type(estimator)}) instead."
             )
-        self.estimator = estimator
+        super().__init__(estimator)
 
     def _estimator_fit(self, X, a, y=None):
         """Fit estimator. `y` is ignored."""
@@ -234,6 +233,7 @@ class PropensityEvaluatorPredictions2(WeightEvaluatorPredictions2):
 
     @property
     def propensity(self):
+        """Return propensity scores."""
         propensity = self._extract_vector_from_matrix(
             self.propensity_matrix, self._treatment_assignment
         )
@@ -241,6 +241,7 @@ class PropensityEvaluatorPredictions2(WeightEvaluatorPredictions2):
 
     @property
     def propensity_by_treatment_assignment(self):
+        """Return propensity scores for treated samples only."""
         # TODO: remove propensity_by_treatment if expected-ROC is not to be used.
         propensity_by_treatment_assignment = self._extract_vector_from_matrix(
             self.propensity_matrix, self._treatment_assignment.max()
@@ -249,6 +250,8 @@ class PropensityEvaluatorPredictions2(WeightEvaluatorPredictions2):
 
 
 class PropensityPredictor(WeightPredictor):
+    """Generate evaluation predictions for PropensityEstimator models."""
+
     def __init__(self, estimator):
         """
         Args:
@@ -256,11 +259,10 @@ class PropensityPredictor(WeightPredictor):
         """
         if not isinstance(estimator, PropensityEstimator):
             raise TypeError(
-                "PropensityEvaluator should be initialized with PropensityEstimator, got ({}) instead.".format(
-                    type(estimator)
-                )
+                "PropensityEvaluator must be initialized with PropensityEstimator. "
+                f"Received ({type(estimator)}) instead."
             )
-        self.estimator = estimator
+        super().__init__(estimator)
 
     def _estimator_predict(self, X, a):
         """Predict on data.
