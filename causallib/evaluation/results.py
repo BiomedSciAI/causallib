@@ -113,22 +113,22 @@ class BaseEvaluationPlotDataExtractor(abc.ABC):
         self.predictions = evaluation_results.predictions
 
 
-@abc.abstractmethod
-def get_data_for_plot(self, plot_name, X, a, y, phase="train"):
-    """Get data for plot with name `plot_name`."""
-    raise NotImplementedError
+    @abc.abstractmethod
+    def get_data_for_plot(self, plot_name, X, a, y, phase="train"):
+        """Get data for plot with name `plot_name`."""
+        raise NotImplementedError
 
 
-@abc.abstractmethod
-def calculate_curve_data(
-    self,
-    fold_predictions: List[SingleFoldPrediction],
-    targets,
-    curve_metric,
-    area_metric,
-):
-    """Calculate metrics to generate curve data for given list of predictions."""
-    raise NotImplementedError
+    @abc.abstractmethod
+    def calculate_curve_data(
+        self,
+        fold_predictions: List[SingleFoldPrediction],
+        targets,
+        curve_metric,
+        area_metric,
+    ):
+        """Calculate metrics to generate curve data for given list of predictions."""
+        raise NotImplementedError
 
 
 class WeightPlotDataExtractor(BaseEvaluationPlotDataExtractor):
