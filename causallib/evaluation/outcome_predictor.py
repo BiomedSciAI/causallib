@@ -41,7 +41,8 @@ class OutcomeEvaluatorPredictions:
     @staticmethod
     def _correct_predict_proba_estimate(prediction, prediction_event_prob):
         # Estimation output for predict_proba=True has same columns as for predict_proba=False.
-        # This means either base-learner has no predict_proba/decision_function or problem is not classification.
+        # This means either base-learner has no predict_proba/decision_function
+        # or problem is not classification.
         # Either way, it means there are no prediction probabilities
         if prediction_event_prob.columns.tolist() == prediction.columns.tolist():
             return None
@@ -63,13 +64,25 @@ class OutcomeEvaluatorPredictions:
         )
         return None
 
-    def calculate_metrics(self, a, y, metrics_to_evaluate):
+    def evaluate_metrics(self, a, y, metrics_to_evaluate):
+        """Evaluate metrics for this model prediction.
 
-        scores = {"actual": self.get_overall_score(a, y, metrics_to_evaluate)}
+        Args:
+            a (pd.Series): treatment assignment
+            y (pd.Series): ground truth outcomes
+            metrics_to_evaluate (Dict[str,Callable]): key: metric's name, value: callable that
+                receives true labels, prediction and sample_weights (the latter may be ignored).
+                If not provided, defaults from causallib.evaluation.metrics are used.
+
+        Returns:
+            pd.DataFrame: evaluated metrics
+        """
+
+        scores = {"actual": self._evaluate_metrics_overall(a, y, metrics_to_evaluate)}
 
         scores.update(
             {
-                str(t): self.get_treatment_value_score(a, y, metrics_to_evaluate, t)
+                str(t): self._evaluate_metrics_on_treatment_value(a, y, metrics_to_evaluate, t)
                 for t in sorted(set(a))
             }
         )
@@ -78,7 +91,7 @@ class OutcomeEvaluatorPredictions:
         scores = scores.apply(pd.to_numeric, errors="ignore")
         return scores
 
-    def get_treatment_value_score(
+    def _evaluate_metrics_on_treatment_value(
         self, a_true, y_true, metrics_to_evaluate, treatment_value
     ):
         # Stratify based on treatment assignment:
@@ -103,7 +116,7 @@ class OutcomeEvaluatorPredictions:
 
         return score
 
-    def get_overall_score(self, a_true, y_true, metrics_to_evaluate):
+    def _evaluate_metrics_overall(self, a_true, y_true, metrics_to_evaluate):
         # Score overall:
         # # Extract prediction on actual treatment
         y_is_binary = y_true.nunique() == 2
@@ -145,11 +158,12 @@ class OutcomeEvaluatorPredictions:
                 metrics_to_evaluate=metrics_to_evaluate,
             )
         # score = pd.DataFrame(score).T
-        # score = score.apply(pd.to_numeric, errors="ignore")  # change dtype of each column to numerical if possible.
+        # score = score.apply(pd.to_numeric, errors="ignore")
+        # change dtype of each column to numerical if possible.
         return score
 
     def get_prediction_by_treatment(self, a: pd.Series):
-        """Get proba if available else"""
+        """Get proba if available else prediction"""
         if self.is_binary_outcome:
             pred = self.prediction_event_prob
         else:
@@ -157,10 +171,12 @@ class OutcomeEvaluatorPredictions:
         return robust_lookup(pred, a[pred.index])
 
     def get_proba_by_treatment(self, a: pd.Series):
+        """Get proba of prediction"""
         return robust_lookup(self.prediction_event_prob, a[self.prediction.index])
 
 
 class OutcomePredictor(BasePredictor):
+    """Generate evaluation predictions for IndividualOutcomeEstimator models."""
     def __init__(self, estimator):
         """
         Args:
@@ -168,11 +184,10 @@ class OutcomePredictor(BasePredictor):
         """
         if not isinstance(estimator, IndividualOutcomeEstimator):
             raise TypeError(
-                "OutcomeEvaluator should be initialized with IndividualOutcomeEstimator, got ({}) instead.".format(
-                    type(estimator)
-                )
+                f"OutcomeEvaluator must be initialized with IndividualOutcomeEstimator. "
+                f"Received ({ type(estimator)}) instead."
             )
-        self.estimator = estimator
+        super().__init__(estimator)
 
     def _estimator_fit(self, X, a, y):
         """Fit estimator."""

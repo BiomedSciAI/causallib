@@ -57,7 +57,7 @@ class WeightEvaluatorPredictions:
         self.weight_for_being_treated = weight_for_being_treated
         self.treatment_assignment_pred = treatment_assignment_pred
 
-    def calculate_metrics(self, X, a_true, metrics_to_evaluate):
+    def evaluate_metrics(self, X, a_true, metrics_to_evaluate):
         """
         TODO: fix these docs
         Args:

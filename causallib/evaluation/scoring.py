@@ -71,14 +71,14 @@ def score_estimation(prediction, X, a_true, y_true, metrics_to_evaluate=None):
     Can utilize any of the true values provided (covariates `X`, treatment assignment `a` or outcome `y`)."""
 
     if isinstance(prediction, OutcomeEvaluatorPredictions):
-        return prediction.calculate_metrics(a_true, y_true, metrics_to_evaluate)
+        return prediction.evaluate_metrics(a_true, y_true, metrics_to_evaluate)
     # propensity and weight both have the same interface
     # no need to differentiate
 
     if isinstance(
         prediction, (PropensityEvaluatorPredictions, WeightEvaluatorPredictions)
     ):
-        return prediction.calculate_metrics(X, a_true, metrics_to_evaluate)
+        return prediction.evaluate_metrics(X, a_true, metrics_to_evaluate)
     raise ValueError(f"Invalid type for prediciton: {type(prediction)}")
 
 
