@@ -1,4 +1,6 @@
 """
+Evaluator object for evaluating causal inference models.
+
 (C) Copyright 2019 IBM Corp.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,7 +24,7 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 
-from .plots import plot_evaluation_results
+from .plots.helpers import plot_evaluation_results
 from .predictor import BasePredictor
 from .results import EvaluationResults
 from .scoring import score_cv

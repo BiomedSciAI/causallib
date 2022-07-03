@@ -1,4 +1,6 @@
 """
+Objects to generate predictions for weight models for evaluation purposes.
+
 (C) Copyright 2019 IBM Corp.
 
 Licensed under the Apache License, Version 2.0 (the "License");

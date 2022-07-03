@@ -1,3 +1,8 @@
+"""Scoring functions that operate on the evaluation results objects.
+
+These functions depend on the causallib.evalutation results objects and are
+less reusable than the functions in metrics.py.
+"""
 import pandas as pd
 
 from .outcome_predictor import OutcomeEvaluatorPredictions

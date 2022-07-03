@@ -1,4 +1,6 @@
 """
+Objects to generate predictions for outcome models for evaluation purposes.
+
 (C) Copyright 2019 IBM Corp.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -144,14 +146,15 @@ class OutcomeEvaluatorPredictions:
         # score = score.apply(pd.to_numeric, errors="ignore")  # change dtype of each column to numerical if possible.
         return score
 
-    def get_prediction_by_treatment(self, a):
+    def get_prediction_by_treatment(self, a: pd.Series):
+        """Get proba if available else """
         if self.is_binary_outcome:
             pred = self.prediction_event_prob
         else:
             pred = self.prediction
         return robust_lookup(pred, a[pred.index])
 
-    def get_calibration(self, a):
+    def get_proba_by_treatment(self, a: pd.Series):
         return robust_lookup(self.prediction_event_prob, a[self.prediction.index])
 
 

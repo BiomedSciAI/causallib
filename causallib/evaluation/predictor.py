@@ -1,3 +1,4 @@
+"""Base predictor class to generate predictions for evaluation purposes."""
 
 import abc
 from copy import deepcopy

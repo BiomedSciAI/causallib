@@ -1,3 +1,4 @@
+"""General metric functions for causal evaluation."""
 import warnings
 
 import numpy as np

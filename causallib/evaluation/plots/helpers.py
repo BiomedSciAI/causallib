@@ -1,3 +1,4 @@
+"""Functions that assist with plotting evaluation results."""
 import warnings
 
 import numpy as np
