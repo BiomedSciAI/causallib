@@ -5,10 +5,9 @@ import numpy as np
 from sklearn import metrics
 
 from .plots import get_subplots, lookup_name
-from ..results import EvaluationResults
 
 
-def plot_evaluation_results(results: EvaluationResults, X, a, y, plot_names="all"):
+def plot_evaluation_results(results, X, a, y, plot_names="all"):
     """Create multipanel plot of results.
 
     Will create a figure with a subplot for each plot name in `plot_names`. For supported names,
@@ -56,7 +55,7 @@ def plot_evaluation_results(results: EvaluationResults, X, a, y, plot_names="all
 
 
 def plot_single_evaluation_result(
-    results: EvaluationResults, X, a, y, plot_name, phase, ax=None
+    results, X, a, y, plot_name, phase, ax=None
 ):
     """Create a single evaluation plot.
 

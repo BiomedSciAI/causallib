@@ -104,8 +104,7 @@ class EvaluationResults:
         return self.extractor.get_data_for_plot(plot_name, X, a, y, phase)
 
 
-@abc.ABC
-class BaseEvaluationPlotDataExtractor:
+class BaseEvaluationPlotDataExtractor(abc.ABC):
     """Extractor to get plot data from EvaluationResults."""
 
     available_plot_names = set()

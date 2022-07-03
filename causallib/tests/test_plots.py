@@ -15,8 +15,7 @@
 # Created on Nov 12, 2020
 
 from sklearn.linear_model import LogisticRegression, LinearRegression
-from causallib.evaluation.evaluator import Evaluator
-from causallib.evaluation.plots import plot_evaluation_results
+from causallib.evaluation import Evaluator, plot_evaluation_results
 from causallib.estimation import AIPW, IPW, StratifiedStandardization
 from causallib.datasets import load_nhefs
 import unittest
