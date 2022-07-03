@@ -466,7 +466,7 @@ class OutcomePlotDataExtractor(BaseEvaluationPlotDataExtractor):
         elif plot_name in {"pr_curve"}:
             proba_list = [x.get_proba_by_treatment(a) for x in fold_predictions]
             curve_data = self.calculate_curve_data(
-                fold_predictions,
+                proba_list,
                 y,
                 metrics.precision_recall_curve,
                 metrics.average_precision_score,
