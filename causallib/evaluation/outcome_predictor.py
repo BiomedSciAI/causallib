@@ -33,7 +33,9 @@ class OutcomeEvaluatorPredictions:
 
     def __init__(self, prediction, prediction_event_prob=None):
         self.prediction = prediction
-        self.prediction_event_prob = self._correct_predict_proba_estimate(prediction, prediction_event_prob)
+        self.prediction_event_prob = self._correct_predict_proba_estimate(
+            prediction, prediction_event_prob
+        )
         self.is_binary_outcome = self.prediction_event_prob is not None
 
     @staticmethod
@@ -60,7 +62,7 @@ class OutcomeEvaluatorPredictions:
             "Plots might be uninformative due to input being classes and not probabilities."
         )
         return None
-        
+
     def calculate_metrics(self, a, y, metrics_to_evaluate):
 
         scores = {"actual": self.get_overall_score(a, y, metrics_to_evaluate)}
@@ -147,7 +149,7 @@ class OutcomeEvaluatorPredictions:
         return score
 
     def get_prediction_by_treatment(self, a: pd.Series):
-        """Get proba if available else """
+        """Get proba if available else"""
         if self.is_binary_outcome:
             pred = self.prediction_event_prob
         else:
@@ -187,5 +189,3 @@ class OutcomePredictor(BasePredictor):
         )
         fold_prediction = OutcomeEvaluatorPredictions(prediction, prediction_event_prob)
         return fold_prediction
-
-

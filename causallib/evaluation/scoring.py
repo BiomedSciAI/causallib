@@ -6,9 +6,11 @@ less reusable than the functions in metrics.py.
 import pandas as pd
 
 from .outcome_predictor import OutcomeEvaluatorPredictions
-from .weight_predictor import (PropensityEvaluatorPredictions,
-                               WeightEvaluatorPredictions,
-                               WeightEvaluatorScores)
+from .weight_predictor import (
+    PropensityEvaluatorPredictions,
+    WeightEvaluatorPredictions,
+    WeightEvaluatorScores,
+)
 
 
 def score_cv(predictions, X, a, y, cv, metrics_to_evaluate=None):

@@ -57,7 +57,7 @@ class EvaluationResults:
     @property
     def extractor(self):
         """Plot data extractor for these results.
-        
+
         Instantiated when requested based on type of `models`.
         """
         if isinstance(self.models, dict):
@@ -171,7 +171,7 @@ class WeightPlotDataExtractor(BaseEvaluationPlotDataExtractor):
         targets,
         curve_metric,
         area_metric,
-        **kwargs
+        **kwargs,
     ):
         """Calculate different performance (ROC or PR) curves
 
@@ -271,9 +271,7 @@ class PropensityPlotDataExtractor(WeightPlotDataExtractor):
 
         # Common plots are implemented at top-most level possible.
         # Plot might be implemented by WeightEvaluator:
-        return super()._get_data_for_plot(
-            plot_name, X, a, y, phase=phase
-        )
+        return super()._get_data_for_plot(plot_name, X, a, y, phase=phase)
 
     def _calculate_curve_data(
         self,
@@ -281,7 +279,7 @@ class PropensityPlotDataExtractor(WeightPlotDataExtractor):
         targets,
         curve_metric,
         area_metric,
-        **kwargs
+        **kwargs,
     ):
         """Calculate different performance (ROC or PR) curves
 

@@ -47,7 +47,12 @@ WeightEvaluatorScores = namedtuple(
 class WeightEvaluatorPredictions:
     """Data structure to hold weight-model predictions"""
 
-    def __init__(self, weight_by_treatment_assignment, weight_for_being_treated, treatment_assignment_pred):
+    def __init__(
+        self,
+        weight_by_treatment_assignment,
+        weight_for_being_treated,
+        treatment_assignment_pred,
+    ):
         self.weight_by_treatment_assignment = weight_by_treatment_assignment
         self.weight_for_being_treated = weight_for_being_treated
         self.treatment_assignment_pred = treatment_assignment_pred
@@ -71,7 +76,7 @@ class WeightEvaluatorPredictions:
         Returns:
             WeightEvaluatorScores: Data-structure holding scores on the predictions
                                    and covariate balancing table ("table 1")
-        """    
+        """
 
         prediction_scores = evaluate_binary_metrics(
             y_true=a_true,
@@ -84,31 +89,36 @@ class WeightEvaluatorPredictions:
         # change dtype of each column to numerical if possible:
         prediction_scores = prediction_scores.apply(pd.to_numeric, errors="ignore")
 
-        covariate_balance = calculate_covariate_balance(X, a_true, self.weight_by_treatment_assignment)
+        covariate_balance = calculate_covariate_balance(
+            X, a_true, self.weight_by_treatment_assignment
+        )
 
         results = WeightEvaluatorScores(prediction_scores, covariate_balance)
         return results
 
 
-
 class WeightEvaluatorPredictions2:
     """Data structure to hold weight-model predictions"""
 
-    def __init__(self, weight_matrix, treatment_assignment, treatment_assignment_prediction=None):
+    def __init__(
+        self, weight_matrix, treatment_assignment, treatment_assignment_prediction=None
+    ):
         self.weight_matrix = weight_matrix
         self._treatment_assignment = treatment_assignment
         self.treatment_assignment_prediction = treatment_assignment_prediction
 
     @property
     def weight_by_treatment_assignment(self):
-        weight_by_treatment_assignment = self._extract_vector_from_matrix(self.weight_matrix,
-                                                                          self._treatment_assignment)
+        weight_by_treatment_assignment = self._extract_vector_from_matrix(
+            self.weight_matrix, self._treatment_assignment
+        )
         return weight_by_treatment_assignment
 
     @property
     def weight_for_being_treated(self):
-        weight_for_being_treated = self._extract_vector_from_matrix(self.weight_matrix,
-                                                                    self._treatment_assignment.max())
+        weight_for_being_treated = self._extract_vector_from_matrix(
+            self.weight_matrix, self._treatment_assignment.max()
+        )
         return weight_for_being_treated
 
     @staticmethod
@@ -122,8 +132,6 @@ class WeightEvaluatorPredictions2:
         return vector
 
 
-
-
 class WeightPredictor(BasePredictor):
     def __init__(self, estimator):
         """
@@ -131,13 +139,15 @@ class WeightPredictor(BasePredictor):
             estimator (WeightEstimator):
         """
         if not isinstance(estimator, WeightEstimator):
-            raise TypeError("WeightEvaluator should be initialized with WeightEstimator, got ({}) instead."
-                            .format(type(estimator)))
-        self.estimator=estimator
+            raise TypeError(
+                "WeightEvaluator should be initialized with WeightEstimator, got ({}) instead.".format(
+                    type(estimator)
+                )
+            )
+        self.estimator = estimator
 
     def _estimator_fit(self, X, a, y=None):
-        """ Fit estimator. `y` is ignored.
-        """
+        """Fit estimator. `y` is ignored."""
         self.estimator.fit(X=X, a=a)
 
     def _estimator_predict(self, X, a):
@@ -150,27 +160,35 @@ class WeightPredictor(BasePredictor):
         Returns:
             WeightEvaluatorPredictions
         """
-        weight_by_treatment_assignment = self.estimator.compute_weights(X, a, treatment_values=None,
-                                                                        use_stabilized=False)
-        weight_for_being_treated = self.estimator.compute_weights(X, a, treatment_values=a.max(),
-                                                                  use_stabilized=False)
+        weight_by_treatment_assignment = self.estimator.compute_weights(
+            X, a, treatment_values=None, use_stabilized=False
+        )
+        weight_for_being_treated = self.estimator.compute_weights(
+            X, a, treatment_values=a.max(), use_stabilized=False
+        )
         treatment_assignment_pred = self.estimator.learner.predict(
-            X)  # TODO: maybe add predict_label to interface instead
+            X
+        )  # TODO: maybe add predict_label to interface instead
         treatment_assignment_pred = pd.Series(treatment_assignment_pred, index=X.index)
 
-        prediction = WeightEvaluatorPredictions(weight_by_treatment_assignment,
-                                                weight_for_being_treated,
-                                                treatment_assignment_pred)
+        prediction = WeightEvaluatorPredictions(
+            weight_by_treatment_assignment,
+            weight_for_being_treated,
+            treatment_assignment_pred,
+        )
         return prediction
 
     def _estimator_predict2(self, X, a):
         """Predict on data"""
         weight_matrix = self.estimator.compute_weight_matrix(X, a, use_stabilized=False)
         treatment_assignment_pred = self.estimator.learner.predict(
-            X)  # TODO: maybe add predict_label to interface instead
+            X
+        )  # TODO: maybe add predict_label to interface instead
         treatment_assignment_pred = pd.Series(treatment_assignment_pred, index=X.index)
 
-        fold_prediction = WeightEvaluatorPredictions2(weight_matrix, a, treatment_assignment_pred)
+        fold_prediction = WeightEvaluatorPredictions2(
+            weight_matrix, a, treatment_assignment_pred
+        )
         return fold_prediction
 
 
@@ -182,11 +200,19 @@ class WeightPredictor(BasePredictor):
 class PropensityEvaluatorPredictions(WeightEvaluatorPredictions):
     """Data structure to hold propensity-model predictions"""
 
-    def __init__(self, weight_by_treatment_assignment, weight_for_being_treated, treatment_assignment_pred,
-                 propensity, propensity_by_treatment_assignment):
-        super().__init__(weight_by_treatment_assignment,
-                                                             weight_for_being_treated,
-                                                             treatment_assignment_pred)
+    def __init__(
+        self,
+        weight_by_treatment_assignment,
+        weight_for_being_treated,
+        treatment_assignment_pred,
+        propensity,
+        propensity_by_treatment_assignment,
+    ):
+        super().__init__(
+            weight_by_treatment_assignment,
+            weight_for_being_treated,
+            treatment_assignment_pred,
+        )
         self.propensity = propensity
         self.propensity_by_treatment_assignment = propensity_by_treatment_assignment
 
@@ -194,22 +220,31 @@ class PropensityEvaluatorPredictions(WeightEvaluatorPredictions):
 class PropensityEvaluatorPredictions2(WeightEvaluatorPredictions2):
     """Data structure to hold propensity-model predictions"""
 
-    def __init__(self, weight_matrix, propensity_matrix, treatment_assignment, treatment_assignment_prediction=None):
-        super().__init__(weight_matrix, treatment_assignment,
-                                                              treatment_assignment_prediction)
+    def __init__(
+        self,
+        weight_matrix,
+        propensity_matrix,
+        treatment_assignment,
+        treatment_assignment_prediction=None,
+    ):
+        super().__init__(
+            weight_matrix, treatment_assignment, treatment_assignment_prediction
+        )
         self.propensity_matrix = propensity_matrix
 
     @property
     def propensity(self):
-        propensity = self._extract_vector_from_matrix(self.propensity_matrix,
-                                                      self._treatment_assignment)
+        propensity = self._extract_vector_from_matrix(
+            self.propensity_matrix, self._treatment_assignment
+        )
         return propensity
 
     @property
     def propensity_by_treatment_assignment(self):
         # TODO: remove propensity_by_treatment if expected-ROC is not to be used.
-        propensity_by_treatment_assignment = self._extract_vector_from_matrix(self.propensity_matrix,
-                                                                              self._treatment_assignment.max())
+        propensity_by_treatment_assignment = self._extract_vector_from_matrix(
+            self.propensity_matrix, self._treatment_assignment.max()
+        )
         return propensity_by_treatment_assignment
 
 
@@ -220,11 +255,12 @@ class PropensityPredictor(WeightPredictor):
             estimator (PropensityEstimator):
         """
         if not isinstance(estimator, PropensityEstimator):
-            raise TypeError("PropensityEvaluator should be initialized with PropensityEstimator, got ({}) instead."
-                            .format(type(estimator)))
+            raise TypeError(
+                "PropensityEvaluator should be initialized with PropensityEstimator, got ({}) instead.".format(
+                    type(estimator)
+                )
+            )
         self.estimator = estimator
-
-
 
     def _estimator_predict(self, X, a):
         """Predict on data.
@@ -238,23 +274,30 @@ class PropensityPredictor(WeightPredictor):
         """
         propensity = self.estimator.compute_propensity(X, a, treatment_values=a.max())
         propensity_by_treatment_assignment = self.estimator.compute_propensity_matrix(X)
-        propensity_by_treatment_assignment = robust_lookup(propensity_by_treatment_assignment, a)
+        propensity_by_treatment_assignment = robust_lookup(
+            propensity_by_treatment_assignment, a
+        )
 
         weight_prediction = super()._estimator_predict(X, a)
         # Do not force stabilize=False as in WeightEvaluator:
         weight_by_treatment_assignment = self.estimator.compute_weights(X, a)
-        prediction = PropensityEvaluatorPredictions(weight_by_treatment_assignment,
-                                                    weight_prediction.weight_for_being_treated,
-                                                    weight_prediction.treatment_assignment_pred,
-                                                    propensity,
-                                                    propensity_by_treatment_assignment)
+        prediction = PropensityEvaluatorPredictions(
+            weight_by_treatment_assignment,
+            weight_prediction.weight_for_being_treated,
+            weight_prediction.treatment_assignment_pred,
+            propensity,
+            propensity_by_treatment_assignment,
+        )
         return prediction
 
     def _estimator_predict2(self, X, a):
         """Predict on data."""
         weight_prediction = super()._estimator_predict2(X, a)
         propensity_matrix = self.estimator.compute_propensity_matrix(X)
-        fold_prediction = PropensityEvaluatorPredictions2(weight_prediction.weight_matrix, propensity_matrix,
-                                                          a, weight_prediction.treatment_assignment_prediction)
+        fold_prediction = PropensityEvaluatorPredictions2(
+            weight_prediction.weight_matrix,
+            propensity_matrix,
+            a,
+            weight_prediction.treatment_assignment_prediction,
+        )
         return fold_prediction
-
