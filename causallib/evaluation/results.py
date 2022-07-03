@@ -74,6 +74,10 @@ class EvaluationResults:
             return WeightPlotDataExtractor(self)
         if isinstance(fitted_model, IndividualOutcomeEstimator):
             return OutcomePlotDataExtractor(self)
+        raise ValueError(
+            "Unable to find suitable extractor "
+            f"for esimator of type {type(fitted_model)}"
+        )
 
     @property
     def available_plot_names(self):
@@ -198,16 +202,18 @@ class WeightPlotDataExtractor(BaseEvaluationPlotDataExtractor):
         Args:
             folds_predictions (list[WeightEvaluatorPredictions]): Predictions for each fold.
             targets (pd.Series): True labels
-            curve_metric (callable): Performance metric returning 3 output vectors - metric1, metric2 and thresholds.
-                                    Where metric1 and metric2 depict the curve when plotted on x-axis and y-axis.
+            curve_metric (callable): Performance metric returning 3 output vectors - metric1,
+                metric2 and thresholds.
+                Where metric1 and metric2 depict the curve when plotted on x-axis and y-axis.
             area_metric (callable): Performance metric of the area under the curve.
             **kwargs:
 
         Returns:
-            dict[str, dict[str, list[np.ndarray]]]: Evaluation of the metric for each fold and for each curve.
+            dict[str, dict[str, list[np.ndarray]]]: Evaluation of the metric
+                for each fold and for each curve.
                 2 curves:
-                    * "unweighted" (regular)
-                    * "weighted" (weighted by weights of each sample (according to their assignment))
+                    * "unweighted" regular
+                    * "weighted" weighted by weights of each sample (according to their assignment)
                 On general: {curve_name: {metric1: [evaluation_fold_1, ...]}}.
                 For example: {"weighted": {"FPR": [FPR_fold_1, FPR_fold_2, FPR_fold3]}}
         """
@@ -304,15 +310,18 @@ class PropensityPlotDataExtractor(WeightPlotDataExtractor):
         """Calculate different performance (ROC or PR) curves
 
         Args:
-            curves_folds_predictions (list[PropensityEvaluatorPredictions]): Predictions for each fold.
+            curves_folds_predictions (list[PropensityEvaluatorPredictions]):
+                Predictions for each fold.
             targets (pd.Series): True labels
-            curve_metric (callable): Performance metric returning 3 output vectors - metric1, metric2 and thresholds.
-                                    Where metric1 and metric2 depict the curve when plotted on x-axis and y-axis.
+            curve_metric (callable): Performance metric returning 3 output vectors - metric1,
+                metric2 and thresholds. Where metric1 and metric2 depict the curve when plotted
+                on x-axis and y-axis.
             area_metric (callable): Performance metric of the area under the curve.
             **kwargs:
 
         Returns:
-            dict[str, dict[str, list[np.ndarray]]]: Evaluation of the metric for each fold and for each curve.
+            dict[str, dict[str, list[np.ndarray]]]: Evaluation of the metric
+                for each fold and for each curve.
                 3 curves:
                     * "unweighted" (regular)
                     * "weighted" (weighted by inverse propensity)
@@ -366,7 +375,7 @@ class PropensityPlotDataExtractor(WeightPlotDataExtractor):
         # prediction = [p, p], target = [1, 0], weights = [p, 1-p]
 
         curve_data = {}
-        for curve_name in curves_sample_weights.keys():
+        for curve_name in curves_sample_weights:
             sample_weights = curves_sample_weights[curve_name]
             folds_targets = curves_folds_targets[curve_name]
             folds_predictions = fold_predictions[curve_name]
@@ -483,19 +492,21 @@ class OutcomePlotDataExtractor(BaseEvaluationPlotDataExtractor):
         Args:
             folds_predictions (list[pd.Series]): Predictions for each fold.
             targets (pd.Series): True labels
-            curve_metric (callable): Performance metric returning 3 output vectors - metric1, metric2 and thresholds.
-                                    Where metric1 and metric2 depict the curve when plotted on x-axis and y-axis.
+            curve_metric (callable): Performance metric returning 3 output vectors - metric1,
+                metric2 and thresholds. Where metric1 and metric2 depict the curve
+                when plotted on x-axis and y-axis.
             area_metric (callable): Performance metric of the area under the curve.
             stratify_by (pd.Series): Group assignment to stratify by.
 
         Returns:
-            dict[str, dict[str, list[np.ndarray]]]: Evaluation of the metric for each fold and for each curve.
+            dict[str, dict[str, list[np.ndarray]]]: Evaluation of the metric
+                for each fold and for each curve.
                 One curve for each group level in `stratify_by`.
                 On general: {curve_name: {metric1: [evaluation_fold_1, ...]}}.
                 For example: {"Treatment=1": {"FPR": [FPR_fold_1, FPR_fold_2, FPR_fold_3]}}
         """
-        # folds_targets = [targets.loc[fold_predictions.index] for fold_predictions in folds_predictions]
-        # folds_stratify_by = [stratify_by.loc[fold_predictions.index] for fold_predictions in folds_predictions]
+        # folds_targets = [targets.loc[p.index] for p in folds_predictions]
+        # folds_stratify_by = [stratify_by.loc[p.index] for p in folds_predictions]
 
         stratify_values = sorted(set(stratify_by))
         curve_data = {}
