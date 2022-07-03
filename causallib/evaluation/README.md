@@ -6,7 +6,7 @@ Evaluations can be performed in train-test, cross-validation, or bootstrapping
 schemes using the functions `evaluate_simple`, `evaluate_cv`, or
 `evaluate_bootstrap`, respectively.
 
-### Example: Inverse probability weighting
+## Example: Inverse probability weighting
 
 An IPW method with logistic regression can be evaluated
 in cross-validation using
