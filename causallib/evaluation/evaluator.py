@@ -29,8 +29,6 @@ from .predictor import BasePredictor
 from .results import EvaluationResults
 from .scoring import score_cv
 
-# TODO: How doubly robust fits in to show both weight and outcome model (at least show the plots on the same figure?)
-
 
 class Evaluator:
     def __init__(self, estimator):
@@ -127,14 +125,13 @@ class Evaluator:
         X_ilocs = pd.RangeIndex(
             start=0, stop=X.shape[0]
         )  # All DataFrame rows when using iloc
-        for i in range(n_bootstrap):
+        for _ in range(n_bootstrap):
             # Get iloc positions of a bootstrap sample (sample the size of X with replacement):
             # idx = X.sample(n=X.shape[0], replace=True).index
             # idx = np.random.random_integers(low=0, high=X.shape[0], size=X.shape[0])
             idx = np.random.choice(X_ilocs, size=n_samples, replace=replace)
-            cv.append(
-                (idx, idx)
-            )  # wrap in a tuple format compatible with sklearn's cv output
+            # wrap in a tuple format compatible with sklearn's cv output
+            cv.append((idx, idx))
 
         results = self.evaluate_cv(
             X,
