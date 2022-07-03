@@ -2,26 +2,43 @@
 
 import abc
 from copy import deepcopy
+from typing import Union
 
 from ..estimation.base_estimator import IndividualOutcomeEstimator
 from ..estimation.base_weight import PropensityEstimator, WeightEstimator
 
 
 class BasePredictor:
-    @staticmethod
-    def from_estimator(estimator):
-        if isinstance(estimator, PropensityEstimator):
-            from .weight_predictor import PropensityPredictor
+    """Generate predictions from estimator for evaluation (base class)."""
 
+    @staticmethod
+    def from_estimator(
+        estimator: Union[
+            IndividualOutcomeEstimator, PropensityEstimator, WeightEstimator
+        ]
+    ):
+        """Select subclass based on estimator.
+
+        Args:
+            estimator (Union[IndividualOutcomeEstimator, PropensityEstimator, WeightEstimator]):
+                Estimator to generate evaluation predictions from.
+
+        Returns:
+            Union[PropensityPredictor, WeightPredictor, OutcomePredictor]: the correct predictor for
+                the supplied estimator
+        """
+        # import outside toplevel is the price you pay for having a factory method
+        # of the base class
+        from .weight_predictor import PropensityPredictor, WeightPredictor
+        from .outcome_predictor import OutcomePredictor
+
+        if isinstance(estimator, PropensityEstimator):
             return PropensityPredictor
         if isinstance(estimator, WeightEstimator):
-            from .weight_predictor import WeightPredictor
-
             return WeightPredictor
         if isinstance(estimator, IndividualOutcomeEstimator):
-            from .outcome_predictor import OutcomePredictor
-
             return OutcomePredictor
+        raise ValueError(f"Received unsupported estimator type {type(estimator)}")
 
     def __init__(self, estimator):
         self.estimator = estimator
@@ -33,20 +50,22 @@ class BasePredictor:
             X (pd.DataFrame): Covariates.
             a (pd.Series): Treatment assignment.
             y (pd.Series): Outcome.
-            cv (list[tuples]): list the number of folds containing tuples of indices (train_idx, validation_idx)
+            cv (list[tuples]): list the number of folds containing tuples of indices
+                (train_idx, validation_idx)
             refit (bool): Whether to refit the model on each fold.
             phases (list[str]): {["train", "valid"], ["train"], ["valid"]}.
-                                Phases names to evaluate on - train ("train"), validation ("valid") or both.
-                                'train' corresponds to cv[i][0] and 'valid' to  cv[i][1]
+                Phases names to evaluate on - train ("train"), validation ("valid") or both.
+                'train' corresponds to cv[i][0] and 'valid' to  cv[i][1]
         Returns:
             (dict[str, list], list): A two-tuple containing:
 
-                * predictions: dictionary with keys being the phases provided and values are list the size of the number
-                               of folds in cv and containing the output of the estimator on that corresponding fold.
-                               For example, predictions["valid"][3] contains the prediction of the estimator on
-                               untrained data of the third fold (i.e. validation set of the third fold)
-                * models: list the size of the number of folds in cv containing of fitted estimator on the training data
-                          of that fold.
+                * predictions: dictionary with keys being the phases provided and values are
+                    list the size of the number of folds in cv and containing the output of
+                    the estimator on that corresponding fold.
+                    For example, predictions["valid"][3] contains the prediction of the estimator on
+                    untrained data of the third fold (i.e. validation set of the third fold)
+                * models: list the size of the number of folds in cv containing the fitted estimator
+                    on the training data of that fold.
         """
 
         predictions = {phase: [] for phase in phases}
@@ -64,7 +83,8 @@ class BasePredictor:
                     "y": y.iloc[valid_idx],
                 },
             }
-            # TODO: use dict-comprehension to map between phases[0] to cv[0] instead writing "train" explicitly
+            # TODO: use dict-comprehension to map between phases[0] to cv[0]
+            # instead of writing "train" explicitly
 
             if refit:
                 self._estimator_fit(
