@@ -1,7 +1,7 @@
 """Evaluation results objects for plotting and further analysis."""
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
 import pandas as pd
 from sklearn import metrics
@@ -271,7 +271,7 @@ class PropensityPlotDataExtractor(WeightPlotDataExtractor):
 
         # Common plots are implemented at top-most level possible.
         # Plot might be implemented by WeightEvaluator:
-        return super(PropensityPlotDataExtractor, self)._get_data_for_plot(
+        return super()._get_data_for_plot(
             plot_name, X, a, y, phase=phase
         )
 
@@ -509,7 +509,7 @@ class OutcomePlotDataExtractor(BaseEvaluationPlotDataExtractor):
                 curve_metric,
             )
 
-            curve_data["Treatment={}".format(stratum_level)] = {
+            curve_data[f"Treatment={stratum_level}"] = {
                 "first_ret_value": first_ret_folds,
                 "second_ret_value": second_ret_folds,
                 "Thresholds": threshold_folds,

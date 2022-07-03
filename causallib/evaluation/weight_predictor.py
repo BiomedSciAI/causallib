@@ -184,7 +184,7 @@ class PropensityEvaluatorPredictions(WeightEvaluatorPredictions):
 
     def __init__(self, weight_by_treatment_assignment, weight_for_being_treated, treatment_assignment_pred,
                  propensity, propensity_by_treatment_assignment):
-        super(PropensityEvaluatorPredictions, self).__init__(weight_by_treatment_assignment,
+        super().__init__(weight_by_treatment_assignment,
                                                              weight_for_being_treated,
                                                              treatment_assignment_pred)
         self.propensity = propensity
@@ -195,7 +195,7 @@ class PropensityEvaluatorPredictions2(WeightEvaluatorPredictions2):
     """Data structure to hold propensity-model predictions"""
 
     def __init__(self, weight_matrix, propensity_matrix, treatment_assignment, treatment_assignment_prediction=None):
-        super(PropensityEvaluatorPredictions2, self).__init__(weight_matrix, treatment_assignment,
+        super().__init__(weight_matrix, treatment_assignment,
                                                               treatment_assignment_prediction)
         self.propensity_matrix = propensity_matrix
 
@@ -240,7 +240,7 @@ class PropensityPredictor(WeightPredictor):
         propensity_by_treatment_assignment = self.estimator.compute_propensity_matrix(X)
         propensity_by_treatment_assignment = robust_lookup(propensity_by_treatment_assignment, a)
 
-        weight_prediction = super(PropensityPredictor, self)._estimator_predict(X, a)
+        weight_prediction = super()._estimator_predict(X, a)
         # Do not force stabilize=False as in WeightEvaluator:
         weight_by_treatment_assignment = self.estimator.compute_weights(X, a)
         prediction = PropensityEvaluatorPredictions(weight_by_treatment_assignment,
@@ -252,7 +252,7 @@ class PropensityPredictor(WeightPredictor):
 
     def _estimator_predict2(self, X, a):
         """Predict on data."""
-        weight_prediction = super(PropensityPredictor, self)._estimator_predict2(X, a)
+        weight_prediction = super()._estimator_predict2(X, a)
         propensity_matrix = self.estimator.compute_propensity_matrix(X)
         fold_prediction = PropensityEvaluatorPredictions2(weight_prediction.weight_matrix, propensity_matrix,
                                                           a, weight_prediction.treatment_assignment_prediction)

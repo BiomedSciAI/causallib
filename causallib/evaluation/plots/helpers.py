@@ -30,7 +30,7 @@ def plot_evaluation_results(results, X, a, y, plot_names="all"):
                 warnings.warn(f"Failed to plot {name} with error {e}")
                 plot_ax = None
             all_axes[phase][name] = plot_ax
-        phase_fig.suptitle("Evaluation on {} phase".format(phase))
+        phase_fig.suptitle(f"Evaluation on {phase} phase")
     return all_axes
 
 

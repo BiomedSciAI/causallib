@@ -98,8 +98,8 @@ def plot_counterfactual_common_support_folds(predictions, hue_by, cv, alpha_by_d
 
     ax = _scatter_hue(predictions.iloc[:, 0], predictions.iloc[:, 1], treatment, alpha_by_density, ax=ax)
 
-    effect_label = r"mean effect={:.2g}".format(np.mean(effect_folds))
-    effect_label += r"$\pm${:.2g}".format(np.std(effect_folds)) if len(effect_folds) > 1 else ""
+    effect_label = fr"mean effect={np.mean(effect_folds):.2g}"
+    effect_label += fr"$\pm${np.std(effect_folds):.2g}" if len(effect_folds) > 1 else ""
     ax.plot([], [], color=ax.get_facecolor(),  # Use background color
             label=effect_label)
     _add_diagonal(ax)
@@ -143,8 +143,8 @@ def plot_continuous_prediction_accuracy_folds(predictions, y, a, cv, alpha_by_de
 
     # R-squared label:
     if not plot_residuals:
-        r2_label = r"$R^2={:.2f}".format(np.mean(r2_scores))
-        r2_label += r"\pm{:.2f}$".format(np.std(r2_scores)) if len(r2_scores) > 1 else "$"
+        r2_label = fr"$R^2={np.mean(r2_scores):.2f}"
+        r2_label += fr"\pm{np.std(r2_scores):.2f}$" if len(r2_scores) > 1 else "$"
         ax.plot([], [], color=ax.get_facecolor(), label=r2_label)  # invisible color so as to not show line in legend
         _add_diagonal(ax)
 
@@ -181,7 +181,7 @@ def _scatter_hue(x, y, hue, alpha_by_density=True, ax=None):
         ax.scatter(x=x.loc[idx_mask], y=y.loc[idx_mask],
                    alpha=cur_alpha if points_rgba is None else None,
                    facecolor=cur_color, edgecolors="none",
-                   label="treatment={}".format(treatment_val))
+                   label=f"treatment={treatment_val}")
     return ax
 
 
@@ -218,7 +218,7 @@ def _get_alpha_per_point_with_density(X, hue, min_alpha_bound=0.3, max_alpha_bou
 
     for i, hue_val in enumerate(np.sort(np.unique(hue))):
         idx_mask = hue == hue_val
-        cur_color = "C{}".format(i)  # Cycle through the colors
+        cur_color = f"C{i}"  # Cycle through the colors
         cur_color = matplotlib.colors.to_rgb(cur_color)  # Get RGB value of the current color
         points_rgba.loc[idx_mask, ["r", "g", "b"]] = cur_color  # Assign that constant RGB val for all current points
 
@@ -252,7 +252,7 @@ def plot_calibration_folds(predictions, targets, cv, n_bins=10, plot_se=True,
 
         ax = _plot_calibration_single(y_true=target_fold, y_prob=predictions_fold, n_bins=n_bins, plot_diagonal=False,
                                       plot_se=plot_se, plot_rug=plot_rug, plot_histogram=plot_histogram,
-                                      quantile=quantile, label="fold {}".format(i), ax=ax)
+                                      quantile=quantile, label=f"fold {i}", ax=ax)
     _add_diagonal(ax)
     ax.legend(loc="best")
     # ax.set_title("{} Calibration".format("Propensity" if y is None else "Outcome"))
@@ -374,7 +374,7 @@ def calibration_curve(y_true, y_prob, bins=5):
 
 def plot_roc_curve_folds(curve_data, ax=None, plot_folds=False, label_folds=False, label_std=False, **kwards):
     num_of_curves = len(curve_data.keys())
-    color_list = ["C{}".format(_) for _ in range(num_of_curves)]
+    color_list = [f"C{_}" for _ in range(num_of_curves)]
 
     for (curve_name, curve_data), color in zip(curve_data.items(), color_list):
         fprs = curve_data["FPR"]
@@ -401,7 +401,7 @@ def plot_precision_recall_curve_folds(curve_data, ax=None,
                                       plot_folds=False, label_folds=False, label_std=False, **kwards):
     # TODO: Check why it does not end at class prevalence (for recall=1.0)
     num_of_curves = len(curve_data.keys())
-    color_list = ["C{}".format(_) for _ in range(num_of_curves)]
+    color_list = [f"C{_}" for _ in range(num_of_curves)]
 
     pos_class_prevalence = curve_data.pop("prevalence", None)
 
@@ -445,7 +445,7 @@ def _plot_single_performance_curve(xs, ys, areas, areas_type, color="C0", curve_
             ys_interp[-1][0] = 0.0
         area = areas[i]
 
-        folds_label = 'Fold {} ({} = {:.2f})'.format(i, areas_type, area) if label_folds else None
+        folds_label = f'Fold {i} ({areas_type} = {area:.2f})' if label_folds else None
         if plot_folds:
             folds_color = None if colored_folds else color  # use multiple colors if plotting only one stratum
             ax.plot(xs[i], ys[i], lw=1, alpha=0.3, color=folds_color,
@@ -458,7 +458,7 @@ def _plot_single_performance_curve(xs, ys, areas, areas_type, color="C0", curve_
     mean_area = np.nanmean(areas)
     std_area = np.nanstd(areas)
     ax.plot(x_domain, mean_ys, color=color,
-            label=r'{} ({} = {:.2f} $\pm$ {:.2f})'.format(curve_name, areas_type, mean_area, std_area),
+            label=fr'{curve_name} ({areas_type} = {mean_area:.2f} $\pm$ {std_area:.2f})',
             lw=2, alpha=.9)
 
     # Plot uncertainty around main curve:
@@ -501,8 +501,8 @@ def plot_propensity_score_distribution(propensity, treatment, reflect=True, kde=
     unique_treatments = np.sort(np.unique(treatment))
     for treatment_number, treatment_value in enumerate(unique_treatments):
         cur_propensity = propensity.loc[treatment == treatment_value]
-        cur_color = "C{}".format(treatment_number)
-        ax.hist(cur_propensity, label="treatment = {}".format(treatment_value),
+        cur_color = f"C{treatment_number}"
+        ax.hist(cur_propensity, label=f"treatment = {treatment_value}",
                 color=[cur_color], **plot_params)
         if kde:
             cur_kde = gaussian_kde(cur_propensity)
@@ -524,7 +524,7 @@ def plot_propensity_score_distribution(propensity, treatment, reflect=True, kde=
             last_line.set_ydata(-1 * last_line.get_ydata())
         # Update histogram bars:
         idx_of_first_hist_rect = \
-            [patch.get_label() for patch in ax.patches].index('treatment = {}'.format(unique_treatments[-1]))
+            [patch.get_label() for patch in ax.patches].index(f'treatment = {unique_treatments[-1]}')
         for patch in ax.patches[idx_of_first_hist_rect:]:
             patch.set_height(-1 * patch.get_height())
 
@@ -539,7 +539,7 @@ def plot_propensity_score_distribution(propensity, treatment, reflect=True, kde=
     ax.set_xlabel(x_type)
     y_type = "Probability density" if norm_hist else "Counts"
     ax.set_ylabel(y_type)
-    ax.set_title("{} Distribution".format(x_type))
+    ax.set_title(f"{x_type} Distribution")
     return ax
 
 

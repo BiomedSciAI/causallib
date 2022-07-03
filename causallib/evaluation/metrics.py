@@ -107,7 +107,7 @@ def evaluate_binary_metrics(
                 y_true, prediction, sample_weight=sample_weight
             )
         except ValueError as v:  # if y_true has single value
-            warnings.warn("metric {} could not be evaluated".format(metric_name))
+            warnings.warn(f"metric {metric_name} could not be evaluated")
             warnings.warn(str(v))
             scores[metric_name] = np.nan
 
