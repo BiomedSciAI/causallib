@@ -31,36 +31,40 @@ from .scoring import score_cv
 
 
 class Evaluator:
+    """Evaluate causal model including cross-validation."""
+
     def __init__(self, estimator):
         """
 
         Args:
-            estimator (causallib.estimation.base_weight.WeightEstimator | causallib.estimation.base_estimator.IndividualOutcomeEstimator):
+            estimator (causallib.estimation.base_weight.WeightEstimator |
+                causallib.estimation.base_estimator.IndividualOutcomeEstimator):
+                the estimator to evaluate
         """
         self.predictor = BasePredictor.from_estimator(estimator)(estimator)
 
     def evaluate_simple(self, X, a, y, metrics_to_evaluate=None, plots=None):
-        """Evaluate model on the provided data
+        """Evaluate model on the provided data without cross-validation or bootstrap.
+
+        Simple evaluation without cross validation on the provided data can be to test
+        the model on its train data or on new data.
 
         Args:
             X (pd.DataFrame): Covariates.
             a (pd.Series): Treatment assignment.
             y (pd.Series): Outcome.
-            metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives true labels, prediction
-                                               and sample_weights (the latter is allowed to be ignored).
-                                               If not provided, default are used.
+            metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives
+                true labels, prediction and sample_weights (the latter is allowed to be ignored).
+                If not provided, defaults from causallib.evaluation.metrics are used.
             plots (list[str] | None): list of plots to make. If None, none are generated.
 
         Returns:
-            EvaluationResults
+            causallib.evaluation.results.EvaluationResults
         """
-        # simple evaluation without cross validation on the provided data
-        # (can be to test the model on its train data or on new data
 
         phases = ["train"]  # dummy phase
-        cv = pd.RangeIndex(
-            start=0, stop=X.shape[0]
-        )  # All DataFrame rows when using iloc
+        # All DataFrame rows when using iloc
+        cv = pd.RangeIndex(start=0, stop=X.shape[0])
         cv = [(cv, cv)]  # wrap in a tuple format compatible with sklearn's cv output
         results = self.evaluate_cv(
             X,
@@ -104,14 +108,14 @@ class Evaluator:
             y (pd.Series): Outcome.
             n_bootstrap (int): Number of bootstrap sample to create.
             n_samples (int | None): Number of samples to sample in each bootstrap sampling.
-                                    If None - will use the number samples (first dimension) of the data.
+                If None - will use the number samples (first dimension) of the data.
             replace (bool): Whether to use sampling with replacements.
-                            If False - n_samples (if provided) should be smaller than X.shape[0])
+                If False - n_samples (if provided) should be smaller than X.shape[0])
             refit (bool): Whether to refit the estimator on each bootstrap sample.
-                          Can be computational intensive if n_bootstrap is large.
-            metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives true labels, prediction
-                                               and sample_weights (the latter is allowed to be ignored).
-                                               If not provided, default are used.
+                Can be computational intensive if n_bootstrap is large.
+            metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives
+                true labels, prediction and sample_weights (the latter is allowed to be ignored).
+                If not provided, default from causallib.evaluation.metrics are used.
 
         Returns:
             EvaluationResults
@@ -176,32 +180,32 @@ class Evaluator:
             X (pd.DataFrame): Covariates.
             a (pd.Series): Treatment assignment.
             y (pd.Series): Outcome.
-            cv (list[tuples] | generator[tuples]): list the number of folds containing tuples of indices
-                                                   (train_idx, validation_idx) in an iloc manner (row number).
+            cv (list[tuples] | generator[tuples]): list the number of folds containing tuples of
+                indices (train_idx, validation_idx) in an iloc manner (row number).
             kfold(sklearn.model_selection.BaseCrossValidator): Initialized fold object (e.g. KFold).
-                                                               defaults to StratifiedKFold of 5 splits on treatment.
+                defaults to StratifiedKFold of 5 splits on treatment.
             refit (bool): Whether to refit the model on each fold.
             phases (list[str]): {["train", "valid"], ["train"], ["valid"]}.
-                                Phases names to evaluate on - train ("train"), validation ("valid") or both.
-                                'train' corresponds to cv[i][0] and 'valid' to  cv[i][1]
-            metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives true labels, prediction
-                                               and sample_weights (the latter is allowed to be ignored).
-                                               If not provided, default are used.
+                Phases names to evaluate on - train ("train"), validation ("valid") or both.
+                'train' corresponds to cv[i][0] and 'valid' to  cv[i][1]
+            metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives
+                true labels, prediction, and sample_weights (the latter is allowed to be ignored).
+                If not provided, defaults from `causallib.evaluation.metrics` are used.
             plots (list[str] | None): list of plots to make. If None, none are generated.
 
         Returns:
             EvaluationResults
         """
-        # There's a need to have consistent splits for predicting, scoring and plotting.
-        # If cv is a generator, it would be lost after after first use. if kfold has shuffle=True, it would be
-        # inconsistent. In order to keep consistent reproducible folds across the process, we save them as a list.
-        if cv is not None:
-            cv = list(
-                cv
-            )  # if cv is generator it would listify it, if cv is already a list this is idempotent
-        else:
+        # We need consistent splits for predicting, scoring and plotting.
+        # If cv is a generator, it would be lost after after first use.
+        # If kfold has shuffle=True, it would be inconsistent.
+        # To keep consistent reproducible folds, we save them as a list.
+        if cv is None:
             kfold = kfold or StratifiedKFold(n_splits=5)
-            cv = list(kfold.split(X=X, y=a))
+            cv = kfold.split(X=X, y=a)
+
+        # if cv is generator it would listify it, if cv is already a list this is idempotent
+        cv = list(cv)
 
         predictions, models = self.predictor.predict_cv(X, a, y, cv, refit, phases)
 
