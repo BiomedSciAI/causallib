@@ -67,16 +67,16 @@ def evaluate_binary_metrics(
 
     Args:
         y_true (pd.Series): True labels
-        y_pred_proba (pd.Series): continuous output of predictor (as in `predict_proba` or `decision_function`).
+        y_pred_proba (pd.Series): continuous output of predictor,
+            as in `predict_proba` or `decision_function`.
         y_pred (pd.Series): label (i.e., categories, decisions) predictions.
         sample_weight (pd.Series | None): weight of each sample.
-        metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives true labels, prediction
-                                            and sample_weights (the latter is allowed to be ignored).
-                                            If not provided, default are used.
-        only_numeric_metric (bool): If metrics_to_evaluate not provided and default is used, whether to use only
-                                    numerical metrics (non-numerical are for example roc_curve, that returns vectors
-                                    and not scalars).
-                                    Ignored if metrics_to_evaluate is provided
+        metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives
+            true labels, prediction and sample_weights (the latter is allowed to be ignored).
+            If not provided, default are used.
+        only_numeric_metric (bool): If metrics_to_evaluate not provided and default is used,
+            whether to use only numerical metrics. Ignored if metrics_to_evaluate is provided.
+            Non-numerical metrics are for example roc_curve, that returns vectors and not scalars).
 
     Returns:
         pd.Series: name of metric as index and the evaluated score as value.
@@ -130,24 +130,24 @@ def evaluate_regression_metrics(
         y_true (pd.Series): True label.
         y_pred (pd.Series): Predictions.
         sample_weight (pd.Series | None): weight for each sample.
-        metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives true labels, prediction
-                                            and sample_weights (the latter is allowed to be ignored).
-                                            If not provided, default are used.
+        metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives
+            true labels, prediction and sample_weights (the latter is allowed to be ignored).
+            If not provided, default metrics from causallib.evaluation.metrics are used.
 
     Returns:
         pd.Series: name of metric as index and the evaluated score as value.
     """
     metrics_to_evaluate = metrics_to_evaluate or REGRESSION_METRICS
-    metrics = {}
+    evaluated_metrics = {}
     for metric_name, metric_func in metrics_to_evaluate.items():
         try:
-            metrics[metric_name] = metric_func(
+            evaluated_metrics[metric_name] = metric_func(
                 y_true, y_pred, sample_weight=sample_weight
             )
         except ValueError as v:
-            metrics[metric_name] = np.nan
+            evaluated_metrics[metric_name] = np.nan
             warnings.warn("While evaluating " + metric_name + ": " + str(v))
-    return pd.Series(metrics)
+    return pd.Series(evaluated_metrics)
 
 
 # ################# #
@@ -162,13 +162,14 @@ def calculate_covariate_balance(X, a, w, metric="abs_smd"):
         X (pd.DataFrame): Covariates.
         a (pd.Series): Group assignment of each sample.
         w (pd.Series): sample weights for balancing between groups in `a`.
-        metric (str | callable): Either a key from DISTRIBUTION_DISTANCE_METRICS or a metric with the signature
-                                 weighted_distance(x, y, wx, wy) calculating distance between the weighted sample x
-                                 and weighted sample y (weights by wx and wy respectively).
+        metric (str | callable): Either a key from DISTRIBUTION_DISTANCE_METRICS or a metric with
+            the signature weighted_distance(x, y, wx, wy) calculating distance between the weighted
+            sample x and weighted sample y (weights by wx and wy respectively).
 
     Returns:
-        pd.DataFrame: index are covariate names (columns) from X, and columns are "weighted" / "unweighted" results
-                      of applying `metric` on each covariate to compare the two groups.
+        pd.DataFrame: index are covariate names (columns) from X, and columns are
+            "weighted" / "unweighted" results of applying `metric` on each covariate
+            to compare the two groups.
     """
     treatment_values = np.sort(np.unique(a))
     results = {}
@@ -192,11 +193,12 @@ def calculate_covariate_balance(X, a, w, metric="abs_smd"):
     )  # type: pd.DataFrame
     results.index.name = "covariate"
     if len(treatment_values) == 2:
-        # In case there's only two treatments, the results for treatment_value==0 and treatment_value==0 are identical.
+        # If there are only two treatments, the results for both are identical.
         # Therefore, we can get rid from one of them.
-        # Here we keep the results for the treated-group (noted by maximal treatment value, probably 1):
+        # We keep the results for the higher valued treatment group (assumed treated, typically 1):
         results = results.xs(treatment_values.max(), axis="columns", level=0)
-    # TODO: is there a neat expansion for multi-treatment case? maybe not current_treatment vs. the rest.
+    # TODO: is there a neat expansion for multi-treatment case?
+    #  maybe not current_treatment vs. the rest.
     return results
 
 
@@ -210,12 +212,13 @@ def calculate_distribution_distance_for_single_feature(
         a (pd.Series): Group assignment of each sample.
         w (pd.Series): sample weights for balancing between groups in `a`.
         group_level: Value from `a` in order to divide the sample into one vs. rest.
-        metric (str | callable): Either a key from DISTRIBUTION_DISTANCE_METRICS or a metric with the signature
-                                 weighted_distance(x, y, wx, wy) calculating distance between the weighted sample x
-                                 and weighted sample y (weights by wx and wy respectively).
+        metric (str | callable): Either a key from DISTRIBUTION_DISTANCE_METRICS or a metric with
+            the signature weighted_distance(x, y, wx, wy) calculating distance between the weighted
+            sample x and weighted sample y (weights by wx and wy respectively).
 
     Returns:
-        float: weighted distance between the samples assigned to `group_level` and the rest of the samples.
+        float: weighted distance between the samples assigned to `group_level`
+            and the rest of the samples.
     """
     if not callable(metric):
         metric = DISTRIBUTION_DISTANCE_METRICS[metric]
