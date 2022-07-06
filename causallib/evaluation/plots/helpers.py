@@ -36,12 +36,12 @@ def plot_evaluation_results(results, X, a, y, plot_names="all", phase=None, ax=N
         plot_names = results.available_plot_names
     elif isinstance(plot_names, str):
         return _make_single_panel_evaluation_plot(
-            results, X, a, y, plot_names, phase, ax=ax
+            results=results, X=X, a=a, y=y, plot_name=plot_names, phase=phase, ax=ax
         )
     phases_to_plot = results.predictions.keys() if phase is None else [phase]
     return {
         plotted_phase: _make_multipanel_evaluation_plot(
-            results, X, a, y, plot_names, plotted_phase
+            results=results, X=X, a=a, y=y, plot_names=plot_names, phase=plotted_phase
         )
         for plotted_phase in phases_to_plot
     }
