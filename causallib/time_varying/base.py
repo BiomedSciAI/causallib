@@ -99,8 +99,8 @@ class GMethodBase(TimeVaryingBaseEstimator):
                                     X: pd.DataFrame,
                                     a: pd.Series,
                                     t: pd.Series,
-                                    treatment_strategy: Callable,
                                     y: Optional[Any] = None,
+                                    treatment_strategy: Callable = None,
                                     timeline_start: Optional[int] = None,
                                     timeline_end: Optional[int] = None
                                     ) -> pd.DataFrame:
@@ -133,8 +133,8 @@ class GMethodBase(TimeVaryingBaseEstimator):
                                     X: pd.DataFrame,
                                     a: pd.Series,
                                     t: pd.Series,
-                                    treatment_strategy: Callable,
                                     y: Optional[Any] = None,
+                                    treatment_strategy: Callable = None,
                                     timeline_start: Optional[int] = None,
                                     timeline_end: Optional[int] = None
                                     ) -> pd.DataFrame:
@@ -160,10 +160,6 @@ class GMethodBase(TimeVaryingBaseEstimator):
               Returns:
                   pd.DataFrame: with time-step index, treatment (a) as columns and treatment values as entries
               """
-        raise NotImplementedError
-
-    def _prepare_data(self, X, a, t, y):
-        # return pd.DataFrame()
         raise NotImplementedError
 
 

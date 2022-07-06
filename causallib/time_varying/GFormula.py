@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import pandas as pd
-from typing import Optional, Any
+from typing import Optional, Any, Callable
 from causallib.time_varying.base import GMethodBase
 from causallib.utils import general_tools as g_tools
 
@@ -20,11 +20,12 @@ class GFormula(GMethodBase):
             **kwargs
             ):
 
+        raise NotImplementedError
+
         if kwargs is None:
             kwargs = {}
 
         #TODO More to work on preparing data to be fed into the model
-
         treatment_model_is_not_fitted = not g_tools.check_learner_is_fitted(self.treatment_model.learner)
         if refit_models or treatment_model_is_not_fitted:
             self.treatment_model.fit(X, a, y, **kwargs)
@@ -37,12 +38,15 @@ class GFormula(GMethodBase):
                 cov_model.fit(X, a, y, **kwargs)
 
         self.outcome_model.fit(X, a, y, **kwargs)
-        raise NotImplementedError
+        return
 
 
     def estimate_individual_outcome(self, X: pd.DataFrame, a: pd.Series, t: pd.Series, y: Optional[Any] = None,
+                                    treatment_strategy: Callable = None,
                                     timeline_start: Optional[int] = None,
                                     timeline_end: Optional[int] = None) -> pd.DataFrame:
+
+        raise NotImplementedError
 
         min_time = timeline_start if timeline_start is not None else int(t.min())
         max_time = timeline_end if timeline_end is not None else int(t.max())
@@ -50,14 +54,15 @@ class GFormula(GMethodBase):
         contiguous_times = pd.Series(data=range(min_time, max_time + 1), name=t.name)  # contiguous time steps for inference
         unique_treatment_values = a.unique()
         res = pd.DataFrame()
-        # TODO
-        # logic to get the prediction curve for individual treatment types
-        # return res
-        raise NotImplementedError
+
+        # TODO logic to get the prediction curve for individual treatment types
+        return res
 
     def estimate_population_outcome(self, X: pd.DataFrame, a: pd.Series, t: pd.Series, y: Optional[Any] = None,
                                     timeline_start: Optional[int] = None,
                                     timeline_end: Optional[int] = None) -> pd.DataFrame:
+
+        raise NotImplementedError
 
         unique_treatment_values = a.unique()
         res = {}
@@ -72,8 +77,7 @@ class GFormula(GMethodBase):
         # Setting index/column names
         res.index.name = t.name
         res.columns.name = a.name
-        # return res
-        raise NotImplementedError
+        return res
 
     def _apply_noise(self):
         pass
