@@ -14,7 +14,7 @@ class GFormula(GMethodBase):
     def fit(self,
             X: pd.DataFrame,
             a: pd.Series,
-            t: pd.Series,
+            t: Optional[pd.Series] = None,
             y: Optional[Any] = None,
             refit_models: bool = True,
             **kwargs
@@ -41,10 +41,15 @@ class GFormula(GMethodBase):
         return
 
 
-    def estimate_individual_outcome(self, X: pd.DataFrame, a: pd.Series, t: pd.Series, y: Optional[Any] = None,
+    def estimate_individual_outcome(self, 
+                                    X: pd.DataFrame, 
+                                    a: pd.Series, 
+                                    t: Optional[pd.Series] = None,
+                                    y: Optional[Any] = None,
                                     treatment_strategy: Callable = None,
                                     timeline_start: Optional[int] = None,
-                                    timeline_end: Optional[int] = None) -> pd.DataFrame:
+                                    timeline_end: Optional[int] = None
+                                    ) -> pd.DataFrame:
 
         raise NotImplementedError
 
@@ -58,9 +63,15 @@ class GFormula(GMethodBase):
         # TODO logic to get the prediction curve for individual treatment types
         return res
 
-    def estimate_population_outcome(self, X: pd.DataFrame, a: pd.Series, t: pd.Series, y: Optional[Any] = None,
+    def estimate_population_outcome(self,
+                                    X: pd.DataFrame,
+                                    a: pd.Series,
+                                    t: pd.Series,
+                                    y: Optional[Any] = None,
+                                    treatment_strategy: Callable = None,
                                     timeline_start: Optional[int] = None,
-                                    timeline_end: Optional[int] = None) -> pd.DataFrame:
+                                    timeline_end: Optional[int] = None
+                                    ) -> pd.DataFrame:
 
         raise NotImplementedError
 

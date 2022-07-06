@@ -44,19 +44,19 @@ class GMethodBase(TimeVaryingBaseEstimator):
         GFormula base Estimator
     """
     def __init__(self,
-                 outcome_model: None,
                  treatment_model: Any,
                  covariate_models: OrderedDict,
+                 outcome_model: Optional[Any]=None,
                  refit_models=True):
         """
-            outcome_model(IndividualOutcomeEstimator): A causal model that estimate on individuals level
-                                                      (e.g. Standardization).
             treatment_model (???):
             covariate_models (OrderedDict): {
                         ‘x1’: Standardization(LogisticRegression()),
                         ‘x2’: Standardization(LinearRegression()),
                             so forth
                         },
+            outcome_model(IndividualOutcomeEstimator): A causal model that estimate on individuals level
+                                                      (e.g. Standardization).
             refit_models (bool): if True, re-fit the treatment model and covariate models.
 
         """
@@ -73,7 +73,7 @@ class GMethodBase(TimeVaryingBaseEstimator):
     def fit(self,
             X: pd.DataFrame,
             a: pd.Series,
-            t: pd.Series,
+            t: Optional[pd.Series] = None,
             y: Optional[Any] = None,
             refit_models: bool = True,
             **kwargs
@@ -82,12 +82,13 @@ class GMethodBase(TimeVaryingBaseEstimator):
             Fits parametric models and calculates prediction curves.
 
             Args:
-                X (pd.DataFrame): Baseline covariate matrix of size (num_subjects, num_features).
-                a (pd.Series): Treatment assignment of size (num_subjects,).
+                X (pd.DataFrame): Baseline covariate matrix of size (num_subjects * number_time_points, num_features).
+                a (pd.Series): Treatment assignment of size (num_subjects * number_time_points,).
+                              Currently, only supports single treatment.  
                 t (pd.Series): Followup duration, size (num_subjects,).
-                y (pd.Series): Observed outcome (1) or right censoring event (0), size (num_subjects,).
-                refit_models (bool): if True, re-fit the treatment model and covariate models.
-                kwargs (dict): Optional kwargs for fit call of survival model
+                y (pd.Series): Observed outcome (1) or right censoring event (0), size (num_subjects,). When not provided, index of X is used
+                refit_models (bool): if True, re-fit the treatment, covariate, and outcome models (if any).
+                kwargs (dict): Optional kwargs for fit call of GMethodBase model
 
             Returns:
                 self
@@ -98,34 +99,32 @@ class GMethodBase(TimeVaryingBaseEstimator):
     def estimate_individual_outcome(self,
                                     X: pd.DataFrame,
                                     a: pd.Series,
-                                    t: pd.Series,
+                                    t: Optional[pd.Series] = None,
                                     y: Optional[Any] = None,
                                     treatment_strategy: Callable = None,
                                     timeline_start: Optional[int] = None,
                                     timeline_end: Optional[int] = None
                                     ) -> pd.DataFrame:
         """
-              Returns individual estimated curves for each subject row in X/a/t
+            Returns individual estimated curves for each subject row in X/a/t
 
-              Args:
-                  X (pd.DataFrame): Baseline covariate matrix of size (num_subjects, num_features).
-                  a (pd.Series): Treatment assignment of size (num_subjects,).
-                                Currently, only supports single treatment.
-                                Future work will be to expand single treatment to multiple treatments.
-                  t (pd.Series): Followup durations, size (num_subjects,).
-                  y: NOT USED (for API compatibility only).
-                  treatment_strategy (callable): A function that describes the treatment strategy.
-                                                eg.
-                  timeline_start (int): Common start time-step. If provided, will generate survival curves starting
-                                        from 'timeline_start' for all patients.
-                                        If None, will predict from first observed event (t.min()).
-                  timeline_end (int): Common end time-step. If provided, will generate survival curves up to 'timeline_end'
-                                      for all patients.
-                                      If None, will predict up to last observed event (t.max()).
+            Args:
+                X (pd.DataFrame): Baseline covariate matrix of size (num_subjects * number_time_points, num_features).
+                a (pd.Series): Treatment assignment of size (num_subjects * number_time_points,).
+                              Currently, only supports single treatment.  
+                t (pd.Series): Followup durations, size (num_subjects,).
+                y: NOT USED (for API compatibility only).
+                treatment_strategy (callable): A function that describes the treatment strategy.
+                timeline_start (int): Common start time-step. If provided, will generate simulations starting
+                                      from 'timeline_start' for all patients.
+                                      If None, will predict from first observed event (t.min()).
+                timeline_end (int): Common end time-step. If provided, will generate simulations up to 'timeline_end'
+                                    for all patients.
+                                    If None, will predict up to last observed event (t.max()).
 
-              Returns:
-                  pd.DataFrame: with time-step index, treatment (a) as columns and treatment values as entries
-              """
+            Returns:
+                pd.DataFrame: with time-step index, covariate, treatment, and outcome (if any) as columns, and their corresponding values  as entries. Index over the simulation period
+        """
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -139,27 +138,25 @@ class GMethodBase(TimeVaryingBaseEstimator):
                                     timeline_end: Optional[int] = None
                                     ) -> pd.DataFrame:
         """
-              Returns Population estimated curves.
+            Returns Population estimated curves.
 
-              Args:
-                  X (pd.DataFrame): Baseline covariate matrix of size (num_subjects, num_features).
-                  a (pd.Series): Treatment assignment of size (num_subjects,).
-                  t (pd.Series): Followup durations, size (num_subjects,).
-                                Currently, only supports single treatment.
-                                Future work will be to expand single treatment to multiple treatments.
-                  treatment_strategy (callable): A function that describes the treatment strategy.
-                                                eg.
-                  y: NOT USED (for API compatibility only).
-                  timeline_start (int): Common start time-step. If provided, will generate survival curves starting
-                                        from 'timeline_start' for all patients.
-                                        If None, will predict from first observed event (t.min()).
-                  timeline_end (int): Common end time-step. If provided, will generate survival curves up to 'timeline_end'
-                                      for all patients.
-                                      If None, will predict up to last observed event (t.max()).
+            Args:
+                X (pd.DataFrame): Baseline covariate matrix of size (num_subjects * number_time_points, num_features).
+                a (pd.Series): Treatment assignment of size (num_subjects * number_time_points,).
+                              Currently, only supports single treatment.  
+                t (pd.Series): Followup durations, size (num_subjects,).
+                y: NOT USED (for API compatibility only).
+                treatment_strategy (callable): A function that describes the treatment strategy.
+                timeline_start (int): Common start time-step. If provided, will generate simulations starting
+                                      from 'timeline_start' for all patients.
+                                      If None, will predict from first observed event (t.min()).
+                timeline_end (int): Common end time-step. If provided, will generate simulations up to 'timeline_end'
+                                    for all patients.
+                                    If None, will predict up to last observed event (t.max()).
 
-              Returns:
-                  pd.DataFrame: with time-step index, treatment (a) as columns and treatment values as entries
-              """
+            Returns:
+                pd.DataFrame: with time-step index, covariate, treatment, and outcome (if any) as columns, and their corresponding values  as entries. Index over the simulation period
+        """
         raise NotImplementedError
 
 
