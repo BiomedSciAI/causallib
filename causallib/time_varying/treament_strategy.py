@@ -1,15 +1,14 @@
-from abc import abstractmethod
+from abc import abstractmethod, ABC
+from typing import Callable
 
 
-class TreatmentStrategy:
-    def __init__(self, source_t, **kwargs):
-        self.source_t = source_t
+class TreatmentStrategy(ABC):
 
-    def __call__(self):
-        self.get_action()
+    def __call__(self, source_t):
+        self.get_action(source_t)
 
     @abstractmethod
-    def get_action(self):
+    def get_action(self, source_t):
         """
             Returns the Treatment action
         """
@@ -21,20 +20,18 @@ class Observational(TreatmentStrategy):
         Observational Treatment Strategy
     """
     def __init__(self,
-                 source_t,
-                 inverse_transform,
+                 inverse_transform: Callable,
                  **kwargs):
         """
-            source_t (???): Input data ??
             inverse_transform (Callable): Scaler class that compute the means and std to be used for later scaling.
                                         eg: sklearn.StandardScaler()
             kwargs (dict): Optional kwargs for init call in TreatmentStrategy
-
         """
-        super(TreatmentStrategy, self).__init__(source_t, **kwargs)
+        super(TreatmentStrategy, self).__init__(**kwargs)
         self.inverse_transform = inverse_transform
 
-    def get_action(self):
+    def get_action(self,
+                   source_t):
         raise NotImplementedError
 
         prev_X = self.source_t[:, -1, 0]
@@ -58,20 +55,22 @@ class CFBernoulli(TreatmentStrategy):
            CounterFactual Bernoulli Treatment Strategy
     """
     def __init__(self,
-                 source_t,
+                 p: float = 0.25,
                  **kwargs):
         """
-                 source_t (???): Input data ??
+                 p (float): Probability constant to be used in bernoulli distribution
                  kwargs (dict): Optional kwargs for init call in TreatmentStrategy
+        """
+        super(TreatmentStrategy, self).__init__(**kwargs)
+        self.p = p
 
-             """
-        super(TreatmentStrategy, self).__init__(source_t, **kwargs)
-
-    def get_action(self):
+    def get_action(self,
+                   source_t):
         raise NotImplementedError
-        _prob_act_t = 0.25 * (T.ones_like(self.source_t[:, -1, 2].unsqueeze(1)))
-        # cf_action(source_t[:, -1, :], n_obsv) # bs * 1
-        act_t = T.bernoulli(_prob_act_t)  # bs * 1
+
+        # _prob_act_t = self.p * (T.ones_like(source_t[:, -1, 2].unsqueeze(1)))
+        # # cf_action(source_t[:, -1, :], n_obsv) # bs * 1
+        # act_t = T.bernoulli(_prob_act_t)  # bs * 1
 
 
 
