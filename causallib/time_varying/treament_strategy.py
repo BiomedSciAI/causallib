@@ -4,11 +4,11 @@ from typing import Callable
 
 class TreatmentStrategy(ABC):
 
-    def __call__(self, source_t):
-        self.get_action(source_t)
+    def __call__(self, prev_x, all_x, prev_a):
+        self.get_action(prev_x, all_x, prev_a)
 
     @abstractmethod
-    def get_action(self, source_t):
+    def get_action(self,  prev_x, all_x, prev_a):
         """
             Returns the Treatment action
         """
@@ -31,23 +31,21 @@ class Observational(TreatmentStrategy):
         self.inverse_transform = inverse_transform
 
     def get_action(self,
-                   source_t):
+                   prev_x,
+                   all_x,
+                   prev_a):
+        _device = prev_x.device
         raise NotImplementedError
 
-        prev_X = self.source_t[:, -1, 0]
-        all_X = self.source_t[:, :, 0]
-        prev_A = self.source_t[:, -1, 1]
-
-        # if inverse_transform is not None:
-            # prev_x = T.Tensor(inverse_transform(prev_x.data.cpu())).to(_device)
-            # all_x = T.Tensor(inverse_transform(all_x.data.cpu())).to(_device)
-
+        import torch as T  # TODO Need to remove pytorch dependency
+        if self.inverse_transform is not None:
+            prev_x = T.Tensor(self.inverse_transform(prev_x.data.cpu())).to(_device)
+            all_x = T.Tensor(self.inverse_transform(all_x.data.cpu())).to(_device)
         # rbinom(1,1,invlogit((X[i-1]-mean_x)/10.-A[i-1]))
-        # x = (prev_x - all_x.mean(axis=1)) / 10. - A
-        # p = T.exp(x) / (1 + T.exp(x))
-        # out = T.bernoulli(p)  # T.round(p) #
-
-        # return out.unsqueeze(1)
+        x = (prev_x - all_x.mean(axis=1)) / 10. - prev_a
+        p = T.exp(x) / (1 + T.exp(x))
+        out = T.bernoulli(p)  # T.round(p) #
+        return out.unsqueeze(1)
 
 
 class CFBernoulli(TreatmentStrategy):
@@ -64,8 +62,7 @@ class CFBernoulli(TreatmentStrategy):
         super(TreatmentStrategy, self).__init__(**kwargs)
         self.p = p
 
-    def get_action(self,
-                   source_t):
+    def get_action(self, prev_x, all_x, prev_a):
         raise NotImplementedError
 
         # _prob_act_t = self.p * (T.ones_like(source_t[:, -1, 2].unsqueeze(1)))
