@@ -4,8 +4,8 @@ import pandas as pd
 from typing import Optional, Any, Callable
 from causallib.time_varying.base import GMethodBase
 from causallib.utils import general_tools as g_tools
-from causallib.time_varying.treament_strategy import TreatmentStrategy
 import numpy as np
+import torch as T #TODO remove torch dependency
 
 
 class GFormula(GMethodBase):
@@ -57,12 +57,12 @@ class GFormula(GMethodBase):
                                     a: pd.Series, 
                                     t: Optional[pd.Series] = None,
                                     y: Optional[Any] = None,
-                                    treatment_strategy: TreatmentStrategy = None,
+                                    # treatment_strategy: TreatmentStrategy = None,
                                     timeline_start: Optional[int] = None,
                                     timeline_end: Optional[int] = None
                                     ) -> pd.DataFrame:
 
-        raise NotImplementedError
+        # raise NotImplementedError
 
         # min_time = timeline_start if timeline_start is not None else int(t.min())
         # max_time = timeline_end if timeline_end is not None else int(t.max())
@@ -71,6 +71,14 @@ class GFormula(GMethodBase):
         # unique_treatment_values = a.unique()
         # res = pd.DataFrame()
 
+        simulation = dict(actions=list(),
+                          # expectations=list(),
+                          prediction=list(),
+                          ground_truth=list(),
+                          covariates=list(),
+                          time=list(),
+                          pat_id=str,
+                          )
 
         n_margin = self.n_obsv
         n_obsv = 1
@@ -78,144 +86,70 @@ class GFormula(GMethodBase):
         # if self.seed is not None:
         #     pl.seed_everything(self.seed)
 
-        # if model is None:
-        #     raise AttributeError("model needs to be passed")
-            #  model = pl_model
+        X = X.unsqueeze(0)
+        a = a.unsqueeze(0)
+        lengths = np.array([len(X), ])
+        pat_id = X['id'][0]
 
-        # source_data, target_data, lengths, pat_id = pat_data
-        source_data = X['prev_A', 'prev_X', 'A']
-        target_data = y
-        lengths = np.array([len(source_data), ])
+        assert y.shape[1] >= n_obsv, "n_obsv bigger than observed data"
 
-        source_data = X.unsqueeze(0)
-        target_data = y.unsqueeze(0)
-        pat_id = None
+        simulation["ground_truth"] = y.clone()[:, n_obsv - 1: n_obsv - 1 + self.n_steps, ]  # test dataset from n_obsv
+        simulation["pat_id"] = pat_id
 
-        assert target_data.shape[1] >= n_obsv, "n_obsv bigger than observed data"
-
-        # Starting simulation
-        simulation = dict(actions=list(),
-                          # expectations=list(),
-                          prediction=list(),
-                          ground_truth=list(),
-                          covariates=list(),
-                          time=list(),
-                          pat_id=pat_id,
-                          )
-        n_obsv = 1
-        #  import ipdb; ipdb.set_trace()  # BREAKPOINT
-        simulation["ground_truth"] = target_data.clone()[:, n_obsv - 1: n_obsv - 1 + self.n_steps, ]  # test dataset from n_obsv
-
-        source_data = source_data.repeat(self.n_sims, 1, 1)  # N_sims * T * F
+        X = X.repeat(self.n_sims, 1, 1)  # N_sims * T * F
+        a = a.repeat(self.n_sims, 1, 1)  # N_sims * T * F
         lengths = lengths.repeat(self.n_sims)
 
-        # till observation window: Forward in teacher-mode
-        # required to get the hidden variables from previous steps
-        # T: 0 1 2 3 4 5
-        # n_obsv = 4
-        # source data: 0 1 2 3
-        # target data: 1 2 3 4
-
-        # last source_data (t=3): cov_<obsv>, treatment_<obsv>
-        # last target_data (t=4): cov_<obsv>, treatment_<counterfactual>
-        # Updating target data to reflect countrefactual regime
-
         t = n_obsv
+        x_t = X[:, :t, :].clone()  # .unsqueeze(1)
+        a_t = a[:, :t, :].clone()  # .unsqueeze(1)
 
-        # Update action at t
-        # ['prev_X', 'prev_A', 'A']
-        source_t = source_data[:, :t, :].clone()  # .unsqueeze(1)
+        act_t = self.treatment_strategy(x_t[:, -1, :], x_t[:, :-1, :], a_t[:, -1, :])
 
-        act_t = treatment_strategy.get_action(X[:, -1, :], source_t[:, :-1, :], a[:, -1, :])
+        x_t = T.cat([x_t, a_t], axis=1)
+        last_t = T.cat([x_t[:, -1, :-1], act_t], axis=1)  # bs * F
+        x_t = T.cat([x_t[:, :-1, :], last_t.unsqueeze(1)], axis=1)  # bs * n_obsv * F
 
-        import torch as T
-        last_t = T.cat([source_t[:, -1, :-1], act_t], axis=1)  # bs * F
-        source_t = T.cat([source_t[:, :-1, :], last_t.unsqueeze(1)], axis=1)  # bs * n_obsv * F
-
-        # act_t, base_t = self.get_act_base(target_data[:, :-1, :], sim_t, t)
-
-        # Get Simulation at time t
-        # sim_t = self._combine_cov_act_base(sim_t, act_t, base_t)
-
-        # Update target data
-        # target_data = T.cat([target_data[:, :-1, :], sim_t], dim=1).contiguous()
-
-        # update hidden vector with teacher forcing till t = 3 (n_obsv - 1)
-        #FIXME
-        # if init_hidden is not None:
-        #     if hasattr(model.model, 'init_hidden'):
-        #         hidden = model.model.init_hidden(batch_size=n_sims, device=model.device)
-        #         hidden_p = model.model.init_hidden(batch_size=n_sims, device=model.device)
-        #     else:
-        #         # assuming callable
-        #         hidden = init_hidden(n_sims, model.model._hidden_size)  # None
-        #         hidden_p = init_hidden(n_sims, model.model._hidden_size)  # None
-        # else:
-        #     hidden = None
-        #     hidden_p = None
+        # init all the models
+        self._init_models() #TODO
 
         # Simulate
         with T.no_grad():
             for _idx in range(self.n_steps):
+                t = _idx + n_obsv - 1  # + 1
 
-                if hasattr(self.covariate_models[0].model, 'reset_mask'):
-                    self.covariate_models[0].model.reset_mask()
-                # import ipdb; ipdb.set_trace();
-                if t == 0:
-                    (out, hidden) = self.covariate_models[0].forward(source_t, hidden=hidden, lengths=None)  # all data is true till n_obsv
-                else:
-                    (out, hidden) = self.covariate_models[0].forward(source_t[:, -1, :].unsqueeze(1), hidden=hidden, lengths=None)  # all data is true till n_obsv
-                # out.clamp_(min=-2., max=5.)
-                # (out, hidden) = model.forward(source_t, hidden=hidden, lengths=None)  # all data is true till n_obsv
+                out, hidden = self._forward(x_t, hidden) #TODO
 
                 # this is X --> becomes prev_X for next round
-                # import ipdb; ipdb.set_trace();
                 if t < n_margin - 1:
-                    # sim_t = target_data[:, t, :].unsqueeze(1).repeat(n_sims, 1, 1)
                     sim_t = out[:, -1, :].unsqueeze(1)
-                    new_t = source_data[:, (t + 1), :].unsqueeze(1)
+                    new_t = X[:, (t + 1), :].unsqueeze(1)
                     act_t = new_t[..., -1].view(-1, 1, 1)  # bs * 1 * 1
                 else:
-                    # import ipdb; ipdb.set_trace();
                     sim_t = self._apply_noise(out[:, -1, :].unsqueeze(1), t) # bs * 1 * 1
-                    # sim_t = out[:, -1, :].unsqueeze(1)
-                    # import ipdb; ipdb.set_trace();
 
                     # this is A becomes prev_A
-                    prev_act = source_t[:, -1, -1].unsqueeze(1).unsqueeze(1)  # bs * 1 * 1
-
-                    act_t = treatment_strategy.get_action(source_t[:, -1, 0], source_t[:, :, 0], source_t[:, -1, 1])
+                    prev_act = x_t[:, -1, -1].unsqueeze(1).unsqueeze(1)  # bs * 1 * 1
+                    act_t = self.treatment_strategy(sim_t[:, -1, 0], sim_t[:, :, 0], a_t[:, -1, 1])
                     new_t = T.cat([sim_t, prev_act, act_t], axis=-1)  # .unsqueeze(1) # bs * 1 * F
-                source_t = T.cat([source_t, new_t], axis=1)  # bs * (t + 1) * F
+                x_t = T.cat([x_t, new_t], axis=1)  # bs * (t + 1) * F
 
-                # hidden = None
-                # if t >= 0:  import ipdb; ipdb.set_trace();
                 # prediction
-                actual_t = source_data[:, :(t + 1), :]
-                if t == 0:
-                    (out, hidden_p) = self.covariate_models[0].forward(actual_t, hidden=hidden_p, lengths=None)  # all data is true till n_obsv
-                else:
-                    (out, hidden_p) = self.covariate_models[0].forward(actual_t[:, -1, :].unsqueeze(1), hidden=hidden_p, lengths=None)  # all data is true till n_obsv
-
+                actual_t = X[:, :(t + 1), :]
+                out, hidden_p = self._forward(actual_t, hidden_p, t)
                 pred_t = out[:, -1, :].unsqueeze(1)
-                # hidden_p = None
 
                 simulation['actions'].append(act_t)
-                simulation['prediction'].append(pred_t)
                 simulation['covariates'].append(sim_t)
+                simulation['prediction'].append(pred_t)
                 simulation['time'].append(t)
-                debug = False
-                if (t <= n_margin) and debug:  # == 11:
+                if t <= n_margin: # and debug:  # == 11:
                     print(T.allclose(hidden[0], hidden_p[0]))
                     print(T.allclose(hidden[1], hidden_p[1]))
                     print(T.cat(simulation['prediction'], dim=1).squeeze())
                     print(T.cat(simulation['covariates'], dim=1).squeeze())
 
             simulation['actions'] = T.cat(simulation['actions'], dim=1)  # N_sim * n_steps * F-act
-            # try:
-            #     simulation['unmodeled'] = T.cat(simulation['unmodeled'], dim=1)      # N_sim * n_steps * F-base
-            # except TypeError:
-            #     pass
             simulation['prediction'] = T.cat(simulation['prediction'], dim=1)
             simulation['covariates'] = T.cat(simulation['covariates'], dim=1)  # N_sim * n_steps * F-act
         # return res
@@ -307,6 +241,31 @@ class GFormula(GMethodBase):
 
     def _prepare_data(self, X, a, t, y):
         pass
+
+    def _init_models(self):
+        raise NotImplementedError
+
+        #FIXME
+        # if init_hidden is not None:
+        #     if hasattr(model.model, 'init_hidden'):
+        #         hidden = model.model.init_hidden(batch_size=n_sims, device=model.device)
+        #         hidden_p = model.model.init_hidden(batch_size=n_sims, device=model.device)
+        #     else:
+        #         # assuming callable
+        #         hidden = init_hidden(n_sims, model.model._hidden_size)  # None
+        #         hidden_p = init_hidden(n_sims, model.model._hidden_size)  # None
+        # else:
+        #     hidden = None
+        #     hidden_p = None
+
+    def _forward(self, input, hidden, t):
+        if hasattr(self.covariate_models[0].model, 'reset_mask'):
+            self.covariate_models[0].model.reset_mask()
+        if t == 0:
+            (out, hidden) = self.covariate_models[0].forward(input, hidden=hidden, lengths=None)  # all data is true till n_obsv
+        else:
+            (out, hidden) = self.covariate_models[0].forward(input[:, -1, :].unsqueeze(1), hidden=hidden, lengths=None)  # all data is true till n_obsv
+        return out, hidden
 
     @staticmethod
     def _predict_trajectory(self, X, a, t) -> pd.DataFrame:

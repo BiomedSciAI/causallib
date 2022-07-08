@@ -44,12 +44,14 @@ class GMethodBase(TimeVaryingBaseEstimator):
         GFormula base Estimator
     """
     def __init__(self,
-                 treatment_model: Any,
+                 treatment_strategy: Callable,
                  covariate_models: OrderedDict,
                  outcome_model: Optional[Any]=None,
                  refit_models=True):
         """
-            treatment_model (???):
+            treatment_strategy (Callable): A Callable class that computes the treatment outcome based on
+                                            the strategy implemented.
+                                            e.g. Treatment_Strategy from causallib.time_varying.treatment_strategy
             covariate_models (OrderedDict): {
                         ‘x1’: Standardization(LogisticRegression()),
                         ‘x2’: Standardization(LinearRegression()),
@@ -61,7 +63,7 @@ class GMethodBase(TimeVaryingBaseEstimator):
 
         """
         super(GMethodBase, self).__init__(lambda **x: None)
-        self.treatment_model = treatment_model
+        self.treatment_strategy = treatment_strategy
         self.covariate_models = covariate_models
         self.outcome_model = outcome_model
         self.refit_models = refit_models
@@ -99,7 +101,6 @@ class GMethodBase(TimeVaryingBaseEstimator):
                                     a: pd.Series,
                                     t: Optional[pd.Series] = None,
                                     y: Optional[Any] = None,
-                                    treatment_strategy: Callable = None,
                                     timeline_start: Optional[int] = None,
                                     timeline_end: Optional[int] = None
                                     ) -> pd.DataFrame:
@@ -112,7 +113,6 @@ class GMethodBase(TimeVaryingBaseEstimator):
                               Currently, only supports single treatment.  
                 t (pd.Series): Followup durations, size (num_subjects,).
                 y: NOT USED (for API compatibility only).
-                treatment_strategy (callable): A function that describes the treatment strategy.
                 timeline_start (int): Common start time-step. If provided, will generate simulations starting
                                       from 'timeline_start' for all patients.
                                       If None, will predict from first observed event (t.min()).
@@ -131,7 +131,6 @@ class GMethodBase(TimeVaryingBaseEstimator):
                                     a: pd.Series,
                                     t: pd.Series,
                                     y: Optional[Any] = None,
-                                    treatment_strategy: Callable = None,
                                     timeline_start: Optional[int] = None,
                                     timeline_end: Optional[int] = None
                                     ) -> pd.DataFrame:
@@ -144,7 +143,6 @@ class GMethodBase(TimeVaryingBaseEstimator):
                               Currently, only supports single treatment.  
                 t (pd.Series): Followup durations, size (num_subjects,).
                 y: NOT USED (for API compatibility only).
-                treatment_strategy (callable): A function that describes the treatment strategy.
                 timeline_start (int): Common start time-step. If provided, will generate simulations starting
                                       from 'timeline_start' for all patients.
                                       If None, will predict from first observed event (t.min()).
