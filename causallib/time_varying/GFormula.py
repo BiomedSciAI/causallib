@@ -12,12 +12,14 @@ class GFormula(GMethodBase):
     """
         GFormula class that is based on Monte Carlo Simulation for creating the noise.
     """
-    def __init__(self, outcome_model, treatment_model, covariate_models, refit_models, n_obsv, n_sims, n_steps, seed):
+    def __init__(self, outcome_model, treatment_model, covariate_models, refit_models, seed, n_obsv, n_sims, n_steps, mode, resid_val):
         super(GFormula, self).__init__(outcome_model, treatment_model, covariate_models, refit_models)
+        self.seed = seed
         self.n_obsv = n_obsv
         self.n_sims = n_sims
-        self.seed = seed
         self.n_steps = n_steps
+        self.mode = mode
+        self.resid_val = resid_val
 
 
     def fit(self,
@@ -60,7 +62,7 @@ class GFormula(GMethodBase):
                                     timeline_end: Optional[int] = None
                                     ) -> pd.DataFrame:
 
-        # raise NotImplementedError
+        raise NotImplementedError
 
         # min_time = timeline_start if timeline_start is not None else int(t.min())
         # max_time = timeline_end if timeline_end is not None else int(t.max())
@@ -175,8 +177,7 @@ class GFormula(GMethodBase):
                     act_t = new_t[..., -1].view(-1, 1, 1)  # bs * 1 * 1
                 else:
                     # import ipdb; ipdb.set_trace();
-                    # sim_t = _apply_noise(out[:, -1, :].unsqueeze(1), t, residuals=resid_val, mode=mode)  # bs * 1 * 1
-                    sim_t = self._apply_noise()
+                    sim_t = self._apply_noise(out[:, -1, :].unsqueeze(1), t) # bs * 1 * 1
                     # sim_t = out[:, -1, :].unsqueeze(1)
                     # import ipdb; ipdb.set_trace();
 
@@ -246,8 +247,63 @@ class GFormula(GMethodBase):
         res.columns.name = a.name
         return res
 
-    def _apply_noise(self):
-        pass
+    def _apply_noise(self, out, t, box_type='float'):
+        residuals = self.resid_val
+        mode = self.mode if self.mode else "empirical"
+
+        import torch as T #TODO remove torch dependency
+        """adding noise to a box output
+           out: bs * 1 * <F-box>
+           t: time
+           box: box id
+           mode: mode of operation
+           """
+        _device = out.device
+        # (first_box_var, last_box_var, _, _) = self.model.box_dim[box]
+        #  box_type = self.model.box_type[box]
+
+        if box_type == 'boolean':
+            _sim = (np.random.rand(*out.shape) < out.data.cpu().numpy()).astype('int')
+            sim = T.from_numpy(_sim).float().to(out.device)  # , requires_grad=False).to(device)
+            sim.requires_grad_(False)
+
+        elif box_type == 'float':
+            if mode == 'empirical':
+                _resid_dist = residuals[t, :, :]  # bs * F
+                sim_noise = self._batch_choice(_resid_dist, num_samples=out.shape[0])
+                _sim_noise_t = T.from_numpy(sim_noise).float()  # , requires_grad=False)  # bs * <F-box>
+                _sim_noise_t.requires_grad_(False)
+                _sim_noise_t.unsqueeze_(1)  # bs * 1 * <F-box>
+                # clamping values between 0 and 1
+                # sim.clamp_(0, 1)
+            elif mode == 'normal':
+                #  import ipdb; ipdb.set_trace()  # BREAKPOINT
+                _sim_noise_t = 1.0 * T.randn(*out.shape)
+            elif mode == 'tdist':
+                #  import ipdb; ipdb.set_trace()  # BREAKPOINT
+                _dist = T.distributions.StudentT(df=residuals.shape[1] - 1)
+                _sim_noise_t = 1.0 * _dist.sample(out.shape)
+            elif mode == 'emp_std':
+                #  import ipdb; ipdb.set_trace()  # BREAKPOINT
+                _std = T.Tensor(residuals[t, :, :].std(axis=0))
+                _sim_noise_t = _std * T.randn(*out.shape)
+            elif mode == 'emp_mean_std':
+                #  import ipdb; ipdb.set_trace()  # BREAKPOINT
+                _std = T.Tensor(residuals[t, :, :].std(axis=0))
+                _mean = T.Tensor(residuals[t, :, :].mean(axis=0))
+                _sim_noise_t = _mean + _std * T.randn(*out.shape)
+            _sim_noise_t = _sim_noise_t.to(_device)
+            sim = out + _sim_noise_t
+        else:
+            raise AttributeError()
+        return sim
+
+    def _batch_choice(self, arr, num_samples):
+        val_arr = arr[~np.isnan(arr).any(axis=1)]
+        idx = val_arr.shape[0]
+        choice = np.random.choice(idx, num_samples)
+        sample = val_arr[choice, :]
+        return sample
 
     def _prepare_data(self, X, a, t, y):
         pass
