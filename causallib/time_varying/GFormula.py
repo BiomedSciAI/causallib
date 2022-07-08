@@ -3,6 +3,7 @@
 import pandas as pd
 from typing import Optional, Any, Callable
 from causallib.time_varying.base import GMethodBase
+from causallib.time_varying.treament_strategy import TreatmentStrategy
 from causallib.utils import general_tools as g_tools
 import numpy as np
 import torch as T #TODO remove torch dependency
@@ -12,8 +13,8 @@ class GFormula(GMethodBase):
     """
         GFormula class that is based on Monte Carlo Simulation for creating the noise.
     """
-    def __init__(self, outcome_model, treatment_model, covariate_models, refit_models, seed, n_obsv, n_sims, n_steps, mode, resid_val):
-        super(GFormula, self).__init__(outcome_model, treatment_model, covariate_models, refit_models)
+    def __init__(self, treatment_model, covariate_models, outcome_model, refit_models, seed, n_obsv, n_sims, n_steps, mode, resid_val):
+        super(GFormula, self).__init__(treatment_model, covariate_models, outcome_model, refit_models)
         self.seed = seed
         self.n_obsv = n_obsv
         self.n_sims = n_sims
@@ -57,7 +58,7 @@ class GFormula(GMethodBase):
                                     a: pd.Series, 
                                     t: Optional[pd.Series] = None,
                                     y: Optional[Any] = None,
-                                    # treatment_strategy: TreatmentStrategy = None,
+                                    treatment_strategy: TreatmentStrategy = None,
                                     timeline_start: Optional[int] = None,
                                     timeline_end: Optional[int] = None
                                     ) -> pd.DataFrame:
@@ -104,7 +105,7 @@ class GFormula(GMethodBase):
         x_t = X[:, :t, :].clone()  # .unsqueeze(1)
         a_t = a[:, :t, :].clone()  # .unsqueeze(1)
 
-        act_t = self.treatment_strategy(x_t[:, -1, :], x_t[:, :-1, :], a_t[:, -1, :])
+        act_t = treatment_strategy(x_t[:, -1, :], x_t[:, :-1, :], a_t[:, -1, :])
 
         x_t = T.cat([x_t, a_t], axis=1)
         last_t = T.cat([x_t[:, -1, :-1], act_t], axis=1)  # bs * F
@@ -129,7 +130,7 @@ class GFormula(GMethodBase):
 
                     # this is A becomes prev_A
                     prev_act = x_t[:, -1, -1].unsqueeze(1).unsqueeze(1)  # bs * 1 * 1
-                    act_t = self.treatment_strategy(sim_t[:, -1, 0], sim_t[:, :, 0], a_t[:, -1, 1])
+                    act_t = treatment_strategy(sim_t[:, -1, 0], sim_t[:, :, 0], a_t[:, -1, 1])
                     new_t = T.cat([sim_t, prev_act, act_t], axis=-1)  # .unsqueeze(1) # bs * 1 * F
                 x_t = T.cat([x_t, new_t], axis=1)  # bs * (t + 1) * F
 
@@ -158,7 +159,7 @@ class GFormula(GMethodBase):
                                     a: pd.Series,
                                     t: pd.Series,
                                     y: Optional[Any] = None,
-                                    treatment_strategy: Callable = None,
+                                    treatment_strategy: TreatmentStrategy = None,
                                     timeline_start: Optional[int] = None,
                                     timeline_end: Optional[int] = None
                                     ) -> pd.DataFrame:
