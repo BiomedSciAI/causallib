@@ -118,8 +118,7 @@ class GFormula(GMethodBase):
             for _idx in range(self.n_steps):
                 t = _idx + n_obsv - 1  # + 1
 
-                out, hidden = self._forward(x_t, hidden) #TODO
-
+                out = self._predict(x_t, t)  # TODO
                 # this is X --> becomes prev_X for next round
                 if t < n_margin - 1:
                     sim_t = out[:, -1, :].unsqueeze(1)
@@ -136,7 +135,7 @@ class GFormula(GMethodBase):
 
                 # prediction
                 actual_t = X[:, :(t + 1), :]
-                out, hidden_p = self._forward(actual_t, hidden_p, t)
+                out = self._predict(actual_t, t)
                 pred_t = out[:, -1, :].unsqueeze(1)
 
                 simulation['actions'].append(act_t)
@@ -144,8 +143,8 @@ class GFormula(GMethodBase):
                 simulation['prediction'].append(pred_t)
                 simulation['time'].append(t)
                 if t <= n_margin: # and debug:  # == 11:
-                    print(T.allclose(hidden[0], hidden_p[0]))
-                    print(T.allclose(hidden[1], hidden_p[1]))
+                    # print(T.allclose(hidden[0], hidden_p[0]))
+                    # print(T.allclose(hidden[1], hidden_p[1]))
                     print(T.cat(simulation['prediction'], dim=1).squeeze())
                     print(T.cat(simulation['covariates'], dim=1).squeeze())
 
@@ -258,18 +257,15 @@ class GFormula(GMethodBase):
         #     hidden = None
         #     hidden_p = None
 
-    def _forward(self, input, hidden, t):
+    def _predict(self, X, t):
         if hasattr(self.covariate_models[0].model, 'reset_mask'):
             self.covariate_models[0].model.reset_mask()
         if t == 0:
-            (out, hidden) = self.covariate_models[0].forward(input, hidden=hidden, lengths=None)  # all data is true till n_obsv
+            (out, hidden) = self.covariate_models[0].forward(X, lengths=None)  # all data is true till n_obsv
         else:
-            (out, hidden) = self.covariate_models[0].forward(input[:, -1, :].unsqueeze(1), hidden=hidden, lengths=None)  # all data is true till n_obsv
+            (out, hidden) = self.covariate_models[0].forward(X[:, -1, :].unsqueeze(1), lengths=None)  # all data is true till n_obsv
         return out, hidden
 
-    @staticmethod
-    def _predict_trajectory(self, X, a, t) -> pd.DataFrame:
-        pass
 
 
 
