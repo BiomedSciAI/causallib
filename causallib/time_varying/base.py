@@ -60,12 +60,10 @@ class GMethodBase(TimeVaryingBaseEstimator):
             refit_models (bool): if True, re-fit the treatment model and covariate models.
 
         """
-        super().__init__(outcome_model, treatment_model,
-                         covariate_models, refit_models)
         super(GMethodBase, self).__init__(lambda **x: None)
-        self.outcome_model = outcome_model
         self.treatment_model = treatment_model
         self.covariate_models = covariate_models
+        self.outcome_model = outcome_model
         self.refit_models = refit_models
 
 
