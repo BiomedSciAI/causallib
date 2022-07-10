@@ -56,39 +56,58 @@ def _make_bootstrap_cv(N, n_bootstrap, n_samples, replace):
     return phases, cv
 
 
+
 def evaluate(
     estimator,
     X,
     a,
     y,
     cv=None,
-    kfold=None,
-    refit=True,
-    phases=("train", "valid"),
     metrics_to_evaluate=None,
     plots=None,
 ):
+    """Evaluate model in cross-validation of the provided data
+
+    Args:
+        estimator (causallib.estimation.base_estimator.IndividualOutcomeEstimator |
+            causallib.estimation.base_weight.WeightEstimator |
+            causallib.estimation.base_weight.PropensityEstimator) : an estimator. If using cv, it
+            will be refit, otherwise it should already be fit.
+        X (pd.DataFrame): Covariates.
+        a (pd.Series): Treatment assignment.
+        y (pd.Series): Outcome.
+        cv (list[tuples] | generator[tuples] | None): list the number of folds containing tuples of
+            indices (train_idx, validation_idx) in an iloc manner (row number).
+            If None, there will be no cross-validation. If `cv="auto"`, a stratified Kfold with
+            5 folds will be created and used for cross-validation.
+        metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives
+            true labels, prediction, and sample_weights (the latter is allowed to be ignored).
+            If not provided, defaults from `causallib.evaluation.metrics` are used.
+        plots (list[str] | None): list of plots to make. If None, none are generated.
+
+    Returns:
+        EvaluationResults
+    """
     if cv is None:
-        return evaluate_simple(estimator, X, a, y, metrics_to_evaluate, plots)
+        return _evaluate_simple(estimator, X, a, y, metrics_to_evaluate, plots)
     # when evaluate_cv gets cv=None it makes an auto cv so turn "auto" to None
     if cv == "auto":
         cv = None
 
-    return evaluate_cv(
+    return _evaluate_cv(
         estimator=estimator,
         X=X,
         a=a,
         y=y,
         cv=cv,
-        kfold=kfold,
-        refit=refit,
-        phases=phases,
+        refit=True,
+        phases=("train", "valid"),
         metrics_to_evaluate=metrics_to_evaluate,
         plots=plots,
     )
 
 
-def evaluate_simple(estimator, X, a, y, metrics_to_evaluate=None, plots=None):
+def _evaluate_simple(estimator, X, a, y, metrics_to_evaluate=None, plots=None):
     """Evaluate model on the provided data without cross-validation or bootstrap.
 
     Simple evaluation without cross validation on the provided data can be to test
@@ -108,7 +127,7 @@ def evaluate_simple(estimator, X, a, y, metrics_to_evaluate=None, plots=None):
     """
 
     phases, cv = _make_dummy_cv(X.shape[0])
-    results = evaluate_cv(
+    results = _evaluate_cv(
         estimator,
         X,
         a,
@@ -133,13 +152,12 @@ def evaluate_simple(estimator, X, a, y, metrics_to_evaluate=None, plots=None):
     return results
 
 
-def evaluate_cv(
+def _evaluate_cv(
     estimator,
     X,
     a,
     y,
     cv=None,
-    kfold=None,
     refit=True,
     phases=("train", "valid"),
     metrics_to_evaluate=None,
@@ -153,8 +171,6 @@ def evaluate_cv(
         y (pd.Series): Outcome.
         cv (list[tuples] | generator[tuples]): list the number of folds containing tuples of
             indices (train_idx, validation_idx) in an iloc manner (row number).
-        kfold(sklearn.model_selection.BaseCrossValidator): Initialized fold object (e.g. KFold).
-            defaults to StratifiedKFold of 5 splits on treatment.
         refit (bool): Whether to refit the model on each fold.
         phases (list[str]): {["train", "valid"], ["train"], ["valid"]}.
             Phases names to evaluate on - train ("train"), validation ("valid") or both.
@@ -172,8 +188,7 @@ def evaluate_cv(
     # If kfold has shuffle=True, it would be inconsistent.
     # To keep consistent reproducible folds, we save them as a list.
     if cv is None:
-
-        kfold = kfold or StratifiedKFold(n_splits=5)
+        kfold = StratifiedKFold(n_splits=5)
         cv = kfold.split(X=X, y=a)
 
     # if cv is generator it would listify it, if cv is already a list this is idempotent
@@ -230,7 +245,7 @@ def evaluate_bootstrap(
 
     phases, cv = _make_bootstrap_cv(X.shape[0], n_bootstrap, n_samples, replace)
 
-    results = evaluate_cv(
+    results = _evaluate_cv(
         estimator,
         X,
         a,
