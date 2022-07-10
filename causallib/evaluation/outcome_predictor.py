@@ -28,7 +28,7 @@ from .metrics import evaluate_binary_metrics, evaluate_regression_metrics
 from .predictor import BasePredictor
 
 
-class OutcomeEvaluatorPredictions:
+class OutcomePredictions:
     """Data structure to hold outcome-model predictions"""
 
     def __init__(self, prediction, prediction_event_prob=None):
@@ -202,5 +202,5 @@ class OutcomePredictor(BasePredictor):
         prediction_event_prob = self.estimator.estimate_individual_outcome(
             X, a, predict_proba=True
         )
-        fold_prediction = OutcomeEvaluatorPredictions(prediction, prediction_event_prob)
+        fold_prediction = OutcomePredictions(prediction, prediction_event_prob)
         return fold_prediction

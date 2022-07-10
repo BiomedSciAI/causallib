@@ -45,7 +45,7 @@ WeightEvaluatorScores = namedtuple(
 )
 
 
-class WeightEvaluatorPredictions:
+class WeightPredictions:
     """Data structure to hold weight-model predictions"""
 
     def __init__(
@@ -170,7 +170,7 @@ class WeightPredictor(BasePredictor):
         )  # TODO: maybe add predict_label to interface instead
         treatment_assignment_pred = pd.Series(treatment_assignment_pred, index=X.index)
 
-        prediction = WeightEvaluatorPredictions(
+        prediction = WeightPredictions(
             weight_by_treatment_assignment,
             weight_for_being_treated,
             treatment_assignment_pred,
@@ -196,7 +196,7 @@ class WeightPredictor(BasePredictor):
 # #################### #
 
 
-class PropensityEvaluatorPredictions(WeightEvaluatorPredictions):
+class PropensityPredictions(WeightPredictions):
     """Data structure to hold propensity-model predictions"""
 
     def __init__(
@@ -283,7 +283,7 @@ class PropensityPredictor(WeightPredictor):
         weight_prediction = super().predict(X, a)
         # Do not force stabilize=False as in WeightEvaluator:
         weight_by_treatment_assignment = self.estimator.compute_weights(X, a)
-        prediction = PropensityEvaluatorPredictions(
+        prediction = PropensityPredictions(
             weight_by_treatment_assignment,
             weight_prediction.weight_for_being_treated,
             weight_prediction.treatment_assignment_pred,

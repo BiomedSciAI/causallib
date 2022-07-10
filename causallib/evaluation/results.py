@@ -11,22 +11,20 @@ from ..estimation.base_estimator import IndividualOutcomeEstimator
 from ..estimation.base_weight import PropensityEstimator, WeightEstimator
 from ..utils.stat_utils import is_vector_binary
 from .metrics import calculate_covariate_balance
-from .outcome_predictor import OutcomeEvaluatorPredictions
+from .outcome_predictor import OutcomePredictions
 from .plots.helpers import (
     calculate_performance_curve_data_on_folds,
     calculate_pr_curve,
     calculate_roc_curve,
 )
 from .weight_predictor import (
-    PropensityEvaluatorPredictions,
-    WeightEvaluatorPredictions,
+    PropensityPredictions,
+    WeightPredictions,
     WeightEvaluatorScores,
 )
 
 SingleFoldPrediction = Union[
-    PropensityEvaluatorPredictions,
-    WeightEvaluatorPredictions,
-    OutcomeEvaluatorPredictions,
+    PropensityPredictions, WeightPredictions, OutcomePredictions
 ]
 
 
@@ -112,12 +110,10 @@ class BaseEvaluationPlotDataExtractor(abc.ABC):
     def __init__(self, evaluation_results: EvaluationResults):
         self.predictions = evaluation_results.predictions
 
-
     @abc.abstractmethod
     def get_data_for_plot(self, plot_name, X, a, y, phase="train"):
         """Get data for plot with name `plot_name`."""
         raise NotImplementedError
-
 
     @abc.abstractmethod
     def calculate_curve_data(
@@ -190,7 +186,7 @@ class WeightPlotDataExtractor(BaseEvaluationPlotDataExtractor):
 
     def calculate_curve_data(
         self,
-        fold_predictions: List[WeightEvaluatorPredictions],
+        fold_predictions: List[WeightPredictions],
         targets,
         curve_metric,
         area_metric,
@@ -277,7 +273,7 @@ class PropensityPlotDataExtractor(WeightPlotDataExtractor):
 
         Args:
             plot_name (str): Plot name.
-            folds_predictions (list[PropensityEvaluatorPredictions]): Predictions for each fold.
+            fold_predictions (list[PropensityEvaluatorPredictions]): Predictions for each fold.
             X (pd.DataFrame): Covariates.
             a (pd.Series): Target variable - treatment assignment
             y: *IGNORED*
@@ -300,7 +296,7 @@ class PropensityPlotDataExtractor(WeightPlotDataExtractor):
 
     def calculate_curve_data(
         self,
-        fold_predictions: List[PropensityEvaluatorPredictions],
+        fold_predictions: List[PropensityPredictions],
         targets,
         curve_metric,
         area_metric,
