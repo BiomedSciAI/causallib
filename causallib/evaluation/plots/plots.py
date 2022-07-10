@@ -16,6 +16,7 @@ limitations under the License.
 Created on Aug 22, 2018
 
 """
+from itertools import cycle
 import warnings
 
 import matplotlib.colors
@@ -236,9 +237,8 @@ def _get_alpha_per_point_with_density(X, hue, min_alpha_bound=0.3, max_alpha_bou
     kde = sm.nonparametric.KDEMultivariate(data=X, var_type="cc", bw="normal_reference")
     # kde.bw = kde.bw * 0.5         # Rescale bandwidth to be narrower
     points_density = kde.pdf(X)
-    points_alpha = (
-        1 / points_density
-    )  # Invert values - the denser the point -> the lower its alpha (more transparent)
+    # Invert values - the denser the point -> the lower its alpha (more transparent)
+    points_alpha = 1 / points_density
     if (min_alpha_bound is not None) and (max_alpha_bound is not None):
         #   Rescale alphas (linearly) to the range of 0.3 to 1:
         points_alpha = min_alpha_bound + (max_alpha_bound - min_alpha_bound) * (
@@ -379,9 +379,8 @@ def _plot_calibration_single(
         bins = np.unique(
             np.percentile(y_prob, np.linspace(0, 100, n_bins + 1).astype(int))
         )
-        bins = (
-            bins if len(bins) > 1 else np.concatenate([bins, bins])
-        )  # in case all values of y_prob are the same
+        # in case all values of y_prob are the same
+        bins = bins if len(bins) > 1 else np.concatenate([bins, bins])
         bins[-1] += 1e-8
         prob_true, prob_pred, counts = calibration_curve(y_true, y_prob, bins=bins)
     else:
@@ -397,12 +396,10 @@ def _plot_calibration_single(
             bins, (counts / counts.sum()), drawstyle="steps-post", alpha=0.8
         )
         hist_line = hist_line[0]
-        hist_line.set_zorder(
-            2
-        )  # keep histogram behind any new lines that are plotted after it.
-        line_color = (
-            hist_line.get_color()
-        )  # if plotting hist, keep track of color to use in the line to be plotted
+        # keep histogram behind any new lines that are plotted after it.
+        hist_line.set_zorder(2)
+        # if plotting hist, keep track of color to use in the line to be plotted
+        line_color = hist_line.get_color()
 
     if plot_diagonal:
         _add_diagonal(ax)
@@ -578,9 +575,8 @@ def _plot_single_performance_curve(
 
         folds_label = f"Fold {i} ({areas_type} = {area:.2f})" if label_folds else None
         if plot_folds:
-            folds_color = (
-                None if colored_folds else color
-            )  # use multiple colors if plotting only one stratum
+            # use multiple colors if plotting only one stratum
+            folds_color = None if colored_folds else color
             ax.plot(xs[i], ys[i], lw=1, alpha=0.3, color=folds_color, label=folds_label)
 
     # Plot main (folds average) curve
@@ -781,11 +777,8 @@ def plot_mean_features_imbalance_love_folds(
     order = aggregated_table1.mean().sort_values(by="unweighted", ascending=True).index
 
     if aggregate_folds:
-        table1_folds = [
-            aggregated_table1.mean()
-        ]  # place in iterable to make compatible with input
-
-    from itertools import cycle
+        # place in iterable to make compatible with input
+        table1_folds = [aggregated_table1.mean()]
 
     # Plot:
     for table1 in table1_folds:
@@ -834,9 +827,8 @@ def plot_mean_features_imbalance_love_folds(
         ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted()).height
         * fig.dpi
     )
-    if (
-        ax_pixel_height / order.size < 10 + 3
-    ):  # 10 is hypothesized to be font size + 3 pt. margin
+    # 10 is hypothesized to be font size + 3 pt. margin
+    if ax_pixel_height / order.size < 10 + 3:
         ax.set_yticklabels([])  # Too many y-ticks for axis size, remove them.
 
     ax.set_xlabel(
@@ -894,9 +886,8 @@ def slope_graph(
 
     if thresh is not None:
         ax.axhline(thresh, color="grey", linestyle="--", zorder=2)
-        if (
-            left.min() < 0 or right.min() < 0
-        ):  # There are negative values, plot the minus of threshold
+        # There are negative values, plot the minus of threshold
+        if left.min() < 0 or right.min() < 0:
             ax.axhline(-thresh, color="grey", linestyle="--", zorder=2)
     else:
         thresh = np.nan  # will be now used to compare against values
@@ -904,9 +895,8 @@ def slope_graph(
     for idx in left.index:
         cur_left = left[idx]
         cur_right = right[idx]
-        cur_color = (
-            color_above if cur_right > thresh else color_below
-        )  # make default color_below if thresh is nan
+        # make default color_below if thresh is nan
+        cur_color = color_above if cur_right > thresh else color_below
 
         ax.plot(
             [left_xtick, right_xtick],
@@ -985,9 +975,11 @@ def _add_diagonal(
         lim_range_frac = (
             np.array([np.diff(ax.get_xlim()), np.diff(ax.get_ylim())]) * fraction
         )
+
+    # plot diagonal
     ax.plot(
         diagonal, diagonal, color=color, label=label, linestyle=linestyle, zorder=zorder
-    )  # plot diagonal
+    )
 
 
 WEIGHT_PLOTS = {

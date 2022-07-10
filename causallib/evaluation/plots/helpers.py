@@ -39,12 +39,13 @@ def plot_evaluation_results(results, X, a, y, plot_names="all", phase=None, ax=N
             results=results, X=X, a=a, y=y, plot_name=plot_names, phase=phase, ax=ax
         )
     phases_to_plot = results.predictions.keys() if phase is None else [phase]
-    return {
+    multipanel_plot = {
         plotted_phase: _make_multipanel_evaluation_plot(
             results=results, X=X, a=a, y=y, plot_names=plot_names, phase=plotted_phase
         )
         for plotted_phase in phases_to_plot
     }
+    return multipanel_plot
 
 
 def _make_multipanel_evaluation_plot(results, X, a, y, plot_names, phase):
@@ -58,7 +59,9 @@ def _make_multipanel_evaluation_plot(results, X, a, y, plot_names, phase):
     for i, name in enumerate(plot_names):
         ax = phase_axes[i]
         try:
-            plot_ax = _make_single_panel_evaluation_plot(results, X, a, y, name, phase, ax)
+            plot_ax = _make_single_panel_evaluation_plot(
+                results, X, a, y, name, phase, ax
+            )
         except Exception as e:
             warnings.warn(f"Failed to plot {name} with error {e}")
             plot_ax = None
