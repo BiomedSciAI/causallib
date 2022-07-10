@@ -30,27 +30,27 @@ from .results import EvaluationResults
 from .scoring import score_cv
 
 
-def _make_dummy_cv(N):
+def _make_dummy_cv(n_samples):
     phases = ["train"]  # dummy phase
     # All DataFrame rows when using iloc
-    cv = pd.RangeIndex(start=0, stop=N)
+    cv = pd.RangeIndex(start=0, stop=n_samples)
     cv = [(cv, cv)]  # wrap in a tuple format compatible with sklearn's cv output
     return phases, cv
 
 
-def _make_bootstrap_cv(N, n_bootstrap, n_samples, replace):
+def _make_bootstrap_cv(n_samples_total, n_bootstrap, n_samples_bootstrap, replace):
     # Evaluation using bootstrap
     phases = ["train"]  # dummy phase
 
     # Generate bootstrap sample:
     cv = []
     # All DataFrame rows when using iloc
-    X_ilocs = pd.RangeIndex(start=0, stop=N)
+    X_ilocs = pd.RangeIndex(start=0, stop=n_samples_total)
     for _ in range(n_bootstrap):
         # Get iloc positions of a bootstrap sample (sample the size of X with replacement):
         # idx = X.sample(n=X.shape[0], replace=True).index
         # idx = np.random.random_integers(low=0, high=X.shape[0], size=X.shape[0])
-        idx = np.random.choice(X_ilocs, size=n_samples, replace=replace)
+        idx = np.random.choice(X_ilocs, size=n_samples_bootstrap, replace=replace)
         # wrap in a tuple format compatible with sklearn's cv output
         cv.append((idx, idx))
     return phases, cv
@@ -240,10 +240,12 @@ def evaluate_bootstrap(
     Returns:
         EvaluationResults
     """
-    if n_samples is None:
-        n_samples = X.shape[0]
+    n_samples_total = X.shape[0]
 
-    phases, cv = _make_bootstrap_cv(X.shape[0], n_bootstrap, n_samples, replace)
+    if n_samples is None:
+        n_samples = n_samples_total
+
+    phases, cv = _make_bootstrap_cv(n_samples_total, n_bootstrap, n_samples, replace)
 
     results = _evaluate_cv(
         estimator,
