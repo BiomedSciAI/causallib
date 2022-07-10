@@ -145,11 +145,11 @@ class WeightPredictor(BasePredictor):
             )
         super().__init__(estimator)
 
-    def _estimator_fit(self, X, a, y=None):
+    def fit(self, X, a, y=None):
         """Fit estimator. `y` is ignored."""
         self.estimator.fit(X=X, a=a)
 
-    def _estimator_predict(self, X, a):
+    def predict(self, X, a):
         """Predict on data.
 
         Args:
@@ -264,7 +264,7 @@ class PropensityPredictor(WeightPredictor):
             )
         super().__init__(estimator)
 
-    def _estimator_predict(self, X, a):
+    def predict(self, X, a):
         """Predict on data.
 
         Args:
@@ -280,7 +280,7 @@ class PropensityPredictor(WeightPredictor):
             propensity_by_treatment_assignment, a
         )
 
-        weight_prediction = super()._estimator_predict(X, a)
+        weight_prediction = super().predict(X, a)
         # Do not force stabilize=False as in WeightEvaluator:
         weight_by_treatment_assignment = self.estimator.compute_weights(X, a)
         prediction = PropensityEvaluatorPredictions(

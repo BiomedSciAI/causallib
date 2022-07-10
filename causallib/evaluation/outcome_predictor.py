@@ -189,11 +189,11 @@ class OutcomePredictor(BasePredictor):
             )
         super().__init__(estimator)
 
-    def _estimator_fit(self, X, a, y):
+    def fit(self, X, a, y):
         """Fit estimator."""
         self.estimator.fit(X=X, a=a, y=y)
 
-    def _estimator_predict(self, X, a):
+    def predict(self, X, a):
         """Predict on data."""
         prediction = self.estimator.estimate_individual_outcome(
             X, a, predict_proba=False

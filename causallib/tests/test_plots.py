@@ -15,7 +15,7 @@
 # Created on Nov 12, 2020
 
 from sklearn.linear_model import LogisticRegression, LinearRegression
-from causallib.evaluation import Evaluator, plot_evaluation_results
+from causallib.evaluation import evaluate, plot_evaluation_results
 from causallib.estimation import AIPW, IPW, StratifiedStandardization
 from causallib.datasets import load_nhefs
 import unittest
@@ -33,39 +33,23 @@ class TestPlots(unittest.TestCase):
         std = StratifiedStandardization(LinearRegression())
         self.dr = AIPW(std, ipw)
         self.dr.fit(self.data.X, self.data.a, self.data.y)
-        self.prp_evaluator = Evaluator(self.dr.weight_model)
-        self.out_evaluator = Evaluator(self.dr.outcome_model)
 
     def propensity_plot_by_name(self, test_names, alternate_a=None):
         a = self.data.a if alternate_a is None else alternate_a
-        nhefs_results = self.prp_evaluator.evaluate_simple(
-            self.data.X,
-            a,
-            self.data.y,
+        results = evaluate(self.dr.weight_model, self.data.X, a, self.data.y)
+        plots = plot_evaluation_results(
+            results, X=self.data.X, a=a, y=self.data.y, plot_names=test_names
         )
-        nhefs_plots = plot_evaluation_results(
-            nhefs_results,
-            X=self.data.X,
-            a=a,
-            y=self.data.y,
-            plot_names=test_names,
-        )
-        [self.assertIsNotNone(x) for x in nhefs_plots.values()]
+        [self.assertIsNotNone(x) for x in plots.values()]
         return True
 
     def outcome_plot_by_name(self, test_names):
-        nhefs_results = self.out_evaluator.evaluate_simple(
-            self.data.X, self.data.a, self.data.y
-        )
-        nhefs_plots = plot_evaluation_results(
-            nhefs_results,
-            X=self.data.X,
-            a=self.data.a,
-            y=self.data.y,
-            plot_names=test_names,
+        results = evaluate(self.dr.outcome_model, self.data.X, self.data.a, self.data.y)
+        plots = plot_evaluation_results(
+            results, X=self.data.X, a=self.data.a, y=self.data.y, plot_names=test_names
         )
 
-        [self.assertIsNotNone(x) for x in nhefs_plots.values()]
+        [self.assertIsNotNone(x) for x in plots.values()]
         return True
 
     def propensity_plot_multiple_a(self, test_names):
