@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import pandas as pd
-from typing import Optional, Any, Callable
+from typing import Optional, Any
 from causallib.time_varying.base import GMethodBase
 from causallib.time_varying.treament_strategy import TreatmentStrategy
 from causallib.utils import general_tools as g_tools
@@ -119,7 +119,7 @@ class GFormula(GMethodBase):
             for _idx in range(self.n_steps):
                 t = _idx + n_obsv - 1  # + 1
 
-                out = self._predict(x_t, t)  # TODO
+                out = self._predict(x_t, a, t)  # TODO
                 # this is X --> becomes prev_X for next round
                 if t < n_margin - 1:
                     sim_t = out[:, -1, :].unsqueeze(1)
@@ -136,7 +136,7 @@ class GFormula(GMethodBase):
 
                 # prediction
                 actual_t = X[:, :(t + 1), :]
-                out = self._predict(actual_t, t)
+                out = self._predict(actual_t, a,  t)
                 pred_t = out[:, -1, :].unsqueeze(1)
 
                 simulation['actions'].append(act_t)
@@ -152,6 +152,7 @@ class GFormula(GMethodBase):
             simulation['actions'] = T.cat(simulation['actions'], dim=1)  # N_sim * n_steps * F-act
             simulation['prediction'] = T.cat(simulation['prediction'], dim=1)
             simulation['covariates'] = T.cat(simulation['covariates'], dim=1)  # N_sim * n_steps * F-act
+        # return simulation
         # return res
 
     def estimate_population_outcome(self,
@@ -185,7 +186,6 @@ class GFormula(GMethodBase):
         residuals = self.resid_val
         mode = self.mode if self.mode else "empirical"
 
-        import torch as T #TODO remove torch dependency
         """adding noise to a box output
            out: bs * 1 * <F-box>
            t: time
@@ -239,34 +239,43 @@ class GFormula(GMethodBase):
         sample = val_arr[choice, :]
         return sample
 
-    def _prepare_data(self, X, a, t, y):
-        pass
+    def _prepare_data(self, X, a, t):
+        return NotImplementedError
+        cur_X = pd.concat([a, X, t], join="outer", axis="columns")
+        return cur_X
 
     def _init_models(self):
         raise NotImplementedError
 
-        #FIXME
-        # if init_hidden is not None:
-        #     if hasattr(model.model, 'init_hidden'):
-        #         hidden = model.model.init_hidden(batch_size=n_sims, device=model.device)
-        #         hidden_p = model.model.init_hidden(batch_size=n_sims, device=model.device)
-        #     else:
-        #         # assuming callable
-        #         hidden = init_hidden(n_sims, model.model._hidden_size)  # None
-        #         hidden_p = init_hidden(n_sims, model.model._hidden_size)  # None
-        # else:
-        #     hidden = None
-        #     hidden_p = None
+        for model in self.covariate_models:
+            model.init()
+        self.treatment_model.init()
+        self.outcome_model.init()
 
-    def _predict(self, X, t):
-        if hasattr(self.covariate_models[0].model, 'reset_mask'):
-            self.covariate_models[0].model.reset_mask()
-        if t == 0:
-            (out, hidden) = self.covariate_models[0].forward(X, lengths=None)  # all data is true till n_obsv
-        else:
-            (out, hidden) = self.covariate_models[0].forward(X[:, -1, :].unsqueeze(1), lengths=None)  # all data is true till n_obsv
-        return out, hidden
+    def _predict(self, X, a, t):
+        raise NotImplementedError
 
+        input = _prepare_data(X, a, t)
+        out = dict()
+        pred = dict()
+
+        # if hidden is None:
+        #     hidden = dict()
+
+        for cov in self.covariate_models:
+            # _hidden = hidden.get(cov, None)
+            d_type_dict = dict(input.dtypes)
+            if d_type_dict[cov] == 'float':
+                _pred = self.covariate_models[cov].predict(input)
+            elif d_type_dict[cov] == 'bool':
+                _out = self.covariate_models[cov].predict_proba(input)
+            else:
+                raise ValueError("Data type error. {0}, is not supported".format(d_type_dict[cov]))
+            out[cov] = _out
+            pred[cov] = _pred
+            # hidden[cov] = _hidden
+
+        return out, pred, hidden
 
 
 
