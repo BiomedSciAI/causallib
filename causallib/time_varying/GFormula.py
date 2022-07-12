@@ -6,7 +6,7 @@ from causallib.time_varying.base import GMethodBase
 from causallib.time_varying.treament_strategy import TreatmentStrategy
 from causallib.utils import general_tools as g_tools
 import numpy as np
-import torch as T #TODO remove torch dependency
+import torch as T  # TODO remove torch dependency
 
 
 class GFormula(GMethodBase):
@@ -37,7 +37,7 @@ class GFormula(GMethodBase):
         if kwargs is None:
             kwargs = {}
 
-        #TODO More to work on preparing data to be fed into the model
+        # TODO More to work on preparing data to be fed into the model
         treatment_model_is_not_fitted = not g_tools.check_learner_is_fitted(self.treatment_model.learner)
         if refit_models or treatment_model_is_not_fitted:
             self.treatment_model.fit(X, a, y, **kwargs)
@@ -52,10 +52,9 @@ class GFormula(GMethodBase):
         self.outcome_model.fit(X, a, y, **kwargs)
         return
 
-
-    def estimate_individual_outcome(self, 
-                                    X: pd.DataFrame, 
-                                    a: pd.Series, 
+    def estimate_individual_outcome(self,
+                                    X: pd.DataFrame,
+                                    a: pd.Series,
                                     t: Optional[pd.Series] = None,
                                     y: Optional[Any] = None,
                                     treatment_strategy: TreatmentStrategy = None,
@@ -63,7 +62,24 @@ class GFormula(GMethodBase):
                                     timeline_end: Optional[int] = None
                                     ) -> pd.DataFrame:
 
-        # raise NotImplementedError
+        raise NotImplementedError
+        group_by_field = 'pat_id'
+        unique_patient_ids = X[group_by_field].unique()
+        res = {}
+        for pat_id in unique_patient_ids:
+            pat_data = X.loc[X[group_by_field] == pat_id]
+            pat_a = a.loc[a[group_by_field] == pat_id]
+            pat_y = y.loc[y[group_by_field] == pat_id]
+            individual_prediction_curves = self._estimate_individual_outcome_patient_level(X=pat_data,
+                                                                                           a=pat_a,
+                                                                                           t=t,
+                                                                                           y=pat_y,
+                                                                                           timeline_start=timeline_start,
+                                                                                           timeline_end=timeline_end)
+            res[pat_id] = individual_prediction_curves.mean(axis='columns')
+        return pd.DataFrame(res)
+
+    def _estimate_individual_outcome_patient_level(self, X, a, t, y, treatment_strategy) -> pd.DataFrame:
 
         # min_time = timeline_start if timeline_start is not None else int(t.min())
         # max_time = timeline_end if timeline_end is not None else int(t.max())
@@ -71,7 +87,8 @@ class GFormula(GMethodBase):
         # n_steps = len(contiguous_times)
         # unique_treatment_values = a.unique()
         # res = pd.DataFrame()
-
+        # if self.seed is not None:
+        #     pl.seed_everything(self.seed)
         simulation = dict(actions=list(),
                           # expectations=list(),
                           prediction=list(),
@@ -83,10 +100,6 @@ class GFormula(GMethodBase):
 
         n_margin = self.n_obsv
         n_obsv = 1
-
-        # if self.seed is not None:
-        #     pl.seed_everything(self.seed)
-
         X = X.unsqueeze(0)
         a = a.unsqueeze(0)
         lengths = np.array([len(X), ])
@@ -112,21 +125,21 @@ class GFormula(GMethodBase):
         x_t = T.cat([x_t[:, :-1, :], last_t.unsqueeze(1)], axis=1)  # bs * n_obsv * F
 
         # init all the models
-        self._init_models() #TODO
+        self._init_models()  # TODO
 
         # Simulate
         with T.no_grad():
             for _idx in range(self.n_steps):
                 t = _idx + n_obsv - 1  # + 1
 
-                out = self._predict(x_t, a, t)  # TODO
+                out = self._sample_one_covariate(x_t, a)  # TODO
                 # this is X --> becomes prev_X for next round
                 if t < n_margin - 1:
                     sim_t = out[:, -1, :].unsqueeze(1)
                     new_t = X[:, (t + 1), :].unsqueeze(1)
                     act_t = new_t[..., -1].view(-1, 1, 1)  # bs * 1 * 1
                 else:
-                    sim_t = self._apply_noise(out[:, -1, :].unsqueeze(1), t) # bs * 1 * 1
+                    sim_t = self._apply_noise(out[:, -1, :].unsqueeze(1), t)  # bs * 1 * 1
 
                     # this is A becomes prev_A
                     prev_act = x_t[:, -1, -1].unsqueeze(1).unsqueeze(1)  # bs * 1 * 1
@@ -136,14 +149,14 @@ class GFormula(GMethodBase):
 
                 # prediction
                 actual_t = X[:, :(t + 1), :]
-                out = self._predict(actual_t, a,  t)
+                out = self._sample_one_covariate(actual_t, a, t)
                 pred_t = out[:, -1, :].unsqueeze(1)
 
                 simulation['actions'].append(act_t)
                 simulation['covariates'].append(sim_t)
                 simulation['prediction'].append(pred_t)
                 simulation['time'].append(t)
-                if t <= n_margin: # and debug:  # == 11:
+                if t <= n_margin:  # and debug:  # == 11:
                     # print(T.allclose(hidden[0], hidden_p[0]))
                     # print(T.allclose(hidden[1], hidden_p[1]))
                     print(T.cat(simulation['prediction'], dim=1).squeeze())
@@ -153,7 +166,6 @@ class GFormula(GMethodBase):
             simulation['prediction'] = T.cat(simulation['prediction'], dim=1)
             simulation['covariates'] = T.cat(simulation['covariates'], dim=1)  # N_sim * n_steps * F-act
         # return simulation
-        # return res
 
     def estimate_population_outcome(self,
                                     X: pd.DataFrame,
@@ -165,16 +177,15 @@ class GFormula(GMethodBase):
                                     timeline_end: Optional[int] = None
                                     ) -> pd.DataFrame:
 
-        raise NotImplementedError
-
         unique_treatment_values = a.unique()
         res = {}
         for treatment_value in unique_treatment_values:
             assignment = pd.Series(data=treatment_value, index=X.index, name=a.name)
-            individual_survival_curves = self.estimate_individual_outcome(X=X, a=assignment, t=t,
-                                                                          timeline_start=timeline_start,
-                                                                          timeline_end=timeline_end)
-            res[treatment_value] = individual_survival_curves.mean(axis='columns')
+            individual_prediction_curves = self.estimate_individual_outcome(X=X, a=assignment, t=t, y=y,
+                                                                            treatment_strategy=treatment_strategy,
+                                                                            timeline_start=timeline_start,
+                                                                            timeline_end=timeline_end)
+            res[treatment_value] = individual_prediction_curves.mean(axis='columns')
         res = pd.DataFrame(res)
 
         # Setting index/column names
@@ -239,10 +250,10 @@ class GFormula(GMethodBase):
         sample = val_arr[choice, :]
         return sample
 
-    def _prepare_data(self, X, a, t):
+    def _prepare_data(self, X, a):
         return NotImplementedError
-        cur_X = pd.concat([a, X, t], join="outer", axis="columns")
-        return cur_X
+        X = pd.concat([a, X], join="outer", axis="columns")
+        return X
 
     def _init_models(self):
         raise NotImplementedError
@@ -252,30 +263,31 @@ class GFormula(GMethodBase):
         self.treatment_model.init()
         self.outcome_model.init()
 
-    def _predict(self, X, a, t):
+    def _sample_one_covariate(self, X, a):
         raise NotImplementedError
 
-        input = _prepare_data(X, a, t)
-        out = dict()
+        all_cov = _prepare_data(X, a)
+        d_type_dict = dict(all_cov.dtypes)
         pred = dict()
 
-        # if hidden is None:
-        #     hidden = dict()
-
+        #Example [x1, x2, x3]
+        #{
+        # x1: LinearRegression
+        # x2: LinearRegression
+        # x3: LogisticRegression
+        # }
         for cov in self.covariate_models:
-            # _hidden = hidden.get(cov, None)
-            d_type_dict = dict(input.dtypes)
+            _input = all_cov.drop(cov, axis=1)
+            all_cov
+
             if d_type_dict[cov] == 'float':
-                _pred = self.covariate_models[cov].predict(input)
+                _pred = self.covariate_models[cov].predict(_input)
+                _pred = pd.Series(_pred, index=_input.index, name=cov)
             elif d_type_dict[cov] == 'bool':
-                _out = self.covariate_models[cov].predict_proba(input)
+                _pred = self.covariate_models[cov].predict_proba(_input)
+                _pred = pd.DataFrame(_pred, index=_inputindex, columns=estimator.classes_)
             else:
                 raise ValueError("Data type error. {0}, is not supported".format(d_type_dict[cov]))
-            out[cov] = _out
             pred[cov] = _pred
-            # hidden[cov] = _hidden
 
-        return out, pred, hidden
-
-
-
+        return pd.DataFrame.from_dict(pred)
