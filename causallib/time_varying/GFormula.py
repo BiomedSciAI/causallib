@@ -131,25 +131,27 @@ class GFormula(GMethodBase):
         with T.no_grad():
             for _idx in range(self.n_steps):
                 t = _idx + n_obsv - 1  # + 1
-
-                out = self._sample_one_covariate(x_t, a)  # TODO
-                # this is X --> becomes prev_X for next round
-                if t < n_margin - 1:
-                    sim_t = out[:, -1, :].unsqueeze(1)
-                    new_t = X[:, (t + 1), :].unsqueeze(1)
-                    act_t = new_t[..., -1].view(-1, 1, 1)  # bs * 1 * 1
-                else:
-                    sim_t = self._apply_noise(out[:, -1, :].unsqueeze(1), t)  # bs * 1 * 1
-
-                    # this is A becomes prev_A
-                    prev_act = x_t[:, -1, -1].unsqueeze(1).unsqueeze(1)  # bs * 1 * 1
-                    act_t = treatment_strategy(sim_t[:, -1, 0], sim_t[:, :, 0], a_t[:, -1, 1])
-                    new_t = T.cat([sim_t, prev_act, act_t], axis=-1)  # .unsqueeze(1) # bs * 1 * F
-                x_t = T.cat([x_t, new_t], axis=1)  # bs * (t + 1) * F
+                # out = self._predict(x_t, a)  # TODO
+                # # this is X --> becomes prev_X for next round
+                # if t < n_margin - 1:
+                #     sim_t = out[:, -1, :].unsqueeze(1)
+                #     new_t = X[:, (t + 1), :].unsqueeze(1)
+                #     act_t = new_t[..., -1].view(-1, 1, 1)  # bs * 1 * 1
+                # else:
+                #     sim_t = self._apply_noise(out[:, -1, :].unsqueeze(1), t)  # bs * 1 * 1
+                #
+                #     # this is A becomes prev_A
+                #     prev_act = x_t[:, -1, -1].unsqueeze(1).unsqueeze(1)  # bs * 1 * 1
+                #     act_t = treatment_strategy(sim_t[:, -1, 0], sim_t[:, :, 0], a_t[:, -1, 1])
+                #     new_t = T.cat([sim_t, prev_act, act_t], axis=-1)  # .unsqueeze(1) # bs * 1 * F
+                # x_t = T.cat([x_t, new_t], axis=1)  # bs * (t + 1) * F
+                sim_t, act_t = self._predict(x_t, a, t, n_margin, treatment_strategy)  # TODO
 
                 # prediction
                 actual_t = X[:, :(t + 1), :]
-                out = self._sample_one_covariate(actual_t, a, t)
+                # out = self._predict(actual_t, a, t)
+                out = self._predict(actual_t, a, t, n_margin, treatment_strategy)
+
                 pred_t = out[:, -1, :].unsqueeze(1)
 
                 simulation['actions'].append(act_t)
@@ -263,31 +265,35 @@ class GFormula(GMethodBase):
         self.treatment_model.init()
         self.outcome_model.init()
 
-    def _sample_one_covariate(self, X, a):
+    def _predict(self, X, a, t, n_margin, treatment_strategy):
         raise NotImplementedError
 
         all_cov = _prepare_data(X, a)
         d_type_dict = dict(all_cov.dtypes)
-        pred = dict()
 
-        #Example [x1, x2, x3]
-        #{
-        # x1: LinearRegression
-        # x2: LinearRegression
-        # x3: LogisticRegression
-        # }
         for cov in self.covariate_models:
             _input = all_cov.drop(cov, axis=1)
-            all_cov
-
             if d_type_dict[cov] == 'float':
                 _pred = self.covariate_models[cov].predict(_input)
-                _pred = pd.Series(_pred, index=_input.index, name=cov)
             elif d_type_dict[cov] == 'bool':
                 _pred = self.covariate_models[cov].predict_proba(_input)
-                _pred = pd.DataFrame(_pred, index=_inputindex, columns=estimator.classes_)
             else:
                 raise ValueError("Data type error. {0}, is not supported".format(d_type_dict[cov]))
-            pred[cov] = _pred
 
-        return pd.DataFrame.from_dict(pred)
+            if t < n_margin - 1:
+                sim_t = _pred[:, -1, :].unsqueeze(1)
+                # concatenate newly simulated value of each covariate in original input maintaining order
+                # _input =
+                # act_t = take the next action
+            else:
+                sim_t = self._apply_noise(_pred[:, -1, :].unsqueeze(1), t)  # bs * 1 * 1
+                # concatenate newly simulated value of each covariate in original input maintaining order
+                # _input =
+                act_t = treatment_strategy(_input[:, -1, :], _input[:, :, :], _input[:, -1, 1])
+            # concatenate act_t in original input
+            # _input =
+
+        a_pred = self.treatment_model.predict(_input)
+        # drop treatment from _input
+        sim_all_cov = _input.drop(a.name, axis=1)
+        return sim_all_cov, a_pred
