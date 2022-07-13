@@ -566,7 +566,7 @@ class Matching(IndividualOutcomeEstimator):
 
         return metric_dict
 
-    def _kneighbors(self, knn, source_df):
+    def _kneighbors(self, knn, source_df, n_neighbors):
         """Lookup neighbors in knn object.
 
         Args:
@@ -575,6 +575,7 @@ class Matching(IndividualOutcomeEstimator):
                original df index.
            source_df (pd.DataFrame) : a DataFrame of source data points to use
                as "needles" for the knn "haystack."
+           n_neighbors
 
         Returns:
             match_df (pd.DataFrame) : a DataFrame of matches
@@ -584,7 +585,7 @@ class Matching(IndividualOutcomeEstimator):
         source_array = self._ensure_array_columnlike(source_array)
 
         distances, neighbor_array_indices = knn.learner.kneighbors(
-            source_array, n_neighbors=self.n_neighbors
+            source_array, n_neighbors=n_neighbors
         )
 
         return self._generate_match_df(
@@ -673,7 +674,17 @@ class Matching(IndividualOutcomeEstimator):
         matches = {}  # maps treatment value to list of matches TO that value
 
         for treatment_value, knn in self.treatment_knns_.items():
-            matches[treatment_value] = self._kneighbors(knn, X)
+            n_matchable = sum(a==treatment_value)
+            if n_matchable < self.n_neighbors:
+                n_neighbors = n_matchable
+                warnings.warn(
+                    f"Not enough matchable samples in treatment group {treatment_value}. "
+                    f"Reducing `n_neighbors` for this direction to {n_neighbors}."
+                )
+            else:
+                n_neighbors = self.n_neighbors
+
+            matches[treatment_value] = self._kneighbors(knn, X, n_neighbors)
             # when producing potential outcomes we may want to force the
             # value of the observed outcome to be the actual observed
             # outcome, and not an average of the k nearest samples.
