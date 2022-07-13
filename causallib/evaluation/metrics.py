@@ -146,7 +146,8 @@ def evaluate_regression_metrics(
             )
         except ValueError as v:
             evaluated_metrics[metric_name] = np.nan
-            warnings.warn("While evaluating " + metric_name + ": " + str(v))
+            warnings.warn(f"metric {metric_name} could not be evaluated")
+            warnings.warn(str(v))
     return pd.Series(evaluated_metrics)
 
 
