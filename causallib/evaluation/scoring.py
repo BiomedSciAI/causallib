@@ -77,9 +77,9 @@ def score_estimation(prediction, X, a_true, y_true, metrics_to_evaluate=None):
 
     if isinstance(prediction, OutcomePredictions):
         return prediction.evaluate_metrics(a_true, y_true, metrics_to_evaluate)
+
     # propensity and weight both have the same interface
     # no need to differentiate
-
     if isinstance(
         prediction, (PropensityPredictions, WeightPredictions)
     ):
