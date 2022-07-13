@@ -28,25 +28,26 @@ matplotlib.use("Agg")
 class TestPlots(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-        self.data = load_nhefs()
+        data = load_nhefs()
+        self.X, self.a, self.y = data.X, data.a, data.y
         ipw = IPW(LogisticRegression(solver="liblinear"), clip_min=0.05, clip_max=0.95)
         std = StratifiedStandardization(LinearRegression())
         self.dr = AIPW(std, ipw)
-        self.dr.fit(self.data.X, self.data.a, self.data.y)
+        self.dr.fit(self.X, self.a, self.y)
+        self.outcome_results = evaluate(self.dr.outcome_model, self.X, self.a, self.y)
 
     def propensity_plot_by_name(self, test_names, alternate_a=None):
-        a = self.data.a if alternate_a is None else alternate_a
-        results = evaluate(self.dr.weight_model, self.data.X, a, self.data.y)
+        a = self.a if alternate_a is None else alternate_a
+        results = evaluate(self.dr.weight_model, self.X, a, self.y)
         plots = plot_evaluation_results(
-            results, X=self.data.X, a=a, y=self.data.y, plot_names=test_names
+            results, X=self.X, a=a, y=self.y, plot_names=test_names
         )
         [self.assertIsNotNone(x) for x in plots.values()]
         return True
 
     def outcome_plot_by_name(self, test_names):
-        results = evaluate(self.dr.outcome_model, self.data.X, self.data.a, self.data.y)
         plots = plot_evaluation_results(
-            results, X=self.data.X, a=self.data.a, y=self.data.y, plot_names=test_names
+            self.outcome_results, X=self.X, a=self.a, y=self.y, plot_names=test_names
         )
 
         [self.assertIsNotNone(x) for x in plots.values()]
@@ -54,16 +55,12 @@ class TestPlots(unittest.TestCase):
 
     def propensity_plot_multiple_a(self, test_names):
         self.assertTrue(
-            self.propensity_plot_by_name(
-                test_names, alternate_a=self.data.a.astype(int)
-            )
+            self.propensity_plot_by_name(test_names, alternate_a=self.a.astype(int))
         )
         self.assertTrue(
-            self.propensity_plot_by_name(
-                test_names, alternate_a=self.data.a.astype(float)
-            )
+            self.propensity_plot_by_name(test_names, alternate_a=self.a.astype(float))
         )
-        # self.assertTrue(self.propensity_plot_by_name(test_names, alternate_a=self.data.a.astype(str).factorize()))
+        # self.assertTrue(self.propensity_plot_by_name(test_names, alternate_a=self.a.astype(str).factorize()))
 
     def test_weight_distribution_plot(self):
         self.propensity_plot_multiple_a(["weight_distribution"])
@@ -82,7 +79,12 @@ class TestPlots(unittest.TestCase):
 
     def test_accuracy_plot(self):
         self.assertTrue(
-            self.outcome_plot_by_name(["common_support", "continuous_accuracy"])
+            self.outcome_plot_by_name(
+                [
+                    self.outcome_results.plot_names.common_support,
+                    self.outcome_results.plot_names.continuous_accuracy,
+                ]
+            )
         )
 
 
