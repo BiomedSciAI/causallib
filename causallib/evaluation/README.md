@@ -31,11 +31,12 @@ plot_evaluation_results(res, data.X, data.a, data.y)
 This will train the models and create evaluation plots
 showing the performance on both the training and validation data.
 
-To select specific plots only, select a plot from `available_plot_names`
+To select specific plots only, select a plot from `all_plot_names` or with
+introspection and tab-completion from the `plot_names` member.
 
 ```python
-print(res.available_plot_names)
+print(res.all_plot_names)
 # {'weight_distribution', 'pr_curve', 'covariate_balance_love', 'roc_curve', 'calibration', 'covariate_balance_slope'}
 from causallib.evaluation import plot_single_evaluation_result
-plot_single_evaluation_result(res, data.X, data.a, data.y, "covariate_balance_love", "valid")
+plot_single_evaluation_result(res, data.X, data.a, data.y, res.plot_names.covariate_balance_love, "valid")
 ```

@@ -16,7 +16,9 @@ limitations under the License.
 Created on Aug 22, 2018
 
 """
+from dataclasses import dataclass
 from itertools import cycle
+from typing import Callable
 import warnings
 
 import matplotlib.colors
@@ -34,22 +36,72 @@ from sklearn import metrics
 #       instead of "magics" in the Evaluator module
 # TODO: consider making plots to not rely on pandas input (and can work more generally with numpy)?
 # TODO: consider refactoring each type (family?) of plots to its own module (unify through __init__?)
-# TODO: consider making the Evaluator able to plot each plot separately?
 # TODO: consider making plot module be class-based instead, taking its argument during init
 #       and having a `plot()` interface
 
+CONTINUOUS_ACCURACY_PLOT = "continuous_accuracy"
+RESIDUALS_PLOT = "residuals"
+COMMON_SUPPORT_PLOT = "common_support"
+ROC_CURVE_PLOT = "roc_curve"
+PR_CURVE_PLOT = "pr_curve"
+CALIBRATION_PLOT = "calibration"
+WEIGHT_DISTRIBUTION_PLOT = "weight_distribution"
+COVARIATE_BALANCE_LOVE_PLOT = "covariate_balance_love"
+COVARIATE_BALANCE_SLOPE_PLOT = "covariate_balance_slope"
 
-def lookup_name(name: str):
+
+@dataclass(frozen=True)
+class WeightPlotNames:
+    weight_distribution: str = WEIGHT_DISTRIBUTION_PLOT
+    roc_curve: str = ROC_CURVE_PLOT
+    pr_curve: str = PR_CURVE_PLOT
+    covariate_balance_love: str = COVARIATE_BALANCE_LOVE_PLOT
+    covariate_balance_slope: str = COVARIATE_BALANCE_SLOPE_PLOT
+
+
+@dataclass(frozen=True)
+class PropensityPlotNames(WeightPlotNames):
+    weight_distribution: str = WEIGHT_DISTRIBUTION_PLOT
+    calibration: str = CALIBRATION_PLOT
+
+
+@dataclass(frozen=True)
+class ContinuousOutputPlotNames:
+    continuous_accuracy: str = CONTINUOUS_ACCURACY_PLOT
+    residuals: str = RESIDUALS_PLOT
+    common_support: str = COMMON_SUPPORT_PLOT
+
+
+@dataclass(frozen=True)
+class BinaryOutputPlotNames:
+    calibration: str = CALIBRATION_PLOT
+    roc_curve: str = ROC_CURVE_PLOT
+    pr_curve: str = PR_CURVE_PLOT
+
+
+def lookup_name(name: str) -> Callable:
+    """Lookup function for plot name.
+
+    Canonical plot names are defined in this file as globals.
+    Incorrect names will raise KeyError.
+
+    Args:
+        name (str): plot name to lookup
+
+    Returns:
+        Callable: plot function
+    """
+ 
     return {
-        "continuous_accuracy": plot_continuous_prediction_accuracy_folds,
-        "residuals": plot_residual_folds,
-        "common_support": plot_counterfactual_common_support_folds,
-        "roc_curve": plot_roc_curve_folds,
-        "pr_curve": plot_precision_recall_curve_folds,
-        "calibration": plot_calibration_folds,
-        "weight_distribution": plot_propensity_score_distribution_folds,
-        "covariate_balance_love": plot_mean_features_imbalance_love_folds,
-        "covariate_balance_slope": plot_mean_features_imbalance_slope_folds,
+        CONTINUOUS_ACCURACY_PLOT: plot_continuous_prediction_accuracy_folds,
+        RESIDUALS_PLOT: plot_residual_folds,
+        COMMON_SUPPORT_PLOT: plot_counterfactual_common_support_folds,
+        ROC_CURVE_PLOT: plot_roc_curve_folds,
+        PR_CURVE_PLOT: plot_precision_recall_curve_folds,
+        CALIBRATION_PLOT: plot_calibration_folds,
+        WEIGHT_DISTRIBUTION_PLOT: plot_propensity_score_distribution_folds,
+        COVARIATE_BALANCE_LOVE_PLOT: plot_mean_features_imbalance_love_folds,
+        COVARIATE_BALANCE_SLOPE_PLOT: plot_mean_features_imbalance_slope_folds,
     }[name]
 
 

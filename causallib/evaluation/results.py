@@ -1,7 +1,7 @@
 """Evaluation results objects for plotting and further analysis."""
 
 import abc
-from dataclasses import dataclass
+import dataclasses
 from typing import Dict, List, Tuple, Union
 
 import pandas as pd
@@ -12,11 +12,8 @@ from ..estimation.base_weight import PropensityEstimator, WeightEstimator
 from ..utils.stat_utils import is_vector_binary
 from .metrics import calculate_covariate_balance
 from .outcome_predictor import OutcomePredictions
-from .plots.helpers import (
-    calculate_performance_curve_data_on_folds,
-    calculate_pr_curve,
-    calculate_roc_curve,
-)
+from .plots import helpers, plots
+
 from .weight_predictor import (
     PropensityPredictions,
     WeightPredictions,
@@ -28,7 +25,7 @@ SingleFoldPrediction = Union[
 ]
 
 
-@dataclass
+@dataclasses.dataclass
 class EvaluationResults:
     """Data structure to hold evaluation results including cross-validation.
 
@@ -78,19 +75,27 @@ class EvaluationResults:
         )
 
     @property
-    def available_plot_names(self):
+    def all_plot_names(self):
         """Available plot names.
 
         Returns:
             set[str]: string names of supported plot names for these results
         """
-        return self.extractor.available_plot_names
+        return set(dataclasses.astuple(self.extractor.plot_names))
+
+    @property
+    def plot_names(self):
+        """Dataclass with attributes encoding the available plot names.
+        
+        Provided for introspection and typo-proofing.
+        """
+        return self.extractor.plot_names
 
     def get_data_for_plot(self, plot_name, X, a, y, phase="train"):
         """Get data for a given plot
 
         Args:
-            plot_name (str): plot name from `self.available_plot_names`
+            plot_name (str): plot name from `self.all_plot_names`
             X (pd.DataFrame): feature data
             a (pd.Series): treatment assignment vector
             y (pd.Series): outcome data
@@ -103,9 +108,10 @@ class EvaluationResults:
 
 
 class BaseEvaluationPlotDataExtractor(abc.ABC):
-    """Extractor to get plot data from EvaluationResults."""
+    """Extractor to get plot data from EvaluationResults.
 
-    available_plot_names = set()
+    Subclasses also have a `plot_names` property.
+    """
 
     def __init__(self, evaluation_results: EvaluationResults):
         self.predictions = evaluation_results.predictions
@@ -130,13 +136,7 @@ class BaseEvaluationPlotDataExtractor(abc.ABC):
 class WeightPlotDataExtractor(BaseEvaluationPlotDataExtractor):
     """Extractor to get plot data from WeightEvaluatorPredictions."""
 
-    available_plot_names = {
-        "weight_distribution",
-        "roc_curve",
-        "pr_curve",
-        "covariate_balance_love",
-        "covariate_balance_slope",
-    }
+    plot_names = plots.WeightPlotNames()
 
     def get_data_for_plot(self, plot_name, X, a, y, phase="train"):
         """Retrieve the data needed for each provided plot.
@@ -154,14 +154,14 @@ class WeightPlotDataExtractor(BaseEvaluationPlotDataExtractor):
         """
 
         folds_predictions = self.predictions[phase]
-        if plot_name in {"weight_distribution"}:
+        if plot_name in {self.plot_names.weight_distribution}:
             return [p.weight_for_being_treated for p in folds_predictions], a
 
-        elif plot_name in {"roc_curve"}:
+        elif plot_name in {self.plot_names.roc_curve}:
             curve_data = self.calculate_curve_data(
                 folds_predictions, a, metrics.roc_curve, metrics.roc_auc_score
             )
-            roc_curve = calculate_roc_curve(curve_data)
+            roc_curve = helpers.calculate_roc_curve(curve_data)
             return (roc_curve,)
         elif plot_name in {"pr_curve"}:
             curve_data = self.calculate_curve_data(
@@ -170,9 +170,12 @@ class WeightPlotDataExtractor(BaseEvaluationPlotDataExtractor):
                 metrics.precision_recall_curve,
                 metrics.average_precision_score,
             )
-            pr_curve = calculate_pr_curve(curve_data, a)
+            pr_curve = helpers.calculate_pr_curve(curve_data, a)
             return (pr_curve,)
-        elif plot_name in {"covariate_balance_love", "covariate_balance_slope"}:
+        elif plot_name in {
+            self.plot_names.covariate_balance_love,
+            self.plot_names.covariate_balance_slope,
+        }:
             distribution_distances = []
             for fold_prediction in folds_predictions:
                 fold_w = fold_prediction.weight_by_treatment_assignment
@@ -195,7 +198,7 @@ class WeightPlotDataExtractor(BaseEvaluationPlotDataExtractor):
         """Calculate different performance (ROC or PR) curves
 
         Args:
-            folds_predictions (list[WeightEvaluatorPredictions]): Predictions for each fold.
+            fold_predictions (list[WeightEvaluatorPredictions]): Predictions for each fold.
             targets (pd.Series): True labels
             curve_metric (callable): Performance metric returning 3 output vectors - metric1,
                 metric2 and thresholds.
@@ -238,7 +241,7 @@ class WeightPlotDataExtractor(BaseEvaluationPlotDataExtractor):
                 first_ret_value,
                 second_ret_value,
                 threshold_folds,
-            ) = calculate_performance_curve_data_on_folds(
+            ) = helpers.calculate_performance_curve_data_on_folds(
                 folds_treatment_weight,
                 folds_targets,
                 sample_weights,
@@ -262,10 +265,7 @@ class WeightPlotDataExtractor(BaseEvaluationPlotDataExtractor):
 class PropensityPlotDataExtractor(WeightPlotDataExtractor):
     """Extractor to get plot data from PropensityEvaluatorPredictions."""
 
-    available_plot_names = WeightPlotDataExtractor.available_plot_names | {
-        "weight_distribution",
-        "calibration",
-    }
+    plot_names = plots.PropensityPlotNames()
 
     def get_data_for_plot(self, plot_name, X, a, y, phase="train"):
         """Retrieve the data needed for each provided plot.
@@ -284,10 +284,10 @@ class PropensityPlotDataExtractor(WeightPlotDataExtractor):
         """
         fold_predictions = self.predictions[phase]
 
-        if plot_name in {"weight_distribution"}:
+        if plot_name in {self.plot_names.weight_distribution}:
             return [p.propensity for p in fold_predictions], a
 
-        if plot_name in {"calibration"}:
+        if plot_name in {self.plot_names.calibration}:
             return [p.propensity for p in fold_predictions], a
 
         # Common plots are implemented at top-most level possible.
@@ -305,7 +305,7 @@ class PropensityPlotDataExtractor(WeightPlotDataExtractor):
         """Calculate different performance (ROC or PR) curves
 
         Args:
-            curves_folds_predictions (list[PropensityEvaluatorPredictions]):
+            fold_predictions (list[PropensityEvaluatorPredictions]):
                 Predictions for each fold.
             targets (pd.Series): True labels
             curve_metric (callable): Performance metric returning 3 output vectors - metric1,
@@ -380,7 +380,7 @@ class PropensityPlotDataExtractor(WeightPlotDataExtractor):
                 first_ret_folds,
                 second_ret_folds,
                 threshold_folds,
-            ) = calculate_performance_curve_data_on_folds(
+            ) = helpers.calculate_performance_curve_data_on_folds(
                 folds_predictions,
                 folds_targets,
                 sample_weights,
@@ -409,25 +409,14 @@ class OutcomePlotDataExtractor(BaseEvaluationPlotDataExtractor):
     are binary/classification or continuous/regression.
     """
 
-    continuous_output_plot_names = {
-        "continuous_accuracy",
-        "residuals",
-        "common_support",
-    }
-    binary_output_plot_names = {
-        "calibration",
-        "roc_curve",
-        "pr_curve",
-    }
-
     def __init__(self, evaluation_results):
         super().__init__(evaluation_results)
         if any(
             x and any(y.is_binary_outcome for y in x) for x in self.predictions.values()
         ):
-            self.available_plot_names = self.binary_output_plot_names
+            self.plot_names = plots.BinaryOutputPlotNames()
         else:
-            self.available_plot_names = self.continuous_output_plot_names
+            self.plot_names = plots.ContinuousOutputPlotNames()
 
     def get_data_for_plot(self, plot_name, X, a, y, phase="train"):
         """Retrieve the data needed for each provided plot.
@@ -443,41 +432,50 @@ class OutcomePlotDataExtractor(BaseEvaluationPlotDataExtractor):
             tuple: Plot data
         """
         fold_predictions = self.predictions[phase]
-        if plot_name in {"continuous_accuracy", "residuals"}:
-            return [x.get_prediction_by_treatment(a) for x in fold_predictions], y, a
-        if plot_name in {"calibration"}:
-            return [x.get_proba_by_treatment(a) for x in fold_predictions], y
-        if plot_name in {"roc_curve"}:
-            proba_list = [x.get_proba_by_treatment(a) for x in fold_predictions]
-            curve_data = self.calculate_curve_data(
-                proba_list,
-                y,
-                metrics.roc_curve,
-                metrics.roc_auc_score,
-                stratify_by=a,
-            )
-            roc_curve_data = calculate_roc_curve(curve_data)
-            return (roc_curve_data,)
+        if isinstance(self.plot_names, plots.ContinuousOutputPlotNames):
+            if plot_name in {
+                self.plot_names.continuous_accuracy,
+                self.plot_names.residuals,
+            }:
+                return (
+                    [x.get_prediction_by_treatment(a) for x in fold_predictions],
+                    y,
+                    a,
+                )
+            if plot_name in {self.plot_names.common_support}:
+                if is_vector_binary(y):
+                    return [p.prediction_event_prob for p in fold_predictions], a
+                else:
+                    return [p.prediction for p in fold_predictions], a
 
-        elif plot_name in {"pr_curve"}:
-            proba_list = [x.get_proba_by_treatment(a) for x in fold_predictions]
-            curve_data = self.calculate_curve_data(
-                proba_list,
-                y,
-                metrics.precision_recall_curve,
-                metrics.average_precision_score,
-                stratify_by=a,
-            )
-            pr_curve_data = calculate_pr_curve(curve_data, y)
-            return (pr_curve_data,)
+        if isinstance(self.plot_names, plots.BinaryOutputPlotNames):
+            if plot_name in {self.plot_names.calibration}:
+                return [x.get_proba_by_treatment(a) for x in fold_predictions], y
+            if plot_name in {self.plot_names.roc_curve}:
+                proba_list = [x.get_proba_by_treatment(a) for x in fold_predictions]
+                curve_data = self.calculate_curve_data(
+                    proba_list,
+                    y,
+                    metrics.roc_curve,
+                    metrics.roc_auc_score,
+                    stratify_by=a,
+                )
+                roc_curve_data = helpers.calculate_roc_curve(curve_data)
+                return (roc_curve_data,)
 
-        elif plot_name in {"common_support"}:
-            if is_vector_binary(y):
-                return [p.prediction_event_prob for p in fold_predictions], a
-            else:
-                return [p.prediction for p in fold_predictions], a
-        else:
-            return None
+            if plot_name in {self.plot_names.pr_curve}:
+                proba_list = [x.get_proba_by_treatment(a) for x in fold_predictions]
+                curve_data = self.calculate_curve_data(
+                    proba_list,
+                    y,
+                    metrics.precision_recall_curve,
+                    metrics.average_precision_score,
+                    stratify_by=a,
+                )
+                pr_curve_data = helpers.calculate_pr_curve(curve_data, y)
+                return (pr_curve_data,)
+
+        raise ValueError(f"Received unsupported plot name {plot_name}!")
 
     def calculate_curve_data(
         self, folds_predictions, targets, curve_metric, area_metric, stratify_by=None
@@ -525,7 +523,7 @@ class OutcomePlotDataExtractor(BaseEvaluationPlotDataExtractor):
                 first_ret_folds,
                 second_ret_folds,
                 threshold_folds,
-            ) = calculate_performance_curve_data_on_folds(
+            ) = helpers.calculate_performance_curve_data_on_folds(
                 folds_stratum_predictions,
                 folds_stratum_targets,
                 None,

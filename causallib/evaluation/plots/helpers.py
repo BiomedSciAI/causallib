@@ -7,12 +7,12 @@ from sklearn import metrics
 from .plots import get_subplots, lookup_name
 
 
-def plot_evaluation_results(results, X, a, y, plot_names="all", phase=None, ax=None):
+def plot_evaluation_results(results, X, a, y, plot_names="all", phase=None, ax=None, **kwargs):
     """Create plot of EvaluationResults.
 
     Will create as many plots as requested. If multiple plots are requested, creates
     a figure with a subplot for each plot name in `plot_names`. For supported names,
-    see `results.available_plot_names`. If `results` have train and validation data, will create
+    see `results.all_plot_names`. If `results` have train and validation data, will create
     "train" and "valid" figures. If a single plot is requested, only that plot is created.
 
     Args:
@@ -27,16 +27,17 @@ def plot_evaluation_results(results, X, a, y, plot_names="all", phase=None, ax=N
             defaults to both for multipanel plot or "train" for single panel plot.
         ax (matplotlib.axis.Axis): Axis to plot single figure on. If plotting multipanel,
             new axes are always created and this argument is ignored.
+        **kwargs : passed to plot function if plotting a single panel. Ignored in multipanel mode.
     Returns:
         Union[Dict[str, Dict[str, matplotlib.axis.Axis]], matplotlib.axis.Axis]:
             the Axis objects of the plots in a nested dictionary or the Axis itself if single
             First key is the phase ("train" or "valid") and the second key is the plot name.
     """
     if plot_names == "all":
-        plot_names = results.available_plot_names
+        plot_names = results.all_plot_names
     elif isinstance(plot_names, str):
         return _make_single_panel_evaluation_plot(
-            results=results, X=X, a=a, y=y, plot_name=plot_names, phase=phase, ax=ax
+            results=results, X=X, a=a, y=y, plot_name=plot_names, phase=phase, ax=ax, **kwargs
         )
     phases_to_plot = results.predictions.keys() if phase is None else [phase]
     multipanel_plot = {
@@ -70,7 +71,7 @@ def _make_multipanel_evaluation_plot(results, X, a, y, plot_names, phase):
     return named_axes
 
 
-def _make_single_panel_evaluation_plot(results, X, a, y, plot_name, phase, ax=None):
+def _make_single_panel_evaluation_plot(results, X, a, y, plot_name, phase, ax=None, **kwargs):
     """Create a single evaluation plot.
 
     For a single phase and a single plot name.
@@ -80,17 +81,17 @@ def _make_single_panel_evaluation_plot(results, X, a, y, plot_name, phase, ax=No
         X (pd.DataFrame): covariates
         a (pd.Series): treatment assignment
         y (pd.Series): outcome
-        plot_name (str): plot name (from results.available_plot_names)
+        plot_name (str): plot name (from results.all_plot_names)
         phase (str): "train" or "valid"
         ax (matplotlib.axis.Axis, optional): axis to plot on. Defaults to None.
-
+        **kwargs: passed to underlying plotting function
     Raises:
         ValueError: if receives unsupported name
 
     Returns:
         Union[matplotlib.axis.Axis, None]: axis with plot if successful, else None
     """
-    if plot_name not in results.available_plot_names:
+    if plot_name not in results.all_plot_names:
         raise ValueError(f"Plot name '{plot_name}' not supported for this result.")
     cv_idx_folds = [
         fold_idx[0] if phase == "train" else fold_idx[1] for fold_idx in results.cv
@@ -101,7 +102,7 @@ def _make_single_panel_evaluation_plot(results, X, a, y, plot_name, phase, ax=No
     #     which will be expanded when calling plot_func: plot_func(*plot_args, **plot_kwargs).
     #     This will allow more flexible specification of param-eters by the caller
     #     For example, Propensity Distribution with kde=True and Weight Distribution with kde=False.
-    return plot_func(*plot_data, cv=cv_idx_folds, ax=ax)
+    return plot_func(*plot_data, cv=cv_idx_folds, ax=ax, **kwargs)
 
 
 def calculate_roc_curve(curve_data):
