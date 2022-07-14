@@ -65,21 +65,61 @@ class GFormula(GMethodBase):
         raise NotImplementedError
         group_by_field = 'pat_id'
         unique_patient_ids = X[group_by_field].unique()
-        res = {}
+        all_sim = []
         for pat_id in unique_patient_ids:
             pat_data = X.loc[X[group_by_field] == pat_id]
             pat_a = a.loc[a[group_by_field] == pat_id]
             pat_y = y.loc[y[group_by_field] == pat_id]
-            individual_prediction_curves = self._estimate_individual_outcome_patient_level(X=pat_data,
+            individual_prediction_curves = self._estimate_individual_outcome_single_sample(X=pat_data,
                                                                                            a=pat_a,
                                                                                            t=t,
                                                                                            y=pat_y,
                                                                                            timeline_start=timeline_start,
                                                                                            timeline_end=timeline_end)
-            res[pat_id] = individual_prediction_curves.mean(axis='columns')
+            """
+            individual_prediction_curves = [
+                {
+                    'actions' = N_sim * n_steps * dim(act)
+                    'covariates' = N_sim * n_steps * dim(X-cov)
+                    'prediction' =  N_sim * n_steps * dim(X-cov)
+                    'time' = 1 * n_steps
+                    'pat_id' = str
+                }            
+            ]"""
+            all_sim.append(individual_prediction_curves)
+
+        res = {}
+        """ 
+        assume,
+         dim(X-cov) = 3 with x1, x2, x3 covariates, we'll compute 
+         all_global_sim[cov] = N_sim * n_steps * 1, for each cov
+        """
+        all_global_sim = {}
+        for i, cov in enumerate(self.covariate_models):
+            cov_pos = i-len(self.covariate_models)
+            each_cov = [tmp['covariates'][:, :, cov_pos] for tmp in all_sim]  # for x1
+            all_global_sim[cov] = T.cat([tmp.squeeze(-1) for tmp in each_cov], axis=0).to('cpu') # for x1
+            res[cov+'_sim'] = all_global_sim[cov].mean(axis=0)
+
+        all_global_pred = {}
+        for i, cov in enumerate(self.covariate_models):
+            cov_pos = i - len(self.covariate_models)
+            each_cov = [tmp['prediction'][:, :, cov_pos] for tmp in all_sim]  # for x1
+            all_global_pred[cov] = T.cat([tmp.squeeze(-1) for tmp in each_cov], axis=0).to('cpu')  # for x1
+            res[cov+'_sim'] = all_global_pred[cov].mean(axis=0)
+
+        all_global_ground = {}
+        for i, cov in enumerate(self.covariate_models):
+            cov_pos = i - len(self.covariate_models)
+            each_cov = [tmp['prediction'][:, :, cov_pos] for tmp in all_sim]  # for x1
+            all_global_pred[cov] = T.cat([tmp.squeeze(-1) for tmp in each_cov], axis=0).to('cpu')  # for x1
+            res[cov+'_ground'] = all_global_ground[cov].mean(axis=0)
+
+        #TODO do it for "a" as well
+
         return pd.DataFrame(res)
 
-    def _estimate_individual_outcome_patient_level(self, X, a, t, y, treatment_strategy) -> pd.DataFrame:
+    def _estimate_individual_outcome_single_sample(self, X, a, t, y, treatment_strategy) -> pd.DataFrame:
 
         # min_time = timeline_start if timeline_start is not None else int(t.min())
         # max_time = timeline_end if timeline_end is not None else int(t.max())
@@ -145,7 +185,7 @@ class GFormula(GMethodBase):
                 #     act_t = treatment_strategy(sim_t[:, -1, 0], sim_t[:, :, 0], a_t[:, -1, 1])
                 #     new_t = T.cat([sim_t, prev_act, act_t], axis=-1)  # .unsqueeze(1) # bs * 1 * F
                 # x_t = T.cat([x_t, new_t], axis=1)  # bs * (t + 1) * F
-                sim_t, act_t = self._predict(x_t, a, t, n_margin, treatment_strategy)  # TODO
+                sim_t, act_t = self._predict(x_t[:, -1, :], a, t, n_margin, treatment_strategy)  # TODO
 
                 # prediction
                 actual_t = X[:, :(t + 1), :]
