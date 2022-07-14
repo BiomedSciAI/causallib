@@ -63,21 +63,21 @@ class GFormula(GMethodBase):
                                     ) -> pd.DataFrame:
 
         raise NotImplementedError
-        group_by_field = 'pat_id'
-        unique_patient_ids = X[group_by_field].unique()
+        group_by_field = 'pat_id' # TODO define somewhere or give user flexibility
+        unique_sample_ids = X[group_by_field].unique()
         all_sim = []
-        for pat_id in unique_patient_ids:
-            pat_data = X.loc[X[group_by_field] == pat_id]
-            pat_a = a.loc[a[group_by_field] == pat_id]
-            pat_y = y.loc[y[group_by_field] == pat_id]
-            individual_prediction_curves = self._estimate_individual_outcome_single_sample(X=pat_data,
-                                                                                           a=pat_a,
+        for sample_id in unique_sample_ids:
+            sample_data = X.loc[X[group_by_field] == sample_id]
+            sample_a = a.loc[a[group_by_field] == sample_id]
+            sample_y = y.loc[y[group_by_field] == sample_id]
+            sample_sim = self._estimate_individual_outcome_single_sample(X=sample_data,
+                                                                                           a=sample_a,
                                                                                            t=t,
-                                                                                           y=pat_y,
+                                                                                           y=sample_y,
                                                                                            timeline_start=timeline_start,
                                                                                            timeline_end=timeline_end)
             """
-            individual_prediction_curves = [
+            sample_sim = [
                 {
                     'actions' = N_sim * n_steps * dim(act)
                     'covariates' = N_sim * n_steps * dim(X-cov)
@@ -86,7 +86,7 @@ class GFormula(GMethodBase):
                     'pat_id' = str
                 }            
             ]"""
-            all_sim.append(individual_prediction_curves)
+            all_sim.append(sample_sim)
 
         res = {}
         """ 
@@ -94,11 +94,11 @@ class GFormula(GMethodBase):
          dim(X-cov) = 3 with x1, x2, x3 covariates, we'll compute 
          all_global_sim[cov] = N_sim * n_steps * 1, for each cov
         """
-        all_global_sim = {}
+        all_global = {}
         for i, cov in enumerate(self.covariate_models):
-            cov_pos = i-len(self.covariate_models)
+            cov_pos = i-len(self.covariate_models)  # position of covariate
             each_cov = [tmp['covariates'][:, :, cov_pos] for tmp in all_sim]  # for x1
-            all_global_sim[cov] = T.cat([tmp.squeeze(-1) for tmp in each_cov], axis=0).to('cpu') # for x1
+            all_global[cov] = T.cat([tmp.squeeze(-1) for tmp in each_cov], axis=0).to('cpu')  # for x1
             res[cov+'_sim'] = all_global_sim[cov].mean(axis=0)
 
         all_global_pred = {}
@@ -106,13 +106,13 @@ class GFormula(GMethodBase):
             cov_pos = i - len(self.covariate_models)
             each_cov = [tmp['prediction'][:, :, cov_pos] for tmp in all_sim]  # for x1
             all_global_pred[cov] = T.cat([tmp.squeeze(-1) for tmp in each_cov], axis=0).to('cpu')  # for x1
-            res[cov+'_sim'] = all_global_pred[cov].mean(axis=0)
+            res[cov+'_pred'] = all_global_pred[cov].mean(axis=0)
 
         all_global_ground = {}
         for i, cov in enumerate(self.covariate_models):
             cov_pos = i - len(self.covariate_models)
             each_cov = [tmp['prediction'][:, :, cov_pos] for tmp in all_sim]  # for x1
-            all_global_pred[cov] = T.cat([tmp.squeeze(-1) for tmp in each_cov], axis=0).to('cpu')  # for x1
+            all_global_ground[cov] = T.cat([tmp.squeeze(-1) for tmp in each_cov], axis=0).to('cpu')  # for x1
             res[cov+'_ground'] = all_global_ground[cov].mean(axis=0)
 
         #TODO do it for "a" as well
@@ -227,7 +227,8 @@ class GFormula(GMethodBase):
                                                                             treatment_strategy=treatment_strategy,
                                                                             timeline_start=timeline_start,
                                                                             timeline_end=timeline_end)
-            res[treatment_value] = individual_prediction_curves.mean(axis='columns')
+            # for key in individual_prediction_curves:
+            res[treatment_value] = individual_prediction_curves
         res = pd.DataFrame(res)
 
         # Setting index/column names
