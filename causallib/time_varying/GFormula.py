@@ -97,7 +97,7 @@ class GFormula(GMethodBase):
         res = pd.concat([pd.DataFrame(all_global_sim), pd.DataFrame(all_global_actions)], axis=2)
         return res
 
-    def _estimate_individual_outcome_single_sample(self, X, a, t, y, treatment_strategy) -> dict:
+    def _estimate_individual_outcome_single_sample(self, X, a, t, y, treatment_strategy, timeline_start, timeline_end) -> dict:
         """
             Simulates the outcome for each sample across 't' steps.
             Returns:
@@ -208,6 +208,9 @@ class GFormula(GMethodBase):
                                     timeline_end: Optional[int] = None
                                     ) -> pd.DataFrame:
 
+        """
+            Calculates population outcome for each subgroup stratified by treatment assignment. #TODO confirm
+        """
         unique_treatment_values = a.unique()
         res = {}
         for treatment_value in unique_treatment_values:
@@ -219,16 +222,9 @@ class GFormula(GMethodBase):
                                                                             treatment_strategy=treatment_strategy,
                                                                             timeline_start=timeline_start,
                                                                             timeline_end=timeline_end)
-            for key in individual_prediction_curves:
-                for i, cov in enumerate(self.covariate_models):
-                    # res["1predictionx1"] = 1 * t_steps
-                    res[treatment_value + key + cov] = individual_prediction_curves[key][cov].mean(0)
+            res[treatment_value] = individual_prediction_curves.mean(axis=0).squeeze(axis=0)  # n_steps * (X-dim * a-dim)
 
         res = pd.DataFrame(res)
-
-        # Setting index/column names
-        res.index.name = t.name
-        res.columns.name = a.name
         return res
 
     def _apply_noise(self, out, t, box_type='float'):
