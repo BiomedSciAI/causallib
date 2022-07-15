@@ -68,7 +68,7 @@ class GFormula(GMethodBase):
         Steps:
             1. For each sample,
                 i. get the simulation outcome (n_sim * n_steps * X-dim) from _estimate_individual_outcome_single_sample
-                ii. for each sample, take mean across n_sim and then drop that axis, which will result (n_steps * X-dim)
+                ii. take mean across n_sim and then drop that axis, which will result (n_steps * X-dim)
             2. The result from #1 is appended to list for all the samples, i.e n_samples * n_steps * X-dim
             3. Repeat #1 and #2 for treatment (a) as well
             4. Finally, merge these two results from #2 and #3 across last dimension,
@@ -110,48 +110,32 @@ class GFormula(GMethodBase):
                 }
             ]
         """
-        # min_time = timeline_start if timeline_start is not None else int(t.min())
-        # max_time = timeline_end if timeline_end is not None else int(t.max())
-        # contiguous_times = pd.Series(data=range(min_time, max_time + 1), name=t.name)  # contiguous time steps for inference
-        # n_steps = len(contiguous_times)
-        # unique_treatment_values = a.unique()
-        # res = pd.DataFrame()
-        # if self.seed is not None:
-        #     pl.seed_everything(self.seed)
-        simulation = dict(actions=list(),
-                          # expectations=list(),
-                          # prediction=list(),
-                          ground_truth=list(),
-                          covariates=list(),
-                          time=list(),
-                          pat_id=str,
-                          )
+        min_time = timeline_start if timeline_start is not None else int(t.min())
+        max_time = timeline_end if timeline_end is not None else int(t.max())
+        contiguous_times = pd.Series(data=range(min_time, max_time + 1), name=t.name)
+        n_steps = len(contiguous_times)
 
-        n_margin = self.n_obsv
-        n_obsv = 1
         X = X.unsqueeze(0)
         a = a.unsqueeze(0)
         lengths = np.array([len(X), ])
-        pat_id = X['id'][0]
 
-        assert y.shape[1] >= n_obsv, "n_obsv bigger than observed data"
+        assert y.shape[1] >= self.n_obsv, "n_obsv bigger than observed data"
 
-        simulation["ground_truth"] = y.clone()[:, n_obsv - 1: n_obsv - 1 + self.n_steps, ]  # test dataset from n_obsv
-        simulation["pat_id"] = pat_id
+        simulation = dict(actions=list(),
+                          covariates=list(),
+                          time=list(),
+                          pat_id=X['id'][0],
+                          )
 
         X = X.repeat(self.n_sims, 1, 1)  # N_sims * T * F
         a = a.repeat(self.n_sims, 1, 1)  # N_sims * T * F
         lengths = lengths.repeat(self.n_sims)
 
-        t = n_obsv
+        t = self.n_obsv
         x_t = X[:, :t, :].clone()  # .unsqueeze(1)
         a_t = a[:, :t, :].clone()  # .unsqueeze(1)
-
         act_t = treatment_strategy(x_t[:, -1, :], x_t[:, :-1, :], a_t[:, -1, :])
-
-        x_t = T.cat([x_t, a_t], axis=1)
-        last_t = T.cat([x_t[:, -1, :-1], act_t], axis=1)  # bs * F
-        x_t = T.cat([x_t[:, :-1, :], last_t.unsqueeze(1)], axis=1)  # bs * n_obsv * F
+        a_t = T.cat(a_t[:, -1, :], act_t)
 
         # init all the models
         self._init_models()  # TODO
@@ -159,42 +143,18 @@ class GFormula(GMethodBase):
         # Simulate
         with T.no_grad():
             for _idx in range(self.n_steps):
-                t = _idx + n_obsv - 1  # + 1
-                # out = self._predict(x_t, a)  # TODO
-                # # this is X --> becomes prev_X for next round
-                # if t < n_margin - 1:
-                #     sim_t = out[:, -1, :].unsqueeze(1)
-                #     new_t = X[:, (t + 1), :].unsqueeze(1)
-                #     act_t = new_t[..., -1].view(-1, 1, 1)  # bs * 1 * 1
-                # else:
-                #     sim_t = self._apply_noise(out[:, -1, :].unsqueeze(1), t)  # bs * 1 * 1
-                #
-                #     # this is A becomes prev_A
-                #     prev_act = x_t[:, -1, -1].unsqueeze(1).unsqueeze(1)  # bs * 1 * 1
-                #     act_t = treatment_strategy(sim_t[:, -1, 0], sim_t[:, :, 0], a_t[:, -1, 1])
-                #     new_t = T.cat([sim_t, prev_act, act_t], axis=-1)  # .unsqueeze(1) # bs * 1 * F
-                # x_t = T.cat([x_t, new_t], axis=1)  # bs * (t + 1) * F
-                sim_t, act_t = self._predict(x_t[:, -1, :], a, t, n_margin, treatment_strategy)  # TODO
-
-                # prediction
-                actual_t = X[:, :(t + 1), :]
-                # out = self._predict(actual_t, a, t)
-                out = self._predict(actual_t, a, t, n_margin, treatment_strategy)
-
-                pred_t = out[:, -1, :].unsqueeze(1)
-
+                sim_t, act_t = self._predict(x_t[:, -1, :], a_t, n_steps, self.n_obsv, treatment_strategy)  # TODO
                 simulation['actions'].append(act_t)
                 simulation['covariates'].append(sim_t)
-                # simulation['prediction'].append(pred_t)
                 simulation['time'].append(t)
-                if t <= n_margin:  # and debug:  # == 11:
-                    # print(T.allclose(hidden[0], hidden_p[0]))
-                    # print(T.allclose(hidden[1], hidden_p[1]))
-                    # print(T.cat(simulation['prediction'], dim=1).squeeze())
+
+                # update x_t and a_t
+                x_t = T.cat([x_t[:, :, :], sim_t], axis=1)
+                a_t = T.cat([a_t[:, :, :], act_t], axis=1)
+                if t <= self.n_obsv:
                     print(T.cat(simulation['covariates'], dim=1).squeeze())
 
             simulation['actions'] = T.cat(simulation['actions'], dim=1)  # N_sim * n_steps * F-act
-            # simulation['prediction'] = T.cat(simulation['prediction'], dim=1)
             simulation['covariates'] = T.cat(simulation['covariates'], dim=1)  # N_sim * n_steps * F-act
         return simulation
 
