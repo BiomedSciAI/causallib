@@ -13,7 +13,7 @@ class GFormula(GMethodBase):
     """
         GFormula class that is based on Monte Carlo Simulation for creating the noise.
     """
-    def __init__(self, treatment_model, covariate_models, outcome_model, refit_models, seed, n_obsv, n_sims, n_steps, mode, resid_val):
+    def __init__(self, treatment_model, covariate_models, outcome_model, refit_models, seed, n_obsv, n_sims, n_steps, mode, resid_val, group_by):
         super(GFormula, self).__init__(treatment_model, covariate_models, outcome_model, refit_models)
         self.seed = seed
         self.n_obsv = n_obsv
@@ -21,6 +21,7 @@ class GFormula(GMethodBase):
         self.n_steps = n_steps
         self.mode = mode
         self.resid_val = resid_val
+        self.group_by = group_by
 
 
     def fit(self,
@@ -61,66 +62,54 @@ class GFormula(GMethodBase):
                                     timeline_start: Optional[int] = None,
                                     timeline_end: Optional[int] = None
                                     ) -> pd.DataFrame:
+        """
+            Returns individual estimated curves for each subject row in X/a/t
 
-        raise NotImplementedError
-        group_by_field = 'pat_id' # TODO define somewhere or give user flexibility
-        unique_sample_ids = X[group_by_field].unique()
-        all_sim = []
+        Steps:
+            1. For each sample,
+                i. get the simulation outcome (n_sim * n_steps * X-dim) from _estimate_individual_outcome_single_sample
+                ii. for each sample, take mean across n_sim and then drop that axis, which will result (n_steps * X-dim)
+            2. the result from #1 is appended to list for all the samples, i.e n_samples * n_steps * X-dim
+            3. Repeat #1 and #2 for treatment (a) as well
+            4. finally, merge these two results from #2 and #3 across last dimension,
+                which result n_sub * n_steps * (X-dim + a-dim)
+
+            5. Finally, return the result from #4
+
+        """
+
+        unique_sample_ids = X[self.group_by].unique()
+        all_global_sim = []
+        all_global_actions = []
         for sample_id in unique_sample_ids:
-            sample_data = X.loc[X[group_by_field] == sample_id]
-            sample_a = a.loc[a[group_by_field] == sample_id]
-            sample_y = y.loc[y[group_by_field] == sample_id]
+            sample_data = X.loc[X[self.group_by] == sample_id]
+            sample_a = a.loc[a[self.group_by] == sample_id]
+            sample_y = y.loc[y[self.group_by] == sample_id]
             sample_sim = self._estimate_individual_outcome_single_sample(X=sample_data,
-                                                                                           a=sample_a,
-                                                                                           t=t,
-                                                                                           y=sample_y,
-                                                                                           timeline_start=timeline_start,
-                                                                                           timeline_end=timeline_end)
-            """
-            sample_sim = [
+                                                                         a=sample_a,
+                                                                         t=t,
+                                                                         y=sample_y,
+                                                                         timeline_start=timeline_start,
+                                                                         timeline_end=timeline_end)
+
+            all_global_sim.append(sample_sim['covariates'].mean(axis=0).squeeze(axis=0))
+            all_global_actions.append(sample_sim['actions'].mean(axis=0).squeeze(axis=0))
+        res = pd.concat([pd.DataFrame(all_global_sim), pd.DataFrame(all_global_actions)], axis=2)
+        return res
+
+    def _estimate_individual_outcome_single_sample(self, X, a, t, y, treatment_strategy) -> dict:
+        """
+            Simulates the outcome for each sample across 't' steps.
+            Returns:
+                 sample_sim = [
                 {
                     'actions' = N_sim * n_steps * dim(act)
                     'covariates' = N_sim * n_steps * dim(X-cov)
-                    'prediction' =  N_sim * n_steps * dim(X-cov)
                     'time' = 1 * n_steps
                     'pat_id' = str
-                }            
-            ]"""
-            all_sim.append(sample_sim)
-
-        res = {}
-        """ 
-        assume,
-         dim(X-cov) = 3 with x1, x2, x3 covariates, we'll compute 
-         all_global_sim[cov] = N_sim * n_steps * 1, for each cov
+                }
+            ]
         """
-        all_global = {}
-        for i, cov in enumerate(self.covariate_models):
-            cov_pos = i-len(self.covariate_models)  # position of covariate
-            each_cov = [tmp['covariates'][:, :, cov_pos] for tmp in all_sim]  # for x1
-            all_global[cov] = T.cat([tmp.squeeze(-1) for tmp in each_cov], axis=0).to('cpu')  # for x1
-            res[cov+'_sim'] = all_global_sim[cov].mean(axis=0)
-
-        all_global_pred = {}
-        for i, cov in enumerate(self.covariate_models):
-            cov_pos = i - len(self.covariate_models)
-            each_cov = [tmp['prediction'][:, :, cov_pos] for tmp in all_sim]  # for x1
-            all_global_pred[cov] = T.cat([tmp.squeeze(-1) for tmp in each_cov], axis=0).to('cpu')  # for x1
-            res[cov+'_pred'] = all_global_pred[cov].mean(axis=0)
-
-        all_global_ground = {}
-        for i, cov in enumerate(self.covariate_models):
-            cov_pos = i - len(self.covariate_models)
-            each_cov = [tmp['prediction'][:, :, cov_pos] for tmp in all_sim]  # for x1
-            all_global_ground[cov] = T.cat([tmp.squeeze(-1) for tmp in each_cov], axis=0).to('cpu')  # for x1
-            res[cov+'_ground'] = all_global_ground[cov].mean(axis=0)
-
-        #TODO do it for "a" as well
-
-        return pd.DataFrame(res)
-
-    def _estimate_individual_outcome_single_sample(self, X, a, t, y, treatment_strategy) -> pd.DataFrame:
-
         # min_time = timeline_start if timeline_start is not None else int(t.min())
         # max_time = timeline_end if timeline_end is not None else int(t.max())
         # contiguous_times = pd.Series(data=range(min_time, max_time + 1), name=t.name)  # contiguous time steps for inference
@@ -131,7 +120,7 @@ class GFormula(GMethodBase):
         #     pl.seed_everything(self.seed)
         simulation = dict(actions=list(),
                           # expectations=list(),
-                          prediction=list(),
+                          # prediction=list(),
                           ground_truth=list(),
                           covariates=list(),
                           time=list(),
@@ -196,18 +185,18 @@ class GFormula(GMethodBase):
 
                 simulation['actions'].append(act_t)
                 simulation['covariates'].append(sim_t)
-                simulation['prediction'].append(pred_t)
+                # simulation['prediction'].append(pred_t)
                 simulation['time'].append(t)
                 if t <= n_margin:  # and debug:  # == 11:
                     # print(T.allclose(hidden[0], hidden_p[0]))
                     # print(T.allclose(hidden[1], hidden_p[1]))
-                    print(T.cat(simulation['prediction'], dim=1).squeeze())
+                    # print(T.cat(simulation['prediction'], dim=1).squeeze())
                     print(T.cat(simulation['covariates'], dim=1).squeeze())
 
             simulation['actions'] = T.cat(simulation['actions'], dim=1)  # N_sim * n_steps * F-act
-            simulation['prediction'] = T.cat(simulation['prediction'], dim=1)
+            # simulation['prediction'] = T.cat(simulation['prediction'], dim=1)
             simulation['covariates'] = T.cat(simulation['covariates'], dim=1)  # N_sim * n_steps * F-act
-        # return simulation
+        return simulation
 
     def estimate_population_outcome(self,
                                     X: pd.DataFrame,
@@ -223,12 +212,18 @@ class GFormula(GMethodBase):
         res = {}
         for treatment_value in unique_treatment_values:
             assignment = pd.Series(data=treatment_value, index=X.index, name=a.name)
-            individual_prediction_curves = self.estimate_individual_outcome(X=X, a=assignment, t=t, y=y,
+            individual_prediction_curves = self.estimate_individual_outcome(X=X,
+                                                                            a=assignment,
+                                                                            t=t,
+                                                                            y=y,
                                                                             treatment_strategy=treatment_strategy,
                                                                             timeline_start=timeline_start,
                                                                             timeline_end=timeline_end)
-            # for key in individual_prediction_curves:
-            res[treatment_value] = individual_prediction_curves
+            for key in individual_prediction_curves:
+                for i, cov in enumerate(self.covariate_models):
+                    # res["1predictionx1"] = 1 * t_steps
+                    res[treatment_value + key + cov] = individual_prediction_curves[key][cov].mean(0)
+
         res = pd.DataFrame(res)
 
         # Setting index/column names
