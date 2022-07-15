@@ -74,7 +74,7 @@ class GFormula(GMethodBase):
             4. Finally, merge these two results from #2 and #3 across last dimension,
                 which results (n_sub * n_steps * (X-dim + a-dim))
             5. Finally, return the result from #4
-
+            #TODO may be add more details
         """
 
         unique_sample_ids = X[self.group_by].unique()
@@ -94,6 +94,8 @@ class GFormula(GMethodBase):
 
             all_global_sim.append(sample_sim['covariates'].mean(axis=0).squeeze(axis=0))
             all_global_actions.append(sample_sim['actions'].mean(axis=0).squeeze(axis=0))
+        # TODO add column names
+        # TODO add sample_id column
         res = pd.concat([pd.DataFrame(all_global_sim), pd.DataFrame(all_global_actions)], axis=2)
         return res
 
@@ -143,19 +145,20 @@ class GFormula(GMethodBase):
         # Simulate
         with T.no_grad():
             for _idx in range(self.n_steps):
+                # TODO add support for RNN later
                 sim_t, act_t = self._predict(x_t[:, -1, :], a_t, n_steps, self.n_obsv, treatment_strategy)  # TODO
                 simulation['actions'].append(act_t)
                 simulation['covariates'].append(sim_t)
                 simulation['time'].append(t)
 
                 # update x_t and a_t
-                x_t = T.cat([x_t[:, :, :], sim_t], axis=1)
-                a_t = T.cat([a_t[:, :, :], act_t], axis=1)
-                if t <= self.n_obsv:
-                    print(T.cat(simulation['covariates'], dim=1).squeeze())
+                x_t = np.concatenate([x_t, sim_t], axis=1)
+                a_t = np.concatenate([a_t, act_t], axis=1)
+                # if t <= self.n_obsv:
+                #     print(T.cat(simulation['covariates'], dim=1).squeeze())
 
-            simulation['actions'] = T.cat(simulation['actions'], dim=1)  # N_sim * n_steps * F-act
-            simulation['covariates'] = T.cat(simulation['covariates'], dim=1)  # N_sim * n_steps * F-act
+            simulation['actions'] = np.concatenate(simulation['actions'], axis=1)  # N_sim * n_steps * F-act
+            simulation['covariates'] = np.concatenate(simulation['covariates'], axis=1)  # N_sim * n_steps * F-act
         return simulation
 
     def estimate_population_outcome(self,
@@ -171,6 +174,8 @@ class GFormula(GMethodBase):
         """
             Calculates population outcome for each subgroup stratified by treatment assignment. #TODO confirm
         """
+        raise NotImplementedError()
+
         unique_treatment_values = a.unique()
         res = {}
         for treatment_value in unique_treatment_values:
@@ -182,12 +187,17 @@ class GFormula(GMethodBase):
                                                                             treatment_strategy=treatment_strategy,
                                                                             timeline_start=timeline_start,
                                                                             timeline_end=timeline_end)
-            res[treatment_value] = individual_prediction_curves.mean(axis=0).squeeze(axis=0)  # n_steps * (X-dim * a-dim)
+            res[treatment_value] = individual_prediction_curves.mean(axis=0).squeeze(axis=0)  # returns n_steps * (X-dim * a-dim)
 
         res = pd.DataFrame(res)
         return res
 
     def _apply_noise(self, out, t, box_type='float'):
+        raise NotImplementedError()
+
+        # TODO: Convert Torch to np
+        # TODO: infer box_type from data
+
         residuals = self.resid_val
         mode = self.mode if self.mode else "empirical"
 
@@ -245,20 +255,26 @@ class GFormula(GMethodBase):
         return sample
 
     def _prepare_data(self, X, a):
-        return NotImplementedError
+        return NotImplementedError()
+        # TODO Write actual code for data manipulation
         X = pd.concat([a, X], join="outer", axis="columns")
         return X
 
     def _init_models(self):
-        raise NotImplementedError
+        raise NotImplementedError()
 
+        # TODO Write actual code for model initialization
+        # TODO Initially do it for only sklearn
         for model in self.covariate_models:
             model.init()
         self.treatment_model.init()
         self.outcome_model.init()
 
     def _predict(self, X, a, t, n_margin, treatment_strategy):
-        raise NotImplementedError
+        raise NotImplementedError()
+
+        # TODO Convert torch to np
+        # TODO Debug with actual sklearn model and data
 
         all_cov = _prepare_data(X, a)
         d_type_dict = dict(all_cov.dtypes)
