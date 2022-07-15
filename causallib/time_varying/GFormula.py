@@ -69,11 +69,10 @@ class GFormula(GMethodBase):
             1. For each sample,
                 i. get the simulation outcome (n_sim * n_steps * X-dim) from _estimate_individual_outcome_single_sample
                 ii. for each sample, take mean across n_sim and then drop that axis, which will result (n_steps * X-dim)
-            2. the result from #1 is appended to list for all the samples, i.e n_samples * n_steps * X-dim
+            2. The result from #1 is appended to list for all the samples, i.e n_samples * n_steps * X-dim
             3. Repeat #1 and #2 for treatment (a) as well
-            4. finally, merge these two results from #2 and #3 across last dimension,
-                which result n_sub * n_steps * (X-dim + a-dim)
-
+            4. Finally, merge these two results from #2 and #3 across last dimension,
+                which results (n_sub * n_steps * (X-dim + a-dim))
             5. Finally, return the result from #4
 
         """
@@ -89,6 +88,7 @@ class GFormula(GMethodBase):
                                                                          a=sample_a,
                                                                          t=t,
                                                                          y=sample_y,
+                                                                         treatment_strategy=treatment_strategy,
                                                                          timeline_start=timeline_start,
                                                                          timeline_end=timeline_end)
 
