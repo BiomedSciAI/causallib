@@ -641,3 +641,17 @@ class TestMatching(unittest.TestCase):
             prepickle_estimate, postpickle_estimate)
         np.testing.assert_array_equal(
             prepickle_covariates, postpickle_covariates)
+
+    def test_matching_one_way_works_even_when_other_is_undefined(self):
+        X, a, y = self.data_serial_unbalanced_x
+        for n_neighbors in [5, 20, 50]:
+            self.check_matching_too_few_neighbors_adapts_matches(n_neighbors, X, a, y)
+
+    def check_matching_too_few_neighbors_adapts_matches(self, n_neighbors, X, a, y):
+        matching = Matching(n_neighbors=n_neighbors, matching_mode="treatment_to_control")
+        matching.fit(X,a,y)
+        match_df = matching.match(X, a)
+        n_matches_actual = match_df.distances.apply(len).groupby(level=0).max()
+        self.assertEqual(n_matches_actual[0], min(n_neighbors, self.n))
+        self.assertEqual(n_matches_actual[1], min(n_neighbors, self.k))
+        
