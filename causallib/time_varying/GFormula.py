@@ -273,7 +273,7 @@ class GFormula(GMethodBase):
     def _predict(self, X, a, t, n_margin, treatment_strategy):
         # TODO Debug with actual sklearn model and data
 
-        act_t = treatment_strategy(X[:, -1, :], X[:, :, :], a[:, -1, ])
+        act_t = treatment_strategy(X[:, -1, :], X[:, :, :], a[:, -1, :])
         a = pd.concat([a[:, :-1, :], act_t])
         all_input = pd.concat([X, a], axis=1)
 
@@ -293,7 +293,7 @@ class GFormula(GMethodBase):
                 sim_t = self._apply_noise(_pred[:, -1, :].unsqueeze(1), t)  # bs * 1 * 1
 
             # all_cov.loc[:, [-1], cov] = _pred
-            all_input.iloc[:, [-1], i] = sim_t
+            all_input.iloc[:, [-1], i] = sim_t  # TODO confirm syntax
         sim_all_cov = all_input.drop(a.name, axis=1)
         a_pred = self.treatment_model.predict(sim_all_cov)
         return sim_all_cov, a_pred
