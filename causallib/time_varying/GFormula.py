@@ -287,10 +287,10 @@ class GFormula(GMethodBase):
             else:
                 raise ValueError("Data type error. {0}, is not supported for {1}".format(d_type_dict[cov], cov))
 
-            if t < n_margin - 1:
-                sim_t = _pred[:, -1, :].unsqueeze(1)
-            else:
-                sim_t = self._apply_noise(_pred[:, -1, :].unsqueeze(1), t)  # bs * 1 * 1
+            # if t < n_margin - 1:
+            #     sim_t = _pred[:, -1, :].unsqueeze(1)
+            # else:
+            sim_t = self._apply_noise(_pred[:, -1, :].unsqueeze(1), t, d_type_dict[cov])  # bs * 1 * 1
 
             # all_cov.loc[:, [-1], cov] = _pred
             all_input.iloc[:, [-1], i] = sim_t  # TODO confirm syntax
