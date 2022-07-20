@@ -172,23 +172,17 @@ class GFormula(GMethodBase):
                                     ) -> pd.DataFrame:
 
         """
-            Calculates population outcome for each subgroup stratified by treatment assignment. #TODO confirm
+            Calculates population outcome for each subgroup stratified by treatment assignment.
+            Backlog: Support for multiple treatment strategies. Like a list of  "always_treated"  and "never_treated".
         """
-        raise NotImplementedError()
-
-        unique_treatment_values = a.unique()
-        res = {}
-        for treatment_value in unique_treatment_values:
-            assignment = pd.Series(data=treatment_value, index=X.index, name=a.name)
-            individual_prediction_curves = self.estimate_individual_outcome(X=X,
-                                                                            a=assignment,
-                                                                            t=t,
-                                                                            y=y,
-                                                                            treatment_strategy=treatment_strategy,
-                                                                            timeline_start=timeline_start,
-                                                                            timeline_end=timeline_end)
-            res[treatment_value] = individual_prediction_curves.mean(axis=0).squeeze(axis=0)  # returns n_steps * (X-dim * a-dim)
-
+        individual_prediction_curves = self.estimate_individual_outcome(X=X,
+                                                                        a=a,
+                                                                        t=t,
+                                                                        y=y,
+                                                                        treatment_strategy=treatment_strategy,
+                                                                        timeline_start=timeline_start,
+                                                                        timeline_end=timeline_end)
+        res = individual_prediction_curves.mean(axis=0).squeeze(axis=0)  # returns n_steps * (X-dim * a-dim)
         res = pd.DataFrame(res)
         return res
 
