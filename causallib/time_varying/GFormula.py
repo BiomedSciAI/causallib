@@ -36,17 +36,16 @@ class GFormula(GMethodBase):
         if kwargs is None:
             kwargs = {}
 
-        treatment_data, covariate_data_dict, outcome_data = self._prepare_data(X, a, y)
+        treatment_data, covariate_data, outcome_data = self._prepare_data(X, a, t, y)
 
         treatment_model_is_not_fitted = not g_tools.check_learner_is_fitted(self.treatment_model)
         if refit_models or treatment_model_is_not_fitted:
-            # fit_params = _add_sample_weight_fit_params(self.treatment_model, cur_sw)
             self.treatment_model.fit(treatment_data, a, **kwargs)
 
         for cov in self.covariate_models:
             cov_model_is_not_fitted = not g_tools.check_learner_is_fitted(self.covariate_models[cov])
             if refit_models or cov_model_is_not_fitted:
-                self.covariate_models[cov].fit(covariate_data_dict[cov][0], covariate_data_dict[cov][1], **kwargs)
+                self.covariate_models[cov].fit(covariate_data[cov], X[cov], **kwargs)
 
         treatment_model_is_not_fitted = not g_tools.check_learner_is_fitted(self.outcome_model)
         if refit_models or treatment_model_is_not_fitted:
@@ -254,11 +253,35 @@ class GFormula(GMethodBase):
         sample = val_arr[choice, :]
         return sample
 
-    def _prepare_data(self, X, a, y):
-        treatment_data = self._extract_treatment_model_data(X)
-        covariate_data_dict = self._extract_covariate_models_data(X)
-        outcome_data = self._extract_outcome_model_data(X)
-        return treatment_data, covariate_data_dict, outcome_data
+    def _prepare_data(self, X, a, t, y):
+        covariates = list(self.covariate_models.keys())
+        treatments = list(a.columns)
+        prev_covariates = ['prev_' + cov for cov in covariates]
+        prev_treatments = ['prev_' + cov for cov in treatments]
+        index = ['id', 'time']
+        cols_in_order = index + prev_covariates + prev_treatments + covariates + treatments
+
+        data = X.join(a)
+        data['prev_X'] = data.groupby('id').X.shift(1)
+        data['prev_X2'] = data.groupby('id').X2.shift(1)
+        data['prev_A'] = data.groupby('id').A.shift(1)
+        data.dropna(inplace=True)  # dropping first row
+        data = data[cols_in_order]
+        data.set_index(['id', 'time'], inplace=True)
+
+        treatment_data = self._extract_treatment_model_data(data,
+                                                            cols_in_order,
+                                                            treatments
+                                                            )
+        covariate_data = self._extract_covariate_models_data(data,
+                                                             cols_in_order,
+                                                             index,
+                                                             prev_covariates,
+                                                             prev_treatments
+                                                             )
+        outcome_data = self._extract_outcome_model_data(data)  # TODO
+
+        return treatment_data, covariate_data, outcome_data
 
     def _init_models(self):
         raise NotImplementedError()
@@ -306,16 +329,17 @@ class GFormula(GMethodBase):
         sim_all_cov = _input.drop(a.name, axis=1)
         return sim_all_cov, a_pred
 
-    def _extract_treatment_model_data(self, X):
-        covariates = []
-        X_treatment = X[covariates]
+    def _extract_treatment_model_data(self, X, columns, treatments):
+        _columns = [col for col in columns if col not in treatments]
+        X_treatment = X[_columns]
         return X_treatment
 
-    def _extract_covariate_models_data(self, X):
+    def _extract_covariate_models_data(self, X, columns, index, prev_covariates, prev_treatments):
         X_covariates = {}
-        for cov in self.covariate_models:
-            covariates = []
-            X_covariates[cov] = X[covariates]
+        default_cols = index + prev_covariates + prev_treatments
+        for i, cov in enumerate(self.covariate_models):
+            _columns = columns[: len(default_cols) + i]
+            X_covariates[cov] = X[_columns]
         return X_covariates
 
     def _extract_outcome_model_data(self, X):
