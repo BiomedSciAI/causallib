@@ -53,10 +53,9 @@ class TestPlots(unittest.TestCase):
         self.assertEqual(thresh, axis.get_lines()[0].get_xdata()[0])
 
     def test_plot_covariate_balance_slope(self):
-        thresh=0.1
-        axis = self.weight_evaluation.plot_covariate_balance(kind="slope", thresh=thresh)
+        axis = self.weight_evaluation.plot_covariate_balance(kind="slope")
         self.assertIsInstance(axis, matplotlib.axes.Axes)
-        self.assertEqual(thresh, axis.get_lines()[0].get_ydata()[0])
+        self.assertEqual([x.get_xdata() for x in axis.get_lines()][1][0] , "unweighted")
         
     def propensity_plot_by_name(self, test_names, alternate_a=None):
         a = self.a if alternate_a is None else alternate_a
