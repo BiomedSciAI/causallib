@@ -254,30 +254,32 @@ class GFormula(GMethodBase):
         return sample
 
     def _prepare_data(self, X, a, t, y):
-        covariates = list(self.covariate_models.keys())
-        treatments = list(a.columns)
-        prev_covariates = ['prev_' + cov for cov in covariates]
-        prev_treatments = ['prev_' + cov for cov in treatments]
+        covariate_cols = list(self.covariate_models.keys())
+        treatment_cols = list(a.columns)
+        prev_covariate_cols = ['prev_' + cov for cov in covariate_cols]
+        prev_treatment_cols = ['prev_' + a for a in treatment_cols]
         index = ['id', 'time']
-        cols_in_order = index + prev_covariates + prev_treatments + covariates + treatments
+        cols_in_order = index + prev_covariate_cols + prev_treatment_cols + covariate_cols + treatment_cols
 
         data = X.join(a)
-        data['prev_X'] = data.groupby('id').X.shift(1)
-        data['prev_X2'] = data.groupby('id').X2.shift(1)
-        data['prev_A'] = data.groupby('id').A.shift(1)
+        for cov in covariate_cols:
+            data['prev_' + cov] = data.groupby('id')[cov].shift(1)
+        for a in treatment_cols:
+            data['prev_' + a] = data.groupby('id')[a].shift(1)
+
         data.dropna(inplace=True)  # dropping first row
         data = data[cols_in_order]
         data.set_index(['id', 'time'], inplace=True)
 
         treatment_data = self._extract_treatment_model_data(data,
                                                             cols_in_order,
-                                                            treatments
+                                                            prev_treatment_cols
                                                             )
         covariate_data = self._extract_covariate_models_data(data,
                                                              cols_in_order,
                                                              index,
-                                                             prev_covariates,
-                                                             prev_treatments
+                                                             prev_covariate_cols,
+                                                             prev_treatment_cols
                                                              )
         outcome_data = self._extract_outcome_model_data(data)  # TODO
 
