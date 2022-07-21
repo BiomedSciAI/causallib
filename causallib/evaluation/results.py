@@ -1,5 +1,4 @@
 """Evaluation results objects for plotting and further analysis."""
-from __future__ import annotations
 
 import abc
 import dataclasses
@@ -554,7 +553,13 @@ class OutcomePlotDataExtractor(BaseEvaluationPlotDataExtractor):
         raise ValueError(f"Received unsupported plot name {plot_name}!")
 
     def calculate_curve_data(
-        self, folds_predictions, targets, curve_metric, area_metric, stratify_by=None
+        self,
+        folds_predictions,
+        targets,
+        curve_metric,
+        area_metric,
+        stratify_by=None,
+        **kwargs,
     ):
         """Calculate different performance (ROC or PR) curves
 
