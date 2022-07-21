@@ -14,13 +14,16 @@
 
 # Created on Nov 12, 2020
 
+import matplotlib
+import matplotlib.axes
+
 from sklearn.linear_model import LogisticRegression, LinearRegression
+
 from causallib.evaluation import evaluate, plot_evaluation_results
 from causallib.estimation import AIPW, IPW, StratifiedStandardization
 from causallib.datasets import load_nhefs
 import unittest
 
-import matplotlib
 
 matplotlib.use("Agg")
 
@@ -34,8 +37,27 @@ class TestPlots(unittest.TestCase):
         std = StratifiedStandardization(LinearRegression())
         self.dr = AIPW(std, ipw)
         self.dr.fit(self.X, self.a, self.y)
-        self.outcome_results = evaluate(self.dr.outcome_model, self.X, self.a, self.y)
+        self.outcome_evaluation = evaluate(self.dr.outcome_model, self.X, self.a, self.y)
+        self.weight_evaluation = evaluate(self.dr.weight_model, self.X, self.a, self.y)
+        
 
+    def test_plot_covariate_balance_only_exists_for_weight_evaluation(self):
+        self.weight_evaluation.plot_covariate_balance
+        with self.assertRaises(AttributeError):
+            self.outcome_evaluation.plot_covariate_balance
+
+    def test_plot_covariate_balance_love(self):
+        thresh=0.1
+        axis = self.weight_evaluation.plot_covariate_balance(kind="love", thresh=thresh)
+        self.assertIsInstance(axis, matplotlib.axes.Axes)
+        self.assertEqual(thresh, axis.get_lines()[0].get_xdata()[0])
+
+    def test_plot_covariate_balance_slope(self):
+        thresh=0.1
+        axis = self.weight_evaluation.plot_covariate_balance(kind="slope", thresh=thresh)
+        self.assertIsInstance(axis, matplotlib.axes.Axes)
+        self.assertEqual(thresh, axis.get_lines()[0].get_ydata()[0])
+        
     def propensity_plot_by_name(self, test_names, alternate_a=None):
         a = self.a if alternate_a is None else alternate_a
         results = evaluate(self.dr.weight_model, self.X, a, self.y)
@@ -47,7 +69,7 @@ class TestPlots(unittest.TestCase):
 
     def outcome_plot_by_name(self, test_names):
         plots = plot_evaluation_results(
-            self.outcome_results, X=self.X, a=self.a, y=self.y, plot_names=test_names
+            self.outcome_evaluation, X=self.X, a=self.a, y=self.y, plot_names=test_names
         )
 
         [self.assertIsNotNone(x) for x in plots.values()]
@@ -81,8 +103,8 @@ class TestPlots(unittest.TestCase):
         self.assertTrue(
             self.outcome_plot_by_name(
                 [
-                    self.outcome_results.plot_names.common_support,
-                    self.outcome_results.plot_names.continuous_accuracy,
+                    self.outcome_evaluation.plot_names.common_support,
+                    self.outcome_evaluation.plot_names.continuous_accuracy,
                 ]
             )
         )

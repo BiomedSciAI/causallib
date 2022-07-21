@@ -56,7 +56,6 @@ def _make_bootstrap_cv(n_samples_total, n_bootstrap, n_samples_bootstrap, replac
     return phases, cv
 
 
-
 def evaluate(
     estimator,
     X,
@@ -196,11 +195,14 @@ def _evaluate_cv(
 
     predictions, models = predict_cv(estimator, X, a, y, cv, refit, phases)
     evaluation_metrics = score_cv(predictions, X, a, y, cv, metrics_to_evaluate)
-    evaluation_results = EvaluationResults(
+    evaluation_results = EvaluationResults.make(
         evaluated_metrics=evaluation_metrics,
         predictions=predictions,
         cv=cv,
         models=models if refit is True else [estimator],
+        X=X,
+        a=a,
+        y=y,
     )
 
     if plots is not None:

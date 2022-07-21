@@ -1,4 +1,5 @@
 """Evaluation results objects for plotting and further analysis."""
+from __future__ import annotations
 
 import abc
 import dataclasses
@@ -25,8 +26,40 @@ SingleFoldPrediction = Union[
 ]
 
 
+class WeightPlotterMixin:
+    def plot_covariate_balance(
+        self,
+        kind="love",
+        phase="train",
+        ax=None,
+        aggregate_folds=True,
+        thresh=None,
+        plot_semi_grid=True,
+        **kwargs,
+    ):
+        table1_folds = self.get_data_for_plot(
+            plots.COVARIATE_BALANCE_LOVE_PLOT, phase=phase
+        )[0]
+        if kind == "love":
+            return plots.plot_mean_features_imbalance_love_folds(
+                table1_folds=table1_folds,
+                ax=ax,
+                aggregate_folds=aggregate_folds,
+                thresh=thresh,
+                plot_semi_grid=plot_semi_grid,
+                **kwargs,
+            )
+        if kind == "slope":
+            return plots.plot_mean_features_imbalance_slope_folds(
+                table1_folds=table1_folds,
+                ax=ax,
+                thresh=thresh,
+                **kwargs,
+            )
+
+
 @dataclasses.dataclass
-class EvaluationResults:
+class EvaluationResults(abc.ABC):
     """Data structure to hold evaluation results including cross-validation.
 
     Attrs:
@@ -49,29 +82,53 @@ class EvaluationResults:
     ]
     predictions: Dict[str, List[SingleFoldPrediction]]
     cv: List[Tuple[List[int], List[int]]]
+    X: pd.DataFrame
+    a: pd.Series
+    y: pd.Series
 
     @property
     def extractor(self):
-        """Plot data extractor for these results.
+        """Plot-data extractor for these results.
 
         Instantiated when requested based on type of `models`.
         """
-        if isinstance(self.models, dict):
-            fitted_model = self.models["train"][0]
-        elif isinstance(self.models, list):
-            fitted_model = self.models[0]
+        raise NotImplementedError
+
+    @staticmethod
+    def make(
+        evaluated_metrics: Union[pd.DataFrame, WeightEvaluatorScores],
+        models: Union[
+            List[WeightEstimator],
+            List[IndividualOutcomeEstimator],
+            List[PropensityEstimator],
+        ],
+        predictions: Dict[str, List[SingleFoldPrediction]],
+        cv: List[Tuple[List[int], List[int]]],
+        X: pd.DataFrame,
+        a: pd.Series,
+        y: pd.Series,
+    ):
+        if isinstance(models, dict):
+            fitted_model = models["train"][0]
+        elif isinstance(models, list):
+            fitted_model = models[0]
         else:
-            fitted_model = self.models
+            fitted_model = models
 
         if isinstance(fitted_model, PropensityEstimator):
-            return PropensityPlotDataExtractor(self)
+            return PropensityEvaluationResults(
+                evaluated_metrics, models, predictions, cv, X, a, y
+            )
         if isinstance(fitted_model, WeightEstimator):
-            return WeightPlotDataExtractor(self)
+            return WeightEvaluationResults(
+                evaluated_metrics, models, predictions, cv, X, a, y
+            )
         if isinstance(fitted_model, IndividualOutcomeEstimator):
-            return OutcomePlotDataExtractor(self)
+            return OutcomeEvaluationResults(
+                evaluated_metrics, models, predictions, cv, X, a, y
+            )
         raise ValueError(
-            "Unable to find suitable extractor "
-            f"for esimator of type {type(fitted_model)}"
+            f"Unable to find suitable object for esimator of type {type(fitted_model)}"
         )
 
     @property
@@ -86,25 +143,40 @@ class EvaluationResults:
     @property
     def plot_names(self):
         """Dataclass with attributes encoding the available plot names.
-        
+
         Provided for introspection and typo-proofing.
         """
         return self.extractor.plot_names
 
-    def get_data_for_plot(self, plot_name, X, a, y, phase="train"):
+    def get_data_for_plot(self, plot_name, phase="train"):
         """Get data for a given plot
 
         Args:
             plot_name (str): plot name from `self.all_plot_names`
-            X (pd.DataFrame): feature data
-            a (pd.Series): treatment assignment vector
-            y (pd.Series): outcome data
             phase (str, optional): phase of interest. Defaults to "train".
 
         Returns:
             Any: the data required for the plot in question
         """
-        return self.extractor.get_data_for_plot(plot_name, X, a, y, phase)
+        return self.extractor.get_data_for_plot(plot_name, phase)
+
+
+class WeightEvaluationResults(EvaluationResults, WeightPlotterMixin):
+    @property
+    def extractor(self):
+        return WeightPlotDataExtractor(self)
+
+
+class OutcomeEvaluationResults(EvaluationResults):
+    @property
+    def extractor(self):
+        return OutcomePlotDataExtractor(self)
+
+
+class PropensityEvaluationResults(EvaluationResults, WeightPlotterMixin):
+    @property
+    def extractor(self):
+        return PropensityPlotDataExtractor(self)
 
 
 class BaseEvaluationPlotDataExtractor(abc.ABC):
@@ -115,9 +187,12 @@ class BaseEvaluationPlotDataExtractor(abc.ABC):
 
     def __init__(self, evaluation_results: EvaluationResults):
         self.predictions = evaluation_results.predictions
+        self.X = evaluation_results.X
+        self.a = evaluation_results.a
+        self.y = evaluation_results.y
 
     @abc.abstractmethod
-    def get_data_for_plot(self, plot_name, X, a, y, phase="train"):
+    def get_data_for_plot(self, plot_name, phase="train"):
         """Get data for plot with name `plot_name`."""
         raise NotImplementedError
 
@@ -128,6 +203,7 @@ class BaseEvaluationPlotDataExtractor(abc.ABC):
         targets,
         curve_metric,
         area_metric,
+        **kwargs,
     ):
         """Calculate metrics to generate curve data for given list of predictions."""
         raise NotImplementedError
@@ -138,7 +214,7 @@ class WeightPlotDataExtractor(BaseEvaluationPlotDataExtractor):
 
     plot_names = plots.WeightPlotNames()
 
-    def get_data_for_plot(self, plot_name, X, a, y, phase="train"):
+    def get_data_for_plot(self, plot_name, phase="train"):
         """Retrieve the data needed for each provided plot.
 
         Plot functions are in plots module.
@@ -155,22 +231,22 @@ class WeightPlotDataExtractor(BaseEvaluationPlotDataExtractor):
 
         folds_predictions = self.predictions[phase]
         if plot_name in {self.plot_names.weight_distribution}:
-            return [p.weight_for_being_treated for p in folds_predictions], a
+            return [p.weight_for_being_treated for p in folds_predictions], self.a
 
         elif plot_name in {self.plot_names.roc_curve}:
             curve_data = self.calculate_curve_data(
-                folds_predictions, a, metrics.roc_curve, metrics.roc_auc_score
+                folds_predictions, self.a, metrics.roc_curve, metrics.roc_auc_score
             )
             roc_curve = helpers.calculate_roc_curve(curve_data)
             return (roc_curve,)
         elif plot_name in {"pr_curve"}:
             curve_data = self.calculate_curve_data(
                 folds_predictions,
-                a,
+                self.a,
                 metrics.precision_recall_curve,
                 metrics.average_precision_score,
             )
-            pr_curve = helpers.calculate_pr_curve(curve_data, a)
+            pr_curve = helpers.calculate_pr_curve(curve_data, self.a)
             return (pr_curve,)
         elif plot_name in {
             self.plot_names.covariate_balance_love,
@@ -179,8 +255,8 @@ class WeightPlotDataExtractor(BaseEvaluationPlotDataExtractor):
             distribution_distances = []
             for fold_prediction in folds_predictions:
                 fold_w = fold_prediction.weight_by_treatment_assignment
-                fold_X = X.loc[fold_w.index]
-                fold_a = a.loc[fold_w.index]
+                fold_X = self.X.loc[fold_w.index]
+                fold_a = self.a.loc[fold_w.index]
                 dist_dist = calculate_covariate_balance(fold_X, fold_a, fold_w)
                 distribution_distances.append(dist_dist)
             return (distribution_distances,)
@@ -267,16 +343,13 @@ class PropensityPlotDataExtractor(WeightPlotDataExtractor):
 
     plot_names = plots.PropensityPlotNames()
 
-    def get_data_for_plot(self, plot_name, X, a, y, phase="train"):
+    def get_data_for_plot(self, plot_name, phase="train"):
         """Retrieve the data needed for each provided plot.
         Plot interfaces are at the plots.py module.
 
         Args:
             plot_name (str): Plot name.
             fold_predictions (list[PropensityEvaluatorPredictions]): Predictions for each fold.
-            X (pd.DataFrame): Covariates.
-            a (pd.Series): Target variable - treatment assignment
-            y: *IGNORED*
             cv list[np.ndarray]: Indices (in iloc positions) of each fold.
 
         Returns:
@@ -285,14 +358,14 @@ class PropensityPlotDataExtractor(WeightPlotDataExtractor):
         fold_predictions = self.predictions[phase]
 
         if plot_name in {self.plot_names.weight_distribution}:
-            return [p.propensity for p in fold_predictions], a
+            return [p.propensity for p in fold_predictions], self.a
 
         if plot_name in {self.plot_names.calibration}:
-            return [p.propensity for p in fold_predictions], a
+            return [p.propensity for p in fold_predictions], self.a
 
         # Common plots are implemented at top-most level possible.
         # Plot might be implemented by WeightEvaluator:
-        return super().get_data_for_plot(plot_name, X, a, y, phase=phase)
+        return super().get_data_for_plot(plot_name, phase=phase)
 
     def calculate_curve_data(
         self,
@@ -418,15 +491,12 @@ class OutcomePlotDataExtractor(BaseEvaluationPlotDataExtractor):
         else:
             self.plot_names = plots.ContinuousOutputPlotNames()
 
-    def get_data_for_plot(self, plot_name, X, a, y, phase="train"):
+    def get_data_for_plot(self, plot_name, phase="train"):
         """Retrieve the data needed for each provided plot.
         Plot interfaces are at the plots module.
 
         Args:
             plot_name (str): Plot name.
-            X (pd.DataFrame): Covariates.
-            a (pd.Series): Target variable - treatment assignment
-            y: *IGNORED*
 
         Returns:
             tuple: Plot data
@@ -438,41 +508,47 @@ class OutcomePlotDataExtractor(BaseEvaluationPlotDataExtractor):
                 self.plot_names.residuals,
             }:
                 return (
-                    [x.get_prediction_by_treatment(a) for x in fold_predictions],
-                    y,
-                    a,
+                    [x.get_prediction_by_treatment(self.a) for x in fold_predictions],
+                    self.y,
+                    self.a,
                 )
             if plot_name in {self.plot_names.common_support}:
-                if is_vector_binary(y):
-                    return [p.prediction_event_prob for p in fold_predictions], a
+                if is_vector_binary(self.y):
+                    return [p.prediction_event_prob for p in fold_predictions], self.a
                 else:
-                    return [p.prediction for p in fold_predictions], a
+                    return [p.prediction for p in fold_predictions], self.a
 
         if isinstance(self.plot_names, plots.BinaryOutputPlotNames):
             if plot_name in {self.plot_names.calibration}:
-                return [x.get_proba_by_treatment(a) for x in fold_predictions], y
+                return [
+                    x.get_proba_by_treatment(self.a) for x in fold_predictions
+                ], self.y
             if plot_name in {self.plot_names.roc_curve}:
-                proba_list = [x.get_proba_by_treatment(a) for x in fold_predictions]
+                proba_list = [
+                    x.get_proba_by_treatment(self.a) for x in fold_predictions
+                ]
                 curve_data = self.calculate_curve_data(
                     proba_list,
-                    y,
+                    self.y,
                     metrics.roc_curve,
                     metrics.roc_auc_score,
-                    stratify_by=a,
+                    stratify_by=self.a,
                 )
                 roc_curve_data = helpers.calculate_roc_curve(curve_data)
                 return (roc_curve_data,)
 
             if plot_name in {self.plot_names.pr_curve}:
-                proba_list = [x.get_proba_by_treatment(a) for x in fold_predictions]
+                proba_list = [
+                    x.get_proba_by_treatment(self.a) for x in fold_predictions
+                ]
                 curve_data = self.calculate_curve_data(
                     proba_list,
-                    y,
+                    self.y,
                     metrics.precision_recall_curve,
                     metrics.average_precision_score,
-                    stratify_by=a,
+                    stratify_by=self.a,
                 )
-                pr_curve_data = helpers.calculate_pr_curve(curve_data, y)
+                pr_curve_data = helpers.calculate_pr_curve(curve_data, self.y)
                 return (pr_curve_data,)
 
         raise ValueError(f"Received unsupported plot name {plot_name}!")
