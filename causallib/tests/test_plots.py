@@ -102,16 +102,25 @@ class TestPlots(unittest.TestCase):
         self.assertEqual([x.get_xdata() for x in axis.get_lines()][1][0], "unweighted")
         plt.close()
 
-    def test_roc_curve(self):
+    def test_roc_curve_has_dashed_diag(self):
         f, ax = plt.subplots()
         axis = self.weight_evaluation.plot_roc_curve(ax=ax)
         self.assertIsInstance(axis, matplotlib.axes.Axes)
+        diag = [x for x in axis.lines if len(x.get_xdata()) == 2][0]
+        self.assertEqual(diag.get_linestyle(), "--")
+        self.assertTrue(all(diag.get_xdata() == [0,1]))
+        self.assertTrue(all(diag.get_ydata() == [0,1]))
         plt.close()
         
-    def test_pr_curve(self):
+    def test_pr_curve_has_flat_dashed_chance_line(self):
         f, ax = plt.subplots()
         axis = self.weight_evaluation.plot_pr_curve(ax=ax)
         self.assertIsInstance(axis, matplotlib.axes.Axes)
+        chance_line = [x for x in axis.lines if len(x.get_xdata()) == 2][0]
+        self.assertEqual(chance_line.get_label() , "Chance")
+        self.assertEqual(chance_line.get_linestyle() , "--")
+        self.assertAlmostEqual(chance_line.get_ydata()[0], self.a.mean())
+        self.assertAlmostEqual(chance_line.get_ydata()[1], self.a.mean())
         plt.close()
 
     def test_accuracy_plot(self):
