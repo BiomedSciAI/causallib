@@ -16,10 +16,11 @@
 
 import matplotlib
 import matplotlib.axes
+import matplotlib.pyplot as plt
 
 from sklearn.linear_model import LogisticRegression, LinearRegression
 
-from causallib.evaluation import evaluate, plot_evaluation_results
+from causallib.evaluation import evaluate
 from causallib.estimation import AIPW, IPW, StratifiedStandardization
 from causallib.datasets import load_nhefs
 import unittest
@@ -37,76 +38,99 @@ class TestPlots(unittest.TestCase):
         std = StratifiedStandardization(LinearRegression())
         self.dr = AIPW(std, ipw)
         self.dr.fit(self.X, self.a, self.y)
-        self.outcome_evaluation = evaluate(self.dr.outcome_model, self.X, self.a, self.y)
+        self.cts_outcome_evaluation = evaluate(
+            self.dr.outcome_model, self.X, self.a, self.y
+        )
         self.weight_evaluation = evaluate(self.dr.weight_model, self.X, self.a, self.y)
-        
 
-    def test_plot_covariate_balance_only_exists_for_weight_evaluation(self):
+    def test_propensity_plots_only_exist_for_propensity_model(self):
         self.weight_evaluation.plot_covariate_balance
-        with self.assertRaises(AttributeError):
-            self.outcome_evaluation.plot_covariate_balance
+        self.weight_evaluation.plot_weight_distribution
+        self.weight_evaluation.plot_pr_curve
+        self.weight_evaluation.plot_roc_curve
 
-    def test_plot_covariate_balance_love(self):
-        thresh=0.1
-        axis = self.weight_evaluation.plot_covariate_balance(kind="love", thresh=thresh)
+        with self.assertRaises(AttributeError):
+            self.cts_outcome_evaluation.plot_covariate_balance
+            self.cts_outcome_evaluation.plot_weight_distribution
+            self.cts_outcome_evaluation.plot_pr_curve
+            self.cts_outcome_evaluation.plot_roc_curve
+
+    def test_outcome_plots_only_exist_for_outcome_model(self):
+        self.cts_outcome_evaluation.plot_continuous_accuracy
+        self.cts_outcome_evaluation.plot_residuals
+        self.cts_outcome_evaluation.plot_common_support
+
+        with self.assertRaises(AttributeError):
+            self.weight_evaluation.plot_continuous_accuracy
+            self.weight_evaluation.plot_residuals
+            self.weight_evaluation.plot_common_support
+
+    def test_weight_distribution_reflect_has_negative_yaxis(self):
+        f, ax = plt.subplots()
+        axis = self.weight_evaluation.plot_weight_distribution(reflect=True,ax=ax)
+        self.assertIsInstance(axis, matplotlib.axes.Axes)
+        minx, maxx, miny, maxy = axis.axis()
+        self.assertLess(miny, 0)
+        self.assertLess(maxx, 1)
+        self.assertGreater(minx, 0)
+        self.assertGreater(maxy, 0)
+        plt.close()
+
+    def test_weight_distribution_noreflect_has_nonegative_yaxis(self):
+        f, ax = plt.subplots()
+        axis = self.weight_evaluation.plot_weight_distribution(reflect=False,ax=ax)
+        self.assertIsInstance(axis, matplotlib.axes.Axes)
+        minx, maxx, miny, maxy = axis.axis()
+        self.assertEqual(miny, 0)
+        self.assertLess(maxx, 1)
+        self.assertGreater(minx, 0)
+        self.assertGreater(maxy, 0)
+        plt.close()
+
+    def test_plot_covariate_balance_love_draws_thresh(self):
+        thresh = 0.1
+        f, ax = plt.subplots()
+        axis = self.weight_evaluation.plot_covariate_balance(kind="love", thresh=thresh, ax=ax)
         self.assertIsInstance(axis, matplotlib.axes.Axes)
         self.assertEqual(thresh, axis.get_lines()[0].get_xdata()[0])
+        plt.close()
 
-    def test_plot_covariate_balance_slope(self):
-        axis = self.weight_evaluation.plot_covariate_balance(kind="slope")
+    def test_plot_covariate_balance_slope_labeled_correctly(self):
+        f, ax = plt.subplots()
+        axis = self.weight_evaluation.plot_covariate_balance(kind="slope", ax=ax)
         self.assertIsInstance(axis, matplotlib.axes.Axes)
-        self.assertEqual([x.get_xdata() for x in axis.get_lines()][1][0] , "unweighted")
+        self.assertEqual([x.get_xdata() for x in axis.get_lines()][1][0], "unweighted")
+        plt.close()
+
+    def test_roc_curve(self):
+        f, ax = plt.subplots()
+        axis = self.weight_evaluation.plot_roc_curve(ax=ax)
+        self.assertIsInstance(axis, matplotlib.axes.Axes)
+        plt.close()
         
-    def propensity_plot_by_name(self, test_names, alternate_a=None):
-        a = self.a if alternate_a is None else alternate_a
-        results = evaluate(self.dr.weight_model, self.X, a, self.y)
-        plots = plot_evaluation_results(
-            results, X=self.X, a=a, y=self.y, plot_names=test_names
-        )
-        [self.assertIsNotNone(x) for x in plots.values()]
-        return True
-
-    def outcome_plot_by_name(self, test_names):
-        plots = plot_evaluation_results(
-            self.outcome_evaluation, X=self.X, a=self.a, y=self.y, plot_names=test_names
-        )
-
-        [self.assertIsNotNone(x) for x in plots.values()]
-        return True
-
-    def propensity_plot_multiple_a(self, test_names):
-        self.assertTrue(
-            self.propensity_plot_by_name(test_names, alternate_a=self.a.astype(int))
-        )
-        self.assertTrue(
-            self.propensity_plot_by_name(test_names, alternate_a=self.a.astype(float))
-        )
-        # self.assertTrue(self.propensity_plot_by_name(test_names, alternate_a=self.a.astype(str).factorize()))
-
-    def test_weight_distribution_plot(self):
-        self.propensity_plot_multiple_a(["weight_distribution"])
-
-    def test_propensity_roc_plots(self):
-        self.propensity_plot_multiple_a(["roc_curve"])
-
-    def test_precision_plots(self):
-        self.propensity_plot_multiple_a(["pr_curve"])
-
-    def test_covariate_balance_plots(self):
-        self.propensity_plot_multiple_a(["covariate_balance_love"])
-
-    def test_propensity_multiple_plots(self):
-        self.propensity_plot_multiple_a(["roc_curve", "covariate_balance_love"])
+    def test_pr_curve(self):
+        f, ax = plt.subplots()
+        axis = self.weight_evaluation.plot_pr_curve(ax=ax)
+        self.assertIsInstance(axis, matplotlib.axes.Axes)
+        plt.close()
 
     def test_accuracy_plot(self):
-        self.assertTrue(
-            self.outcome_plot_by_name(
-                [
-                    self.outcome_evaluation.plot_names.common_support,
-                    self.outcome_evaluation.plot_names.continuous_accuracy,
-                ]
-            )
-        )
+        f, ax = plt.subplots()
+        axis = self.cts_outcome_evaluation.plot_continuous_accuracy(ax=ax)
+        self.assertIsInstance(axis, matplotlib.axes.Axes)
+        plt.close()
+
+    def test_common_support_plot(self):        
+        f, ax = plt.subplots()
+        axis = self.cts_outcome_evaluation.plot_common_support(ax=ax)
+        self.assertIsInstance(axis, matplotlib.axes.Axes)
+        plt.close()
+
+    def test_residuals_plot(self):        
+        f, ax = plt.subplots()
+        axis = self.cts_outcome_evaluation.plot_residuals(ax=ax)
+        self.assertIsInstance(axis, matplotlib.axes.Axes)
+        plt.close()
 
 
 # todo: add more tests (including ones that raise exceptions). No point in doing this right now since a major refactoring for the plots is ongoing

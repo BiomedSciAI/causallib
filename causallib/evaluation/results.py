@@ -36,9 +36,9 @@ class WeightPlotterMixin:
         plot_semi_grid=True,
         **kwargs,
     ):
-        table1_folds = self.get_data_for_plot(
+        (table1_folds,) = self.get_data_for_plot(
             plots.COVARIATE_BALANCE_LOVE_PLOT, phase=phase
-        )[0]
+        )
         if kind == "love":
             return plots.plot_mean_features_imbalance_love_folds(
                 table1_folds=table1_folds,
@@ -55,6 +55,176 @@ class WeightPlotterMixin:
                 thresh=thresh,
                 **kwargs,
             )
+
+    def plot_weight_distribution(
+        self,
+        phase="train",
+        reflect=True,
+        kde=False,
+        cumulative=False,
+        norm_hist=True,
+        ax=None,
+    ):
+        """
+        Plot the distribution of propensity score.
+
+        Args:
+            propensity (pd.Series):
+            treatment (pd.Series):
+            reflect (bool): Whether to plot treatment groups on opposite sides of the x-axis.
+                This can only work if there are exactly two groups.
+            kde (bool): Whether to plot kernel density estimation
+            cumulative (bool): Whether to plot cumulative distribution.
+            norm_hist (bool): If False - use raw counts on the y-axis.
+                            If kde=True, then norm_hist should be True as well.
+            ax (plt.Axes | None):
+
+        Returns:
+
+        """
+        weights, treatments = self.get_data_for_plot(
+            plots.WEIGHT_DISTRIBUTION_PLOT, phase=phase
+        )
+
+        return plots.plot_propensity_score_distribution_folds(
+            predictions=weights,
+            hue_by=treatments,
+            cv=self.cv_by_phase(phase),
+            reflect=reflect,
+            kde=kde,
+            cumulative=cumulative,
+            norm_hist=norm_hist,
+            ax=ax,
+        )
+
+
+class ClassificationPlotterMixin:
+    def plot_roc_curve(
+        self,
+        phase="train",
+        plot_folds=False,
+        label_folds=False,
+        label_std=False,
+        ax=None,
+    ):
+        (roc_curve_data,) = self.get_data_for_plot(plots.ROC_CURVE_PLOT, phase=phase)
+        return plots.plot_roc_curve_folds(
+            roc_curve_data,
+            ax=ax,
+            plot_folds=plot_folds,
+            label_folds=label_folds,
+            label_std=label_std,
+        )
+
+    def plot_pr_curve(
+        self,
+        phase="train",
+        plot_folds=False,
+        label_folds=False,
+        label_std=False,
+        ax=None,
+    ):
+        (pr_curve_data,) = self.get_data_for_plot(plots.PR_CURVE_PLOT, phase=phase)
+        return plots.plot_precision_recall_curve_folds(
+            pr_curve_data,
+            ax=ax,
+            plot_folds=plot_folds,
+            label_folds=label_folds,
+            label_std=label_std,
+        )
+
+    def plot_calibration_curve(
+        self,
+        phase="train",
+        n_bins=10,
+        plot_se=True,
+        plot_rug=False,
+        plot_histogram=False,
+        quantile=False,
+        ax=None,
+    ):
+        """Plot calibration curves for multiple models (presumably in folds)
+
+        Args:
+            predictions (list[pd.Series]): list (each entry of a fold) of arrays - probability ("scores") predictions.
+            targets (pd.Series): true labels to calibrate against on the overall data (not divided to folds).
+            cv (list[np.array]):
+            n_bins (int): number of bins to evaluate in the plot
+            plot_se (bool): Whether to plot standard errors around the mean bin-probability estimation.
+            plot_rug:
+            plot_histogram:
+            quantile (bool): If true, the binning of the calibration curve is by quantiles. Default is false
+            ax (plt.Axes): Optional
+
+        Note:
+            One of plot_propensity or plot_model must be True.
+
+        Returns:
+
+        """
+        predictions, targets = self.get_data_for_plot(
+            plots.CALIBRATION_PLOT, phase=phase
+        )
+        return plots.plot_calibration_folds(
+            predictions=predictions,
+            targets=targets,
+            cv=self.cv_by_phase(phase),
+            n_bins=n_bins,
+            plot_se=plot_se,
+            plot_rug=plot_rug,
+            plot_histogram=plot_histogram,
+            quantile=quantile,
+            ax=ax,
+        )
+
+
+class ContinuousOutcomePlotterMixin:
+    def plot_continuous_accuracy(
+        self, phase="train", alpha_by_density=True, plot_residuals=False, ax=None
+    ):
+        predictions, y, a = self.get_data_for_plot(
+            plots.CONTINUOUS_ACCURACY_PLOT, phase=phase
+        )
+        return plots.plot_continuous_prediction_accuracy_folds(
+            predictions=predictions,
+            y=y,
+            a=a,
+            cv=self.cv_by_phase(phase),
+            alpha_by_density=alpha_by_density,
+            plot_residuals=plot_residuals,
+            ax=ax,
+        )
+
+    def plot_residuals(self, phase="train", alpha_by_density=True, ax=None):
+        predictions, y, a = self.get_data_for_plot(plots.RESIDUALS_PLOT, phase=phase)
+        return plots.plot_residual_folds(
+            predictions,
+            y,
+            a,
+            self.cv_by_phase(phase),
+            alpha_by_density=alpha_by_density,
+            ax=ax,
+        )
+
+    def plot_common_support(self, phase="train", alpha_by_density=True, ax=None):
+        """Plot the scatter plot of y0 vs. y1 for multiple scoring results, colored by the treatment
+
+        Args:
+            alpha_by_density (bool): Whether to calculate points alpha value (transparent-opaque)
+               with density estimation. This can take some time to compute for a large number
+               of points. If False, alpha calculation will be a simple fast heuristic.
+            ax (plt.Axes): The axes on which the plot will be displayed. Optional.
+        """
+        predictions, treatments = self.get_data_for_plot(
+            plots.COMMON_SUPPORT_PLOT, phase=phase
+        )
+        return plots.plot_counterfactual_common_support_folds(
+            predictions=predictions,
+            hue_by=treatments,
+            cv=self.cv_by_phase(phase),
+            alpha_by_density=alpha_by_density,
+            ax=ax,
+        )
 
 
 @dataclasses.dataclass
@@ -85,11 +255,15 @@ class EvaluationResults(abc.ABC):
     a: pd.Series
     y: pd.Series
 
+    def cv_by_phase(self, phase="train"):
+        fold_idx = 0 if phase == "train" else 1
+        return [fold[fold_idx] for fold in self.cv]
+
     @property
     def extractor(self):
         """Plot-data extractor for these results.
 
-        Instantiated when requested based on type of `models`.
+        Implemented by child classes.
         """
         raise NotImplementedError
 
@@ -123,7 +297,13 @@ class EvaluationResults(abc.ABC):
                 evaluated_metrics, models, predictions, cv, X, a, y
             )
         if isinstance(fitted_model, IndividualOutcomeEstimator):
-            return OutcomeEvaluationResults(
+            if any(
+                x and any(y.is_binary_outcome for y in x) for x in predictions.values()
+            ):
+                return BinaryOutcomeEvaluationResults(
+                    evaluated_metrics, models, predictions, cv, X, a, y
+                )
+            return ContinuousOutcomeEvaluationResults(
                 evaluated_metrics, models, predictions, cv, X, a, y
             )
         raise ValueError(
@@ -166,13 +346,21 @@ class WeightEvaluationResults(EvaluationResults, WeightPlotterMixin):
         return WeightPlotDataExtractor(self)
 
 
-class OutcomeEvaluationResults(EvaluationResults):
+class BinaryOutcomeEvaluationResults(EvaluationResults, ClassificationPlotterMixin):
     @property
     def extractor(self):
-        return OutcomePlotDataExtractor(self)
+        return BinaryOutcomePlotDataExtractor(self)
 
 
-class PropensityEvaluationResults(EvaluationResults, WeightPlotterMixin):
+class ContinuousOutcomeEvaluationResults(EvaluationResults, ContinuousOutcomePlotterMixin):
+    @property
+    def extractor(self):
+        return ContinuousOutcomePlotDataExtractor(self)
+
+
+class PropensityEvaluationResults(
+    EvaluationResults, ClassificationPlotterMixin, WeightPlotterMixin
+):
     @property
     def extractor(self):
         return PropensityPlotDataExtractor(self)
@@ -356,10 +544,10 @@ class PropensityPlotDataExtractor(WeightPlotDataExtractor):
         """
         fold_predictions = self.predictions[phase]
 
-        if plot_name in {self.plot_names.weight_distribution}:
-            return [p.propensity for p in fold_predictions], self.a
-
-        if plot_name in {self.plot_names.calibration}:
+        if plot_name in {
+            self.plot_names.weight_distribution,
+            self.plot_names.calibration,
+        }:
             return [p.propensity for p in fold_predictions], self.a
 
         # Common plots are implemented at top-most level possible.
@@ -474,7 +662,7 @@ class PropensityPlotDataExtractor(WeightPlotDataExtractor):
         return curve_data
 
 
-class OutcomePlotDataExtractor(BaseEvaluationPlotDataExtractor):
+class ContinuousOutcomePlotDataExtractor(BaseEvaluationPlotDataExtractor):
     """Extractor to get plot data from OutcomeEvaluatorPredictions.
 
     Note that the available plots are different if the outcome predictions
@@ -489,6 +677,146 @@ class OutcomePlotDataExtractor(BaseEvaluationPlotDataExtractor):
             self.plot_names = plots.BinaryOutputPlotNames()
         else:
             self.plot_names = plots.ContinuousOutputPlotNames()
+
+    def get_data_for_plot(self, plot_name, phase="train"):
+        """Retrieve the data needed for each provided plot.
+        Plot interfaces are at the plots module.
+
+        Args:
+            plot_name (str): Plot name.
+
+        Returns:
+            tuple: Plot data
+        """
+        fold_predictions = self.predictions[phase]
+        if isinstance(self.plot_names, plots.ContinuousOutputPlotNames):
+            if plot_name in {
+                self.plot_names.continuous_accuracy,
+                self.plot_names.residuals,
+            }:
+                return (
+                    [x.get_prediction_by_treatment(self.a) for x in fold_predictions],
+                    self.y,
+                    self.a,
+                )
+            if plot_name in {self.plot_names.common_support}:
+                if is_vector_binary(self.y):
+                    return [p.prediction_event_prob for p in fold_predictions], self.a
+                else:
+                    return [p.prediction for p in fold_predictions], self.a
+
+        if isinstance(self.plot_names, plots.BinaryOutputPlotNames):
+            if plot_name in {self.plot_names.calibration}:
+                return [
+                    x.get_proba_by_treatment(self.a) for x in fold_predictions
+                ], self.y
+            if plot_name in {self.plot_names.roc_curve}:
+                proba_list = [
+                    x.get_proba_by_treatment(self.a) for x in fold_predictions
+                ]
+                curve_data = self.calculate_curve_data(
+                    proba_list,
+                    self.y,
+                    metrics.roc_curve,
+                    metrics.roc_auc_score,
+                    stratify_by=self.a,
+                )
+                roc_curve_data = helpers.calculate_roc_curve(curve_data)
+                return (roc_curve_data,)
+
+            if plot_name in {self.plot_names.pr_curve}:
+                proba_list = [
+                    x.get_proba_by_treatment(self.a) for x in fold_predictions
+                ]
+                curve_data = self.calculate_curve_data(
+                    proba_list,
+                    self.y,
+                    metrics.precision_recall_curve,
+                    metrics.average_precision_score,
+                    stratify_by=self.a,
+                )
+                pr_curve_data = helpers.calculate_pr_curve(curve_data, self.y)
+                return (pr_curve_data,)
+
+        raise ValueError(f"Received unsupported plot name {plot_name}!")
+
+    def calculate_curve_data(
+        self,
+        folds_predictions,
+        targets,
+        curve_metric,
+        area_metric,
+        stratify_by=None,
+        **kwargs,
+    ):
+        """Calculate different performance (ROC or PR) curves
+
+        Args:
+            folds_predictions (list[pd.Series]): Predictions for each fold.
+            targets (pd.Series): True labels
+            curve_metric (callable): Performance metric returning 3 output vectors - metric1,
+                metric2 and thresholds. Where metric1 and metric2 depict the curve
+                when plotted on x-axis and y-axis.
+            area_metric (callable): Performance metric of the area under the curve.
+            stratify_by (pd.Series): Group assignment to stratify by.
+
+        Returns:
+            dict[str, dict[str, list[np.ndarray]]]: Evaluation of the metric
+                for each fold and for each curve.
+                One curve for each group level in `stratify_by`.
+                On general: {curve_name: {metric1: [evaluation_fold_1, ...]}}.
+                For example: {"Treatment=1": {"FPR": [FPR_fold_1, FPR_fold_2, FPR_fold_3]}}
+        """
+        # folds_targets = [targets.loc[p.index] for p in folds_predictions]
+        # folds_stratify_by = [stratify_by.loc[p.index] for p in folds_predictions]
+
+        stratify_values = sorted(set(stratify_by))
+        curve_data = {}
+        for stratum_level in stratify_values:
+            # Slice data for that stratum level across the folds:
+            folds_stratum_predictions, folds_stratum_targets = [], []
+            for fold_predictions in folds_predictions:
+                # Extract fold:
+                fold_targets = targets.loc[fold_predictions.index]
+                fold_stratify_by = stratify_by.loc[fold_predictions.index]
+                # Extract stratum:
+                mask = fold_stratify_by == stratum_level
+                fold_predictions = fold_predictions.loc[mask]
+                fold_targets = fold_targets.loc[mask]
+                # Save:
+                folds_stratum_predictions.append(fold_predictions)
+                folds_stratum_targets.append(fold_targets)
+
+            (
+                area_folds,
+                first_ret_folds,
+                second_ret_folds,
+                threshold_folds,
+            ) = helpers.calculate_performance_curve_data_on_folds(
+                folds_stratum_predictions,
+                folds_stratum_targets,
+                None,
+                area_metric,
+                curve_metric,
+            )
+
+            curve_data[f"Treatment={stratum_level}"] = {
+                "first_ret_value": first_ret_folds,
+                "second_ret_value": second_ret_folds,
+                "Thresholds": threshold_folds,
+                "area": area_folds,
+            }
+        return curve_data
+
+
+class BinaryOutcomePlotDataExtractor(BaseEvaluationPlotDataExtractor):
+    """Extractor to get plot data from OutcomeEvaluatorPredictions.
+
+    Note that the available plots are different if the outcome predictions
+    are binary/classification or continuous/regression.
+    """
+
+    plot_names = plots.BinaryOutputPlotNames()
 
     def get_data_for_plot(self, plot_name, phase="train"):
         """Retrieve the data needed for each provided plot.

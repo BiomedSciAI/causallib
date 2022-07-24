@@ -513,7 +513,7 @@ def calibration_curve(y_true, y_prob, bins=5):
 
 
 def plot_roc_curve_folds(
-    curve_data, ax=None, plot_folds=False, label_folds=False, label_std=False, **kwards
+    curve_data, ax=None, plot_folds=False, label_folds=False, label_std=False, **kwargs
 ):
     num_of_curves = len(curve_data.keys())
     color_list = [f"C{_}" for _ in range(num_of_curves)]
@@ -551,7 +551,7 @@ def plot_roc_curve_folds(
 
 
 def plot_precision_recall_curve_folds(
-    curve_data, ax=None, plot_folds=False, label_folds=False, label_std=False, **kwards
+    curve_data, ax=None, plot_folds=False, label_folds=False, label_std=False, **kwargs
 ):
     # TODO: Check why it does not end at class prevalence (for recall=1.0)
     num_of_curves = len(curve_data.keys())

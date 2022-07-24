@@ -87,16 +87,14 @@ def _make_single_panel_evaluation_plot(results, plot_name, phase, ax=None, **kwa
     """
     if plot_name not in results.all_plot_names:
         raise ValueError(f"Plot name '{plot_name}' not supported for this result.")
-    cv_idx_folds = [
-        fold_idx[0] if phase == "train" else fold_idx[1] for fold_idx in results.cv
-    ]
+
     plot_func = lookup_name(plot_name)
     plot_data = results.get_data_for_plot(plot_name, phase=phase)
     # TODO: ^ consider get_data_for_plot returning args (tuple) and kwargs (dictionary)
     #     which will be expanded when calling plot_func: plot_func(*plot_args, **plot_kwargs).
     #     This will allow more flexible specification of param-eters by the caller
     #     For example, Propensity Distribution with kde=True and Weight Distribution with kde=False.
-    return plot_func(*plot_data, cv=cv_idx_folds, ax=ax, **kwargs)
+    return plot_func(*plot_data, cv=results.cv_by_phase(phase), ax=ax, **kwargs)
 
 
 def calculate_roc_curve(curve_data):
