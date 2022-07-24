@@ -48,12 +48,14 @@ class TestPlots(unittest.TestCase):
         self.weight_evaluation.plot_weight_distribution
         self.weight_evaluation.plot_pr_curve
         self.weight_evaluation.plot_roc_curve
+        self.weight_evaluation.plot_calibration_curve
 
         with self.assertRaises(AttributeError):
             self.cts_outcome_evaluation.plot_covariate_balance
             self.cts_outcome_evaluation.plot_weight_distribution
             self.cts_outcome_evaluation.plot_pr_curve
             self.cts_outcome_evaluation.plot_roc_curve
+            self.cts_outcome_evaluation.plot_calibration_curve
 
     def test_outcome_plots_only_exist_for_outcome_model(self):
         self.cts_outcome_evaluation.plot_continuous_accuracy
@@ -67,7 +69,7 @@ class TestPlots(unittest.TestCase):
 
     def test_weight_distribution_reflect_has_negative_yaxis(self):
         f, ax = plt.subplots()
-        axis = self.weight_evaluation.plot_weight_distribution(reflect=True,ax=ax)
+        axis = self.weight_evaluation.plot_weight_distribution(reflect=True, ax=ax)
         self.assertIsInstance(axis, matplotlib.axes.Axes)
         minx, maxx, miny, maxy = axis.axis()
         self.assertLess(miny, 0)
@@ -78,7 +80,7 @@ class TestPlots(unittest.TestCase):
 
     def test_weight_distribution_noreflect_has_nonegative_yaxis(self):
         f, ax = plt.subplots()
-        axis = self.weight_evaluation.plot_weight_distribution(reflect=False,ax=ax)
+        axis = self.weight_evaluation.plot_weight_distribution(reflect=False, ax=ax)
         self.assertIsInstance(axis, matplotlib.axes.Axes)
         minx, maxx, miny, maxy = axis.axis()
         self.assertEqual(miny, 0)
@@ -90,7 +92,9 @@ class TestPlots(unittest.TestCase):
     def test_plot_covariate_balance_love_draws_thresh(self):
         thresh = 0.1
         f, ax = plt.subplots()
-        axis = self.weight_evaluation.plot_covariate_balance(kind="love", thresh=thresh, ax=ax)
+        axis = self.weight_evaluation.plot_covariate_balance(
+            kind="love", thresh=thresh, ax=ax
+        )
         self.assertIsInstance(axis, matplotlib.axes.Axes)
         self.assertEqual(thresh, axis.get_lines()[0].get_xdata()[0])
         plt.close()
@@ -108,17 +112,26 @@ class TestPlots(unittest.TestCase):
         self.assertIsInstance(axis, matplotlib.axes.Axes)
         diag = [x for x in axis.lines if len(x.get_xdata()) == 2][0]
         self.assertEqual(diag.get_linestyle(), "--")
-        self.assertTrue(all(diag.get_xdata() == [0,1]))
-        self.assertTrue(all(diag.get_ydata() == [0,1]))
+        self.assertTrue(all(diag.get_xdata() == [0, 1]))
+        self.assertTrue(all(diag.get_ydata() == [0, 1]))
         plt.close()
-        
+
+    def test_calibration_curve_has_dashed_diag(self):
+        f, ax = plt.subplots()
+        axis = self.weight_evaluation.plot_calibration_curve(ax=ax)
+        self.assertIsInstance(axis, matplotlib.axes.Axes)
+        diag = [x for x in axis.lines if len(x.get_xdata()) == 2][0]
+        self.assertEqual(diag.get_linestyle(), "--")
+        self.assertTrue(all(diag.get_xdata() == diag.get_ydata()))
+        plt.close()
+
     def test_pr_curve_has_flat_dashed_chance_line(self):
         f, ax = plt.subplots()
         axis = self.weight_evaluation.plot_pr_curve(ax=ax)
         self.assertIsInstance(axis, matplotlib.axes.Axes)
         chance_line = [x for x in axis.lines if len(x.get_xdata()) == 2][0]
-        self.assertEqual(chance_line.get_label() , "Chance")
-        self.assertEqual(chance_line.get_linestyle() , "--")
+        self.assertEqual(chance_line.get_label(), "Chance")
+        self.assertEqual(chance_line.get_linestyle(), "--")
         self.assertAlmostEqual(chance_line.get_ydata()[0], self.a.mean())
         self.assertAlmostEqual(chance_line.get_ydata()[1], self.a.mean())
         plt.close()
@@ -129,13 +142,13 @@ class TestPlots(unittest.TestCase):
         self.assertIsInstance(axis, matplotlib.axes.Axes)
         plt.close()
 
-    def test_common_support_plot(self):        
+    def test_common_support_plot(self):
         f, ax = plt.subplots()
         axis = self.cts_outcome_evaluation.plot_common_support(ax=ax)
         self.assertIsInstance(axis, matplotlib.axes.Axes)
         plt.close()
 
-    def test_residuals_plot(self):        
+    def test_residuals_plot(self):
         f, ax = plt.subplots()
         axis = self.cts_outcome_evaluation.plot_residuals(ax=ax)
         self.assertIsInstance(axis, matplotlib.axes.Axes)
