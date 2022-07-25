@@ -48,7 +48,7 @@ CALIBRATION_PLOT = "calibration"
 WEIGHT_DISTRIBUTION_PLOT = "weight_distribution"
 COVARIATE_BALANCE_LOVE_PLOT = "covariate_balance_love"
 COVARIATE_BALANCE_SLOPE_PLOT = "covariate_balance_slope"
-
+COVARIATE_BALANCE_GENERIC_PLOT = "covariate_balance"
 
 @dataclass(frozen=True)
 class WeightPlotNames:

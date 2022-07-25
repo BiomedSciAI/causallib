@@ -94,7 +94,7 @@ def _make_single_panel_evaluation_plot(results, plot_name, phase, ax=None, **kwa
     #     which will be expanded when calling plot_func: plot_func(*plot_args, **plot_kwargs).
     #     This will allow more flexible specification of param-eters by the caller
     #     For example, Propensity Distribution with kde=True and Weight Distribution with kde=False.
-    return plot_func(*plot_data, cv=results.cv_by_phase(phase), ax=ax, **kwargs)
+    return plot_func(*plot_data, ax=ax, **kwargs)
 
 
 def calculate_roc_curve(curve_data):
@@ -203,3 +203,70 @@ def calculate_performance_curve_data_on_folds(
         threshold_folds.append(threshold_fold)
         area_folds.append(area_fold)
     return area_folds, first_ret_folds, second_ret_folds, threshold_folds
+
+def calculate_curve_data_binary(
+    folds_predictions,
+    targets,
+    curve_metric,
+    area_metric,
+    stratify_by=None,
+    **kwargs,
+):
+    """Calculate different performance (ROC or PR) curves
+
+    Args:
+        folds_predictions (list[pd.Series]): Predictions for each fold.
+        targets (pd.Series): True labels
+        curve_metric (callable): Performance metric returning 3 output vectors - metric1,
+            metric2 and thresholds. Where metric1 and metric2 depict the curve
+            when plotted on x-axis and y-axis.
+        area_metric (callable): Performance metric of the area under the curve.
+        stratify_by (pd.Series): Group assignment to stratify by.
+
+    Returns:
+        dict[str, dict[str, list[np.ndarray]]]: Evaluation of the metric
+            for each fold and for each curve.
+            One curve for each group level in `stratify_by`.
+            On general: {curve_name: {metric1: [evaluation_fold_1, ...]}}.
+            For example: {"Treatment=1": {"FPR": [FPR_fold_1, FPR_fold_2, FPR_fold_3]}}
+    """
+    # folds_targets = [targets.loc[p.index] for p in folds_predictions]
+    # folds_stratify_by = [stratify_by.loc[p.index] for p in folds_predictions]
+
+    stratify_values = sorted(set(stratify_by))
+    curve_data = {}
+    for stratum_level in stratify_values:
+        # Slice data for that stratum level across the folds:
+        folds_stratum_predictions, folds_stratum_targets = [], []
+        for fold_predictions in folds_predictions:
+            # Extract fold:
+            fold_targets = targets.loc[fold_predictions.index]
+            fold_stratify_by = stratify_by.loc[fold_predictions.index]
+            # Extract stratum:
+            mask = fold_stratify_by == stratum_level
+            fold_predictions = fold_predictions.loc[mask]
+            fold_targets = fold_targets.loc[mask]
+            # Save:
+            folds_stratum_predictions.append(fold_predictions)
+            folds_stratum_targets.append(fold_targets)
+
+        (
+            area_folds,
+            first_ret_folds,
+            second_ret_folds,
+            threshold_folds,
+        ) = calculate_performance_curve_data_on_folds(
+            folds_stratum_predictions,
+            folds_stratum_targets,
+            None,
+            area_metric,
+            curve_metric,
+        )
+
+        curve_data[f"Treatment={stratum_level}"] = {
+            "first_ret_value": first_ret_folds,
+            "second_ret_value": second_ret_folds,
+            "Thresholds": threshold_folds,
+            "area": area_folds,
+        }
+    return curve_data
