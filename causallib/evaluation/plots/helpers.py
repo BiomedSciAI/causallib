@@ -34,12 +34,12 @@ def plot_evaluation_results(results, plot_names="all", phase=None, ax=None, **kw
         plot_names = results.all_plot_names
     elif isinstance(plot_names, str):
         return _make_single_panel_evaluation_plot(
-            results=results,  plot_name=plot_names, phase=phase, ax=ax, **kwargs
+            results=results, plot_name=plot_names, phase=phase, ax=ax, **kwargs
         )
     phases_to_plot = results.predictions.keys() if phase is None else [phase]
     multipanel_plot = {
         plotted_phase: _make_multipanel_evaluation_plot(
-            results=results,  plot_names=plot_names, phase=plotted_phase
+            results=results, plot_names=plot_names, phase=plotted_phase
         )
         for plotted_phase in phases_to_plot
     }
@@ -49,21 +49,9 @@ def plot_evaluation_results(results, plot_names="all", phase=None, ax=None, **kw
 def _make_multipanel_evaluation_plot(results, plot_names, phase):
     phase_fig, phase_axes = get_subplots(len(plot_names))
     named_axes = {}
-    phase_axes = phase_axes.ravel()
-    # squeeze a vector out of the matrix-like structure of the returned fig.
 
-    # Retrieve all indices of the different folds in the phase [idx_fold_1, idx_folds_2, ...]
-
-    for i, name in enumerate(plot_names):
-        ax = phase_axes[i]
-        try:
-            plot_ax = _make_single_panel_evaluation_plot(
-                results, name, phase, ax
-            )
-        except Exception as e:
-            warnings.warn(f"Failed to plot {name} with error {e}")
-            plot_ax = None
-        named_axes[name] = plot_ax
+    for name, ax in zip(plot_names, phase_axes.ravel()):
+        named_axes[name] = _make_single_panel_evaluation_plot(results, name, phase, ax)
     phase_fig.suptitle(f"Evaluation on {phase} phase")
     return named_axes
 
@@ -203,6 +191,7 @@ def calculate_performance_curve_data_on_folds(
         threshold_folds.append(threshold_fold)
         area_folds.append(area_fold)
     return area_folds, first_ret_folds, second_ret_folds, threshold_folds
+
 
 def calculate_curve_data_binary(
     folds_predictions,
