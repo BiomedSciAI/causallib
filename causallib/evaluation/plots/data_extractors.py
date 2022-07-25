@@ -29,6 +29,14 @@ class BaseEvaluationPlotDataExtractor(abc.ABC):
         self.cv = evaluation_results.cv
 
     def cv_by_phase(self, phase="train"):
+        """Get the cross-validation indices of all folds for a given phase.
+
+        Args:
+            phase (str, optional): Requested phase: "train" or "valid. Defaults to "train".
+
+        Returns:
+            List: _description_
+        """
         fold_idx = 0 if phase == "train" else 1
         return [fold[fold_idx] for fold in self.cv]
 

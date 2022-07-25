@@ -24,6 +24,21 @@ class WeightPlotterMixin:
         plot_semi_grid=True,
         **kwargs,
     ):
+        """Plot covariate balance before and after weighting.
+
+        Args:
+            kind (str, optional): Plot kind, "love" or "slope. Defaults to "love".
+            phase (str, optional): Phase to plot: "train" or "valid". Defaults to "train".
+            ax (matplotlib.axes.Axes, optional): axis to plot on, if None creates new axis.
+                Defaults to None.
+            aggregate_folds (bool, optional): Whether to aggregate folds. Defaults to True.
+                Ignored when kind="slope".
+            thresh (float, optional): Draw threshold line at value. Defaults to None.
+            plot_semi_grid (bool, optional): Defaults to True. Ignored when kind="slope".
+
+        Returns:
+            matplotlib.axes.Axes: axis with plot
+        """
         (table1_folds,) = self.get_data_for_plot(
             plots.COVARIATE_BALANCE_GENERIC_PLOT, phase=phase
         )
@@ -43,6 +58,7 @@ class WeightPlotterMixin:
                 thresh=thresh,
                 **kwargs,
             )
+        raise ValueError(f"Unsupported covariate balance plot kind {kind}")
 
     def plot_weight_distribution(
         self,
@@ -57,17 +73,17 @@ class WeightPlotterMixin:
         Plot the distribution of propensity score.
 
         Args:
-            propensity (pd.Series):
-            treatment (pd.Series):
+            phase (str, optional): Phase to plot: "train" or "valid". Defaults to "train".
             reflect (bool): Whether to plot treatment groups on opposite sides of the x-axis.
                 This can only work if there are exactly two groups.
             kde (bool): Whether to plot kernel density estimation
             cumulative (bool): Whether to plot cumulative distribution.
             norm_hist (bool): If False - use raw counts on the y-axis.
                             If kde=True, then norm_hist should be True as well.
-            ax (plt.Axes | None):
-
+            ax (matplotlib.axes.Axes, optional): axis to plot on, if None creates new axis.
+                Defaults to None.
         Returns:
+            matplotlib.axes.Axes
 
         """
         weights, treatments, cv = self.get_data_for_plot(
@@ -106,6 +122,18 @@ class ClassificationPlotterMixin:
         label_std=False,
         ax=None,
     ):
+        """Plot ROC curve.
+
+        Args:
+            phase (str, optional): Phase to plot: "train" or "valid". Defaults to "train".
+            plot_folds (bool, optional): Whether to plot individual folds. Defaults to False.
+            label_folds (bool, optional): Whether to label folds. Defaults to False.
+            label_std (bool, optional): Whether to label std. Defaults to False.
+            ax (matplotlib.axes.Axes, optional): axis to plot on, if None creates new axis.
+                Defaults to None.
+        Returns:
+            matplotlib.axes.Axes
+        """
         (roc_curve_data,) = self.get_data_for_plot(plots.ROC_CURVE_PLOT, phase=phase)
         return plots.plot_roc_curve_folds(
             roc_curve_data,
@@ -123,6 +151,18 @@ class ClassificationPlotterMixin:
         label_std=False,
         ax=None,
     ):
+        """Plot precision-recall (PR) curve.
+
+        Args:
+            phase (str, optional): Phase to plot: "train" or "valid". Defaults to "train".
+            plot_folds (bool, optional): Whether to plot individual folds. Defaults to False.
+            label_folds (bool, optional): Whether to label folds. Defaults to False.
+            label_std (bool, optional): Whether to label std. Defaults to False.
+            ax (matplotlib.axes.Axes, optional): axis to plot on, if None creates new axis.
+                Defaults to None.
+        Returns:
+            matplotlib.axes.Axes
+        """
         (pr_curve_data,) = self.get_data_for_plot(plots.PR_CURVE_PLOT, phase=phase)
         return plots.plot_precision_recall_curve_folds(
             pr_curve_data,
@@ -145,25 +185,23 @@ class ClassificationPlotterMixin:
         """Plot calibration curves for multiple models (presumably in folds)
 
         Args:
-            predictions (list[pd.Series]): list (each entry of a fold) of arrays
-                - probability ("scores") predictions.
-            targets (pd.Series): true labels to calibrate against on the overall
-                data (not divided to folds).
-            cv (list[np.array]):
+            phase (str, optional): Phase to plot: "train" or "valid". Defaults to "train".
             n_bins (int): number of bins to evaluate in the plot
             plot_se (bool): Whether to plot standard errors around the mean
                 bin-probability estimation.
             plot_rug (bool):
             plot_histogram (bool):
-            quantile (bool): If true, the binning of the calibration curve is by quantiles. Default is false
-            ax (plt.Axes): Optional
-
+            quantile (bool): If true, the binning of the calibration curve is by quantiles.
+                Defaults to False.
+            ax (matplotlib.axes.Axes, optional): axis to plot on, if None creates new axis.
+                Defaults to None.
         Note:
             One of plot_propensity or plot_model must be True.
 
         Returns:
-
+            matplotlib.axes.Axes
         """
+
         predictions, targets, cv = self.get_data_for_plot(
             plots.CALIBRATION_PLOT, phase=phase
         )
@@ -192,6 +230,20 @@ class ContinuousOutcomePlotterMixin:
     def plot_continuous_accuracy(
         self, phase="train", alpha_by_density=True, plot_residuals=False, ax=None
     ):
+        """Plot continuous accuracy,
+
+        Args:
+            phase (str, optional): Phase to plot: "train" or "valid". Defaults to "train".
+            alpha_by_density (bool, optional): Whether to calculate points alpha value
+                (transparent-opaque) with density estimation. This can take some time
+                to compute for a large number of points. If False, alpha calculation
+                will be a simple fast heuristic.
+            plot_residuals (bool, optional): Whether to plot residuals. Defaults to False.
+            ax (matplotlib.axes.Axes, optional): axis to plot on, if None creates new axis.
+                Defaults to None.
+        Returns:
+            matplotlib.axes.Axes
+        """
         predictions, y, a, cv = self.get_data_for_plot(
             plots.CONTINUOUS_ACCURACY_PLOT, phase=phase
         )
@@ -206,9 +258,23 @@ class ContinuousOutcomePlotterMixin:
         )
 
     def plot_residuals(self, phase="train", alpha_by_density=True, ax=None):
+        """Plot residuals of predicted outcome vs ground truth.
+
+        Args:
+            phase (str, optional): Phase to plot: "train" or "valid". Defaults to "train".
+            alpha_by_density (bool, optional): Whether to calculate points alpha value
+                (transparent-opaque) with density estimation. This can take some time
+                to compute for a large number of points. If False, alpha calculation
+                will be a simple fast heuristic.
+            ax (matplotlib.axes.Axes, optional): axis to plot on, if None creates new axis.
+                Defaults to None.
+        Returns:
+            matplotlib.axes.Axes
+        """
         predictions, y, a, cv = self.get_data_for_plot(
             plots.RESIDUALS_PLOT, phase=phase
         )
+
         return plots.plot_residual_folds(
             predictions=predictions,
             y=y,
@@ -246,6 +312,7 @@ class PlotAllMixin:
       * `all_plot_names`
       * `get_data_for_plot(name)` for every name in `all_plot_names`
     """
+
     def plot_all(self, phase=None):
         """Create plot of all available EvaluationResults.
 
@@ -255,7 +322,7 @@ class PlotAllMixin:
 
         Args:
             phase (Union[str, None], optional): phase to plot "train" or "valid". If not supplied,
-                defaults to both for multipanel plot or "train" for single panel plot.
+                defaults to both if available.
 
         Returns:
             Dict[str, matplotlib.axis.Axis]]: the Axis objects of the plots in a nested dictionary:
@@ -292,8 +359,6 @@ class PlotAllMixin:
             phase (str): "train" or "valid"
             ax (matplotlib.axis.Axis, optional): axis to plot on. Defaults to None.
             **kwargs: passed to underlying plotting function
-        Raises:
-            ValueError: if receives unsupported name
 
         Returns:
             Union[matplotlib.axis.Axis, None]: axis with plot if successful, else None

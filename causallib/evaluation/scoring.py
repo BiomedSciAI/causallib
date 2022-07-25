@@ -5,8 +5,8 @@ less reusable than the functions in metrics.py.
 """
 import pandas as pd
 
-from .outcome_predictor import OutcomePredictions
-from .weight_predictor import (
+from .predictions import (
+    OutcomePredictions,
     PropensityPredictions,
     WeightPredictions,
     WeightEvaluatorScores,
@@ -80,9 +80,7 @@ def score_estimation(prediction, X, a_true, y_true, metrics_to_evaluate=None):
 
     # propensity and weight both have the same interface
     # no need to differentiate
-    if isinstance(
-        prediction, (PropensityPredictions, WeightPredictions)
-    ):
+    if isinstance(prediction, (PropensityPredictions, WeightPredictions)):
         return prediction.evaluate_metrics(X, a_true, metrics_to_evaluate)
     raise ValueError(f"Invalid type for prediciton: {type(prediction)}")
 

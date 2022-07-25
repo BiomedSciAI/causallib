@@ -17,7 +17,6 @@ from .predictions import WeightEvaluatorScores, SingleFoldPrediction
 from .plots import mixins, data_extractors
 
 
-
 @dataclasses.dataclass
 class EvaluationResults(abc.ABC):
     """Data structure to hold evaluation results including cross-validation.
@@ -50,7 +49,7 @@ class EvaluationResults(abc.ABC):
     y: pd.Series
 
     @property
-    def extractor(self):
+    def _extractor(self):
         """Plot-data extractor for these results.
 
         Implemented by child classes.
@@ -71,6 +70,30 @@ class EvaluationResults(abc.ABC):
         a: pd.Series,
         y: pd.Series,
     ):
+        """Make EvaluationResults object of correct type.
+
+        This is a factory method to dispatch the initializing data to the correct subclass of
+        EvaluationResults. This is the only supported way to instantiate EvaluationResults objects.
+
+        Args:
+            evaluated_metrics (Union[pd.DataFrame, WeightEvaluatorScores]): evaluated metrics
+            models (Union[
+                List[WeightEstimator],
+                List[IndividualOutcomeEstimator],
+                List[PropensityEstimator], ]): fitted models
+            predictions (Dict[str, List[SingleFoldPrediction]]): predictions by phase and fold
+            cv (List[Tuple[List[int], List[int]]]): cross validation indices
+            X (pd.DataFrame): features data
+            a (pd.Series): treatment assignment data
+            y (pd.Series): outcome data
+
+        Raises:
+            ValueError: raised if invalid estimator is passed
+
+        Returns:
+            EvaluationResults: object with results of correct type
+        """
+
         if isinstance(models, dict):
             fitted_model = models["train"][0]
         elif isinstance(models, list):
@@ -107,7 +130,7 @@ class EvaluationResults(abc.ABC):
         Returns:
             set[str]: string names of supported plot names for these results
         """
-        return self.extractor.plot_names
+        return self._extractor.plot_names
 
     def get_data_for_plot(self, plot_name, phase="train"):
         """Get data for a given plot
@@ -119,7 +142,7 @@ class EvaluationResults(abc.ABC):
         Returns:
             Any: the data required for the plot in question
         """
-        return self.extractor.get_data_for_plot(plot_name, phase)
+        return self._extractor.get_data_for_plot(plot_name, phase)
 
 
 class WeightEvaluationResults(
@@ -130,7 +153,7 @@ class WeightEvaluationResults(
     __doc__ = inspect.getdoc(EvaluationResults)
 
     @property
-    def extractor(self):
+    def _extractor(self):
         return data_extractors.WeightPlotDataExtractor(self)
 
 
@@ -142,7 +165,7 @@ class BinaryOutcomeEvaluationResults(
     __doc__ = inspect.getdoc(EvaluationResults)
 
     @property
-    def extractor(self):
+    def _extractor(self):
         return data_extractors.BinaryOutcomePlotDataExtractor(self)
 
 
@@ -154,7 +177,7 @@ class ContinuousOutcomeEvaluationResults(
     __doc__ = inspect.getdoc(EvaluationResults)
 
     @property
-    def extractor(self):
+    def _extractor(self):
         return data_extractors.ContinuousOutcomePlotDataExtractor(self)
 
 
@@ -167,5 +190,5 @@ class PropensityEvaluationResults(
     __doc__ = inspect.getdoc(EvaluationResults)
 
     @property
-    def extractor(self):
+    def _extractor(self):
         return data_extractors.PropensityPlotDataExtractor(self)

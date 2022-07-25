@@ -9,7 +9,11 @@ import warnings
 
 import pandas as pd
 from ..utils.stat_utils import robust_lookup
-from .metrics import evaluate_binary_metrics, evaluate_regression_metrics
+from .metrics import (
+    calculate_covariate_balance,
+    evaluate_binary_metrics,
+    evaluate_regression_metrics,
+)
 
 WeightEvaluatorScores = namedtuple(
     "WeightEvaluatorScores", ["prediction_scores", "covariate_balance"]

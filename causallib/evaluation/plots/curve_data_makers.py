@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from sklearn import metrics
 
+from ..predictions import WeightPredictions
 def calculate_roc_curve(curve_data):
     """Calculates ROC curve on the folds
 
@@ -288,7 +289,7 @@ def calculate_curve_data_propensity(
 
 
 def calculate_curve_data_weights(
-    fold_predictions: List["causallib.evaluation.weight_predictor.WeightPredictions"],
+    fold_predictions: List[WeightPredictions],
     targets,
     curve_metric,
     area_metric,
@@ -316,9 +317,9 @@ def calculate_curve_data_weights(
 
     folds_treatment_weight = [p.weight_for_being_treated for p in fold_predictions]
     folds_targets = []
-    for fold_predictions in folds_treatment_weight:
+    for this_fold_weights in folds_treatment_weight:
         # Since this is weight estimator, which takes the inverse of a class prediction
-        fold_targets = targets.loc[fold_predictions.index]
+        fold_targets = targets.loc[this_fold_weights.index]
         min_target, max_target = fold_targets.min(), fold_targets.max()
         fold_targets = fold_targets.replace(
             {

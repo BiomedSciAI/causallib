@@ -6,15 +6,16 @@ or train-test logic.
 
 import abc
 from copy import deepcopy
-import pandas as pd
-
 from typing import Union
+
+import pandas as pd
 
 from ..estimation.base_estimator import IndividualOutcomeEstimator
 from ..estimation.base_weight import PropensityEstimator, WeightEstimator
 from ..utils.stat_utils import robust_lookup
 
 from .predictions import PropensityPredictions, WeightPredictions, OutcomePredictions
+
 
 def predict_cv(estimator, X, a, y, cv, refit=True, phases=("train", "valid")):
     """Obtain predictions on the provided data in cross-validation
@@ -94,7 +95,6 @@ class BasePredictor:
         # import outside toplevel is the price you pay for having a factory method
         # of the base class
 
-
         if isinstance(estimator, PropensityEstimator):
             return PropensityPredictor
         if isinstance(estimator, WeightEstimator):
@@ -118,9 +118,9 @@ class BasePredictor:
         raise NotImplementedError
 
 
-
 class OutcomePredictor(BasePredictor):
     """Generate evaluation predictions for IndividualOutcomeEstimator models."""
+
     def __init__(self, estimator):
         """
         Args:
@@ -240,4 +240,3 @@ class PropensityPredictor(WeightPredictor):
             propensity_by_treatment_assignment,
         )
         return prediction
-

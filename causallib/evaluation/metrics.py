@@ -115,9 +115,10 @@ def evaluate_binary_metrics(
 
     dtype = (
         float
-        if all([np.isscalar(score) for score in scores.values()])
+        if all(np.isscalar(score) for score in scores.values())
         else np.dtype(object)
     )
+
     return pd.Series(scores, dtype=dtype)
 
 
