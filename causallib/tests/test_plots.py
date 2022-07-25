@@ -13,6 +13,7 @@
 # limitations under the License.
 
 # Created on Nov 12, 2020
+import unittest
 
 import matplotlib
 import matplotlib.axes
@@ -23,7 +24,6 @@ from sklearn.linear_model import LogisticRegression, LinearRegression
 from causallib.evaluation import evaluate
 from causallib.estimation import AIPW, IPW, StratifiedStandardization
 from causallib.datasets import load_nhefs
-import unittest
 
 
 matplotlib.use("Agg")
@@ -136,23 +136,31 @@ class TestPlots(unittest.TestCase):
         self.assertAlmostEqual(chance_line.get_ydata()[1], self.a.mean())
         plt.close()
 
-    def test_accuracy_plot(self):
+    def test_accuracy_plot_has_dashed_diag(self):
         f, ax = plt.subplots()
         axis = self.cts_outcome_evaluation.plot_continuous_accuracy(ax=ax)
         self.assertIsInstance(axis, matplotlib.axes.Axes)
+        diag = [x for x in axis.lines if len(x.get_xdata()) == 2][0]
+        self.assertEqual(diag.get_linestyle(), "--")
+        self.assertTrue(all(diag.get_xdata() == diag.get_ydata()))
         plt.close()
 
-    def test_common_support_plot(self):
+    def test_common_support_plot_has_dashed_diag(self):
         f, ax = plt.subplots()
         axis = self.cts_outcome_evaluation.plot_common_support(ax=ax)
         self.assertIsInstance(axis, matplotlib.axes.Axes)
+        diag = [x for x in axis.lines if len(x.get_xdata()) == 2][0]
+        self.assertEqual(diag.get_linestyle(), "--")
+        self.assertTrue(all(diag.get_xdata() == diag.get_ydata()))
+        plt.close()
         plt.close()
 
-    def test_residuals_plot(self):
+    def test_residuals_plot_has_dashed_zero_line(self):
         f, ax = plt.subplots()
         axis = self.cts_outcome_evaluation.plot_residuals(ax=ax)
         self.assertIsInstance(axis, matplotlib.axes.Axes)
+        zero_line = [x for x in axis.lines if len(x.get_xdata()) == 2][0]
+        self.assertEqual(zero_line.get_linestyle(), "--")
+        self.assertEqual(zero_line.get_ydata()[0], 0)
+        self.assertEqual(zero_line.get_ydata()[1], 0)
         plt.close()
-
-
-# todo: add more tests (including ones that raise exceptions). No point in doing this right now since a major refactoring for the plots is ongoing
