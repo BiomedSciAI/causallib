@@ -78,8 +78,7 @@ class GFormula(GMethodBase):
         """
 
         unique_sample_ids = X[self.group_by].unique()
-        all_global_sim = []
-        all_global_actions = []
+        all_sim_result = []
         for sample_id in unique_sample_ids:
             sample_data = X.loc[X[self.group_by] == sample_id]
             sample_a = a.loc[a[self.group_by] == sample_id]
@@ -92,12 +91,17 @@ class GFormula(GMethodBase):
                                                                          timeline_start=timeline_start,
                                                                          timeline_end=timeline_end)
 
-            all_global_sim.append(sample_sim['covariates'].mean(axis=0).squeeze(axis=0))
-            all_global_actions.append(sample_sim['actions'].mean(axis=0).squeeze(axis=0))
-        # TODO add column names
-        # TODO add sample_id column
-        res = pd.concat([pd.DataFrame(all_global_sim), pd.DataFrame(all_global_actions)], axis=2)
-        return res
+            sample_sim_cov = sample_sim['covariates'].mean(axis=0).squeeze(axis=0)  # n_steps * cov_cols
+            sample_sim_act = sample_sim['actions'].mean(axis=0).squeeze(axis=0)  # n_steps * act_cols
+
+            sample_sim_cov.columns = self.covariate_models.keys()
+            sample_sim_cov.act = a.columns
+
+            sample_sim_res = pd.concat([sample_sim_cov, sample_sim_act.drop('time', axis =1)], axis=1)
+            sample_sim_res['sample_id'] = sample_id
+            all_sim_result.append(sample_sim_res)
+
+        return pd.DataFrame(all_sim_result)
 
     def _estimate_individual_outcome_single_sample(self, X, a, t, y, treatment_strategy, timeline_start, timeline_end) -> dict:
         """
@@ -181,9 +185,11 @@ class GFormula(GMethodBase):
                                                                         y=y,
                                                                         treatment_strategy=treatment_strategy,
                                                                         timeline_start=timeline_start,
-                                                                        timeline_end=timeline_end)
-        res = individual_prediction_curves.mean(axis=0).squeeze(axis=0)  # returns n_steps * (X-dim * a-dim)
-        res = pd.DataFrame(res)
+                                                                        timeline_end=timeline_end)  # n_steps * n_cols
+
+        # Averaging across time
+        by_row_index = individual_prediction_curves.groupby(individual_prediction_curves.time)
+        res = by_row_index.mean()
         return res
 
     def _apply_noise(self, out, t, box_type='float'):
