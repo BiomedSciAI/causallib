@@ -1,12 +1,20 @@
-"""Base predictor class to generate predictions for evaluation purposes."""
+"""Predictor classes.
+
+Predictors generate sets of predictions for a single fold with no cross-validation
+or train-test logic.
+"""
 
 import abc
 from copy import deepcopy
+import pandas as pd
+
 from typing import Union
 
 from ..estimation.base_estimator import IndividualOutcomeEstimator
 from ..estimation.base_weight import PropensityEstimator, WeightEstimator
+from ..utils.stat_utils import robust_lookup
 
+from .predictions import PropensityPredictions, WeightPredictions, OutcomePredictions
 
 def predict_cv(estimator, X, a, y, cv, refit=True, phases=("train", "valid")):
     """Obtain predictions on the provided data in cross-validation
@@ -85,8 +93,7 @@ class BasePredictor:
         """
         # import outside toplevel is the price you pay for having a factory method
         # of the base class
-        from .weight_predictor import PropensityPredictor, WeightPredictor
-        from .outcome_predictor import OutcomePredictor
+
 
         if isinstance(estimator, PropensityEstimator):
             return PropensityPredictor
@@ -109,3 +116,128 @@ class BasePredictor:
         """Predict (weights, outcomes, etc. depending on the model).
         The output can be as flexible as desired, but score_estimation should know to handle it."""
         raise NotImplementedError
+
+
+
+class OutcomePredictor(BasePredictor):
+    """Generate evaluation predictions for IndividualOutcomeEstimator models."""
+    def __init__(self, estimator):
+        """
+        Args:
+            estimator (IndividualOutcomeEstimator):
+        """
+        if not isinstance(estimator, IndividualOutcomeEstimator):
+            raise TypeError(
+                f"OutcomeEvaluator must be initialized with IndividualOutcomeEstimator. "
+                f"Received ({ type(estimator)}) instead."
+            )
+        super().__init__(estimator)
+
+    def fit(self, X, a, y):
+        """Fit estimator."""
+        self.estimator.fit(X=X, a=a, y=y)
+
+    def predict(self, X, a):
+        """Predict on data."""
+        prediction = self.estimator.estimate_individual_outcome(
+            X, a, predict_proba=False
+        )
+        # Use predict_probability if possible since it is needed for most evaluations:
+        prediction_event_prob = self.estimator.estimate_individual_outcome(
+            X, a, predict_proba=True
+        )
+        fold_prediction = OutcomePredictions(prediction, prediction_event_prob)
+        return fold_prediction
+
+
+class WeightPredictor(BasePredictor):
+    """Generate evaluation predictions for WeightEstimator models."""
+
+    def __init__(self, estimator):
+        """
+        Args:
+            estimator (WeightEstimator):
+        """
+        if not isinstance(estimator, WeightEstimator):
+            raise TypeError(
+                "WeightPredictor must be initialized with WeightEstimator."
+                f"Received got ({type(estimator)}) instead."
+            )
+        super().__init__(estimator)
+
+    def fit(self, X, a, y=None):
+        """Fit estimator. `y` is ignored."""
+        self.estimator.fit(X=X, a=a)
+
+    def predict(self, X, a):
+        """Predict on data.
+
+        Args:
+            X (pd.DataFrame): Covariates.
+            a (pd.Series): Target variable - treatment assignment
+
+        Returns:
+            WeightEvaluatorPredictions
+        """
+        weight_by_treatment_assignment = self.estimator.compute_weights(
+            X, a, treatment_values=None, use_stabilized=False
+        )
+        weight_for_being_treated = self.estimator.compute_weights(
+            X, a, treatment_values=a.max(), use_stabilized=False
+        )
+        treatment_assignment_pred = self.estimator.learner.predict(
+            X
+        )  # TODO: maybe add predict_label to interface instead
+        treatment_assignment_pred = pd.Series(treatment_assignment_pred, index=X.index)
+
+        prediction = WeightPredictions(
+            weight_by_treatment_assignment,
+            weight_for_being_treated,
+            treatment_assignment_pred,
+        )
+        return prediction
+
+
+class PropensityPredictor(WeightPredictor):
+    """Generate evaluation predictions for PropensityEstimator models."""
+
+    def __init__(self, estimator):
+        """
+        Args:
+            estimator (PropensityEstimator):
+        """
+        if not isinstance(estimator, PropensityEstimator):
+            raise TypeError(
+                "PropensityEvaluator must be initialized with PropensityEstimator. "
+                f"Received ({type(estimator)}) instead."
+            )
+        super().__init__(estimator)
+
+    def predict(self, X, a):
+        """Predict on data.
+
+        Args:
+            X (pd.DataFrame): Covariates.
+            a (pd.Series): Target variable - treatment assignment
+
+        Returns:
+            PropensityEvaluatorPredictions
+        """
+        propensity = self.estimator.compute_propensity(X, a, treatment_values=a.max())
+        propensity_by_treatment_assignment = self.estimator.compute_propensity_matrix(X)
+        propensity_by_treatment_assignment = robust_lookup(
+            propensity_by_treatment_assignment, a
+        )
+
+        weight_prediction = super().predict(X, a)
+        # Do not force stabilize=False as in WeightEvaluator:
+        weight_by_treatment_assignment = self.estimator.compute_weights(X, a)
+        prediction = PropensityPredictions(
+            weight_by_treatment_assignment,
+            weight_prediction.weight_for_being_treated,
+            weight_prediction.treatment_assignment_pred,
+            propensity,
+            propensity_by_treatment_assignment,
+        )
+        return prediction
+
