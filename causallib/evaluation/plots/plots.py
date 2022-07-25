@@ -26,7 +26,6 @@ import matplotlib.ticker
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
-from scipy import interp as scipy_interp
 from scipy.stats import gaussian_kde
 from sklearn import metrics
 
@@ -609,9 +608,9 @@ def _plot_single_performance_curve(
     ys_interp = []
     for i in range(n_folds):
         if areas_type == "AP":  # precision/recall need to be reversed for interpolation
-            ys_interp.append(scipy_interp(x_domain, xs[i][::-1], ys[i][::-1]))
+            ys_interp.append(np.interp(x_domain, xs[i][::-1], ys[i][::-1]))
         else:
-            ys_interp.append(scipy_interp(x_domain, xs[i], ys[i]))
+            ys_interp.append(np.interp(x_domain, xs[i], ys[i]))
             ys_interp[-1][0] = 0.0
         area = areas[i]
 
