@@ -51,7 +51,6 @@ class EvaluationResults(abc.ABC):
     a: pd.Series
     y: pd.Series
 
-
     @property
     def extractor(self):
         """Plot-data extractor for these results.
@@ -110,14 +109,6 @@ class EvaluationResults(abc.ABC):
         Returns:
             set[str]: string names of supported plot names for these results
         """
-        return set(dataclasses.astuple(self.extractor.plot_names))
-
-    @property
-    def plot_names(self):
-        """Dataclass with attributes encoding the available plot names.
-
-        Provided for introspection and typo-proofing.
-        """
         return self.extractor.plot_names
 
     def get_data_for_plot(self, plot_name, phase="train"):
@@ -133,14 +124,20 @@ class EvaluationResults(abc.ABC):
         return self.extractor.get_data_for_plot(plot_name, phase)
 
 
-class WeightEvaluationResults(EvaluationResults, mixins.WeightPlotterMixin):
+class WeightEvaluationResults(
+    EvaluationResults,
+    mixins.WeightPlotterMixin,
+    mixins.PlotAllMixin,
+):
     @property
     def extractor(self):
         return data_extractors.WeightPlotDataExtractor(self)
 
 
 class BinaryOutcomeEvaluationResults(
-    EvaluationResults, mixins.ClassificationPlotterMixin
+    EvaluationResults,
+    mixins.ClassificationPlotterMixin,
+    mixins.PlotAllMixin,
 ):
     @property
     def extractor(self):
@@ -148,7 +145,9 @@ class BinaryOutcomeEvaluationResults(
 
 
 class ContinuousOutcomeEvaluationResults(
-    EvaluationResults, mixins.ContinuousOutcomePlotterMixin
+    EvaluationResults,
+    mixins.ContinuousOutcomePlotterMixin,
+    mixins.PlotAllMixin,
 ):
     @property
     def extractor(self):
@@ -156,7 +155,10 @@ class ContinuousOutcomeEvaluationResults(
 
 
 class PropensityEvaluationResults(
-    EvaluationResults, mixins.ClassificationPlotterMixin, mixins.WeightPlotterMixin
+    EvaluationResults,
+    mixins.ClassificationPlotterMixin,
+    mixins.WeightPlotterMixin,
+    mixins.PlotAllMixin,
 ):
     @property
     def extractor(self):

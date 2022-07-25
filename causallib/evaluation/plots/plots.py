@@ -16,7 +16,6 @@ limitations under the License.
 Created on Aug 22, 2018
 
 """
-from dataclasses import dataclass
 from itertools import cycle
 from typing import Callable
 import warnings
@@ -32,8 +31,6 @@ from scipy.stats import gaussian_kde
 from sklearn import metrics
 
 # TODO: propensity distribution using CDF (and not reflecting if so)
-# TODO: Make plot "names" (as in the string which are their common name in the code) global variables in this module
-#       instead of "magics" in the Evaluator module
 # TODO: consider making plots to not rely on pandas input (and can work more generally with numpy)?
 # TODO: consider refactoring each type (family?) of plots to its own module (unify through __init__?)
 # TODO: consider making plot module be class-based instead, taking its argument during init
@@ -50,33 +47,26 @@ COVARIATE_BALANCE_LOVE_PLOT = "covariate_balance_love"
 COVARIATE_BALANCE_SLOPE_PLOT = "covariate_balance_slope"
 COVARIATE_BALANCE_GENERIC_PLOT = "covariate_balance"
 
-@dataclass(frozen=True)
-class WeightPlotNames:
-    weight_distribution: str = WEIGHT_DISTRIBUTION_PLOT
-    roc_curve: str = ROC_CURVE_PLOT
-    pr_curve: str = PR_CURVE_PLOT
-    covariate_balance_love: str = COVARIATE_BALANCE_LOVE_PLOT
-    covariate_balance_slope: str = COVARIATE_BALANCE_SLOPE_PLOT
+WeightPlotNames = frozenset({
+    WEIGHT_DISTRIBUTION_PLOT,
+    ROC_CURVE_PLOT,
+    PR_CURVE_PLOT,
+    COVARIATE_BALANCE_LOVE_PLOT,
+    COVARIATE_BALANCE_SLOPE_PLOT,
+})
 
 
-@dataclass(frozen=True)
-class PropensityPlotNames(WeightPlotNames):
-    weight_distribution: str = WEIGHT_DISTRIBUTION_PLOT
-    calibration: str = CALIBRATION_PLOT
+PropensityPlotNames = frozenset({WEIGHT_DISTRIBUTION_PLOT, CALIBRATION_PLOT} | WeightPlotNames)
 
 
-@dataclass(frozen=True)
-class ContinuousOutputPlotNames:
-    continuous_accuracy: str = CONTINUOUS_ACCURACY_PLOT
-    residuals: str = RESIDUALS_PLOT
-    common_support: str = COMMON_SUPPORT_PLOT
+ContinuousOutputPlotNames = frozenset({
+    CONTINUOUS_ACCURACY_PLOT,
+    RESIDUALS_PLOT,
+    COMMON_SUPPORT_PLOT,
+})
 
+BinaryOutputPlotNames = frozenset({CALIBRATION_PLOT, ROC_CURVE_PLOT, PR_CURVE_PLOT})
 
-@dataclass(frozen=True)
-class BinaryOutputPlotNames:
-    calibration: str = CALIBRATION_PLOT
-    roc_curve: str = ROC_CURVE_PLOT
-    pr_curve: str = PR_CURVE_PLOT
 
 
 def lookup_name(name: str) -> Callable:

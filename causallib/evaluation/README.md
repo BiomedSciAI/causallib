@@ -15,7 +15,7 @@ in cross-validation using
 from sklearn.linear_model import LogisticRegression
 from causallib.estimation import IPW
 from causallib.datasets.data_loader import fetch_smoking_weight
-from causallib.evaluation import Evaluator, plot_evaluation_results
+from causallib.evaluation import evaluate
 
 data = fetch_smoking_weight()
 
@@ -25,18 +25,14 @@ evaluator = Evaluator(ipw)
 
 res = evaluator.evaluate_cv(data.X, data.a, data.y)
 
-plot_evaluation_results(res, data.X, data.a, data.y)
+res.plot_all()
 ```
 
 This will train the models and create evaluation plots
 showing the performance on both the training and validation data.
 
-To select specific plots only, select a plot from `all_plot_names` or with
-introspection and tab-completion from the `plot_names` member.
-
 ```python
 print(res.all_plot_names)
 # {'weight_distribution', 'pr_curve', 'covariate_balance_love', 'roc_curve', 'calibration', 'covariate_balance_slope'}
-from causallib.evaluation import plot_single_evaluation_result
-plot_single_evaluation_result(res, data.X, data.a, data.y, res.plot_names.covariate_balance_love, "valid")
+res.plot_covariate_balance(kind="love", phase="valid")
 ```

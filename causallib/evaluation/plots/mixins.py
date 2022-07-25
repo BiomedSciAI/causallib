@@ -13,6 +13,7 @@ class WeightPlotterMixin:
       * `get_data_for_plot(plots.COVARIATE_BALANCE_GENERIC_PLOT)`
       * `get_data_for_plot(plots.WEIGHT_DISTRIBUTION_PLOT)`
     """
+
     def plot_covariate_balance(
         self,
         kind="love",
@@ -96,6 +97,7 @@ class ClassificationPlotterMixin:
       * `get_data_for_plot(plots.PR_CURVE_PLOT)`
       * `get_data_for_plot(plots.CALIBRATION_PLOT)`
     """
+
     def plot_roc_curve(
         self,
         phase="train",
@@ -185,7 +187,8 @@ class ContinuousOutcomePlotterMixin:
       * `get_data_for_plot(plots.CONTINUOUS_ACCURACY_PLOT)`
       * `get_data_for_plot(plots.RESIDUALS_PLOT)`
       * `get_data_for_plot(plots.CONTINUOUS_ACCURACY_PLOT)`
-    """    
+    """
+
     def plot_continuous_accuracy(
         self, phase="train", alpha_by_density=True, plot_residuals=False, ax=None
     ):
@@ -203,7 +206,9 @@ class ContinuousOutcomePlotterMixin:
         )
 
     def plot_residuals(self, phase="train", alpha_by_density=True, ax=None):
-        predictions, y, a, cv = self.get_data_for_plot(plots.RESIDUALS_PLOT, phase=phase)
+        predictions, y, a, cv = self.get_data_for_plot(
+            plots.RESIDUALS_PLOT, phase=phase
+        )
         return plots.plot_residual_folds(
             predictions=predictions,
             y=y,
@@ -232,3 +237,68 @@ class ContinuousOutcomePlotterMixin:
             alpha_by_density=alpha_by_density,
             ax=ax,
         )
+
+
+class PlotAllMixin:
+    """Mixin to make all the train and validation plots.
+
+    Class must implement:
+      * `all_plot_names`
+      * `get_data_for_plot(name)` for every name in `all_plot_names`
+    """
+    def plot_all(self, phase=None):
+        """Create plot of all available EvaluationResults.
+
+        Will create a figure with a subplot for each plot name in `all_plot_names`.
+        If `results` have train and validation data, will create separate
+        "train" and "valid" figures. If a single plot is requested, only that plot is created.
+
+        Args:
+            phase (Union[str, None], optional): phase to plot "train" or "valid". If not supplied,
+                defaults to both for multipanel plot or "train" for single panel plot.
+
+        Returns:
+            Dict[str, matplotlib.axis.Axis]]: the Axis objects of the plots in a nested dictionary:
+              * First key is the phase ("train" or "valid")
+              * Second key is the plot name.
+        """
+        phases_to_plot = self.predictions.keys() if phase is None else [phase]
+        multipanel_plot = {
+            plotted_phase: self._make_multipanel_evaluation_plot(
+                plot_names=self.all_plot_names, phase=plotted_phase
+            )
+            for plotted_phase in phases_to_plot
+        }
+        return multipanel_plot
+
+    def _make_multipanel_evaluation_plot(self, plot_names, phase):
+        phase_fig, phase_axes = plots.get_subplots(len(plot_names))
+        named_axes = {
+            name: self._make_single_panel_evaluation_plot(name, phase, ax)
+            for name, ax in zip(plot_names, phase_axes.ravel())
+        }
+
+        phase_fig.suptitle(f"Evaluation on {phase} phase")
+        return named_axes
+
+    def _make_single_panel_evaluation_plot(self, plot_name, phase, ax=None, **kwargs):
+        """Create a single evaluation plot.
+
+        For a single phase and a single plot name.
+
+        Args:
+            results (EvaluationResults): evaluation results to plot
+            plot_name (str): plot name (from results.all_plot_names)
+            phase (str): "train" or "valid"
+            ax (matplotlib.axis.Axis, optional): axis to plot on. Defaults to None.
+            **kwargs: passed to underlying plotting function
+        Raises:
+            ValueError: if receives unsupported name
+
+        Returns:
+            Union[matplotlib.axis.Axis, None]: axis with plot if successful, else None
+        """
+
+        plot_func = plots.lookup_name(plot_name)
+        plot_data = self.get_data_for_plot(plot_name, phase=phase)
+        return plot_func(*plot_data, ax=ax, **kwargs)

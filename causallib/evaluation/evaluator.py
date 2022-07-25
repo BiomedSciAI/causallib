@@ -24,7 +24,6 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 
-from .plots.helpers import plot_evaluation_results
 from .predictor import predict_cv
 from .results import EvaluationResults
 from .scoring import score_cv
@@ -63,7 +62,7 @@ def evaluate(
     y,
     cv=None,
     metrics_to_evaluate=None,
-    plots=None,
+    plots=False,
 ):
     """Evaluate model in cross-validation of the provided data
 
@@ -82,7 +81,7 @@ def evaluate(
         metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives
             true labels, prediction, and sample_weights (the latter is allowed to be ignored).
             If not provided, defaults from `causallib.evaluation.metrics` are used.
-        plots (list[str] | None): list of plots to make. If None, none are generated.
+        plots (bool): whether to generate plots
 
     Returns:
         EvaluationResults
@@ -106,7 +105,7 @@ def evaluate(
     )
 
 
-def _evaluate_simple(estimator, X, a, y, metrics_to_evaluate=None, plots=None):
+def _evaluate_simple(estimator, X, a, y, metrics_to_evaluate=None, plots=False):
     """Evaluate model on the provided data without cross-validation or bootstrap.
 
     Simple evaluation without cross validation on the provided data can be to test
@@ -160,7 +159,7 @@ def _evaluate_cv(
     refit=True,
     phases=("train", "valid"),
     metrics_to_evaluate=None,
-    plots=None,
+    plots=False,
 ):
     """Evaluate model in cross-validation of the provided data
 
@@ -177,7 +176,7 @@ def _evaluate_cv(
         metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives
             true labels, prediction, and sample_weights (the latter is allowed to be ignored).
             If not provided, defaults from `causallib.evaluation.metrics` are used.
-        plots (list[str] | None): list of plots to make. If None, none are generated.
+        plots (bool): whether to generate plots
 
     Returns:
         EvaluationResults
@@ -205,9 +204,8 @@ def _evaluate_cv(
         y=y,
     )
 
-    if plots is not None:
-        plot_evaluation_results(evaluation_results, X, a, y, plots)
-
+    if plots:
+        evaluation_results.plot_all()
     return evaluation_results
 
 
