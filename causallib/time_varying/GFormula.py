@@ -191,28 +191,33 @@ class GFormula(GMethodBase):
         res = pd.DataFrame(res)
         return res
 
-    def _apply_noise(self, out, t, d_type='float'):
-        """adding noise to a box output
-                   out: bs * 1 * <F-box>
-                   t: time
-                   box: box id
-                   mode: mode of operation
-                   """
+    def _apply_noise(self, out, t, box_type='float'):
+        raise NotImplementedError()
 
         # TODO: Convert Torch to np
+        # TODO: infer box_type from data
+
+        residuals = self.resid_val
         mode = self.mode if self.mode else "empirical"
+
+        """adding noise to a box output
+           out: bs * 1 * <F-box>
+           t: time
+           box: box id
+           mode: mode of operation
+           """
         _device = out.device
         # (first_box_var, last_box_var, _, _) = self.model.box_dim[box]
         #  box_type = self.model.box_type[box]
 
-        if d_type == 'boolean':
+        if box_type == 'boolean':
             _sim = (np.random.rand(*out.shape) < out.data.cpu().numpy()).astype('int')
-            # sim = T.from_numpy(_sim).float().to(out.device)  # , requires_grad=False).to(device)
-            # sim.requires_grad_(False)
+            sim = T.from_numpy(_sim).float().to(out.device)  # , requires_grad=False).to(device)
+            sim.requires_grad_(False)
 
-        elif d_type == 'float':
+        elif box_type == 'float':
             if mode == 'empirical':
-                _resid_dist = self.resid_val[t, :, :]  # bs * F
+                _resid_dist = residuals[t, :, :]  # bs * F
                 sim_noise = self._batch_choice(_resid_dist, num_samples=out.shape[0])
                 _sim_noise_t = T.from_numpy(sim_noise).float()  # , requires_grad=False)  # bs * <F-box>
                 _sim_noise_t.requires_grad_(False)
@@ -224,16 +229,16 @@ class GFormula(GMethodBase):
                 _sim_noise_t = 1.0 * T.randn(*out.shape)
             elif mode == 'tdist':
                 #  import ipdb; ipdb.set_trace()  # BREAKPOINT
-                _dist = T.distributions.StudentT(df=self.resid_val.shape[1] - 1)
+                _dist = T.distributions.StudentT(df=residuals.shape[1] - 1)
                 _sim_noise_t = 1.0 * _dist.sample(out.shape)
             elif mode == 'emp_std':
                 #  import ipdb; ipdb.set_trace()  # BREAKPOINT
-                _std = T.Tensor(self.resid_val[t, :, :].std(axis=0))
+                _std = T.Tensor(residuals[t, :, :].std(axis=0))
                 _sim_noise_t = _std * T.randn(*out.shape)
             elif mode == 'emp_mean_std':
                 #  import ipdb; ipdb.set_trace()  # BREAKPOINT
-                _std = T.Tensor(self.resid_val[t, :, :].std(axis=0))
-                _mean = T.Tensor(self.resid_val[t, :, :].mean(axis=0))
+                _std = T.Tensor(residuals[t, :, :].std(axis=0))
+                _mean = T.Tensor(residuals[t, :, :].mean(axis=0))
                 _sim_noise_t = _mean + _std * T.randn(*out.shape)
             _sim_noise_t = _sim_noise_t.to(_device)
             sim = out + _sim_noise_t
@@ -268,7 +273,7 @@ class GFormula(GMethodBase):
 
         treatment_data = self._extract_treatment_model_data(data,
                                                             cols_in_order,
-                                                            treatment_cols
+                                                            prev_treatment_cols
                                                             )
         covariate_data = self._extract_covariate_models_data(data,
                                                              cols_in_order,
@@ -276,9 +281,7 @@ class GFormula(GMethodBase):
                                                              prev_covariate_cols,
                                                              prev_treatment_cols
                                                              )
-        outcome_data = self._extract_outcome_model_data(data,
-                                                        cols_in_order,
-                                                        y.cols)
+        outcome_data = self._extract_outcome_model_data(data)  # TODO
 
         return treatment_data, covariate_data, outcome_data
 
@@ -328,21 +331,21 @@ class GFormula(GMethodBase):
         sim_all_cov = _input.drop(a.name, axis=1)
         return sim_all_cov, a_pred
 
-    def _extract_treatment_model_data(self, X, all_columns, treatment_cols):
-        _columns = [col for col in all_columns if col not in treatment_cols]
+    def _extract_treatment_model_data(self, X, columns, treatments):
+        _columns = [col for col in columns if col not in treatments]
         X_treatment = X[_columns]
         return X_treatment
 
-    def _extract_covariate_models_data(self, X, all_columns, index, prev_covariates, prev_treatments):
+    def _extract_covariate_models_data(self, X, columns, index, prev_covariates, prev_treatments):
         X_covariates = {}
         default_cols = index + prev_covariates + prev_treatments
         for i, cov in enumerate(self.covariate_models):
-            _columns = all_columns[: len(default_cols) + i]
+            _columns = columns[: len(default_cols) + i]
             X_covariates[cov] = X[_columns]
         return X_covariates
 
-    def _extract_outcome_model_data(self, X, all_columns, y_cols):
-        _columns = [col for col in all_columns if col not in y_cols]
-        X_outcome = X[_columns]
+    def _extract_outcome_model_data(self, X):
+        covariates = []
+        X_outcome = X[covariates]
         return X_outcome
 
