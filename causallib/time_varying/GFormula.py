@@ -258,8 +258,8 @@ class GFormula(GMethodBase):
         treatment_cols = list(a.columns)
         prev_covariate_cols = ['prev_' + cov for cov in covariate_cols]
         prev_treatment_cols = ['prev_' + a for a in treatment_cols]
-        index = ['id', 'time']
-        cols_in_order = index + prev_covariate_cols + prev_treatment_cols + covariate_cols + treatment_cols
+        index_cols = ['id', 'time']
+        cols_in_order = index_cols + prev_covariate_cols + prev_treatment_cols + covariate_cols + treatment_cols
 
         data = X.join(a)
         for cov in covariate_cols:
@@ -273,15 +273,17 @@ class GFormula(GMethodBase):
 
         treatment_data = self._extract_treatment_model_data(data,
                                                             cols_in_order,
-                                                            prev_treatment_cols
+                                                            treatment_cols
                                                             )
         covariate_data = self._extract_covariate_models_data(data,
                                                              cols_in_order,
-                                                             index,
+                                                             index_cols,
                                                              prev_covariate_cols,
                                                              prev_treatment_cols
                                                              )
-        outcome_data = self._extract_outcome_model_data(data)  # TODO
+        outcome_data = self._extract_outcome_model_data(data,
+                                                        cols_in_order,
+                                                        y.cols)
 
         return treatment_data, covariate_data, outcome_data
 
@@ -331,21 +333,21 @@ class GFormula(GMethodBase):
         sim_all_cov = _input.drop(a.name, axis=1)
         return sim_all_cov, a_pred
 
-    def _extract_treatment_model_data(self, X, columns, treatments):
-        _columns = [col for col in columns if col not in treatments]
+    def _extract_treatment_model_data(self, X, all_columns, treatment_cols):
+        _columns = [col for col in all_columns if col not in treatment_cols]
         X_treatment = X[_columns]
         return X_treatment
 
-    def _extract_covariate_models_data(self, X, columns, index, prev_covariates, prev_treatments):
+    def _extract_covariate_models_data(self, X, all_columns, index_cols, prev_covariates, prev_treatments):
         X_covariates = {}
-        default_cols = index + prev_covariates + prev_treatments
+        default_cols = index_cols + prev_covariates + prev_treatments
         for i, cov in enumerate(self.covariate_models):
-            _columns = columns[: len(default_cols) + i]
+            _columns = all_columns[: len(default_cols) + i]
             X_covariates[cov] = X[_columns]
         return X_covariates
 
-    def _extract_outcome_model_data(self, X):
-        covariates = []
-        X_outcome = X[covariates]
+    def _extract_outcome_model_data(self, X, all_columns, y_cols):
+        _columns = [col for col in all_columns if col not in y_cols]
+        X_outcome = X[_columns]
         return X_outcome
 
