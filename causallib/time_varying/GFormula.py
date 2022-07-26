@@ -47,8 +47,8 @@ class GFormula(GMethodBase):
             if refit_models or cov_model_is_not_fitted:
                 self.covariate_models[cov].fit(covariate_data[cov], X[cov], **kwargs)
 
-        treatment_model_is_not_fitted = not g_tools.check_learner_is_fitted(self.outcome_model)
-        if refit_models or treatment_model_is_not_fitted:
+        outcome_model_is_not_fitted = not g_tools.check_learner_is_fitted(self.outcome_model)
+        if refit_models or outcome_model_is_not_fitted:
             self.outcome_model.fit(outcome_data, y, **kwargs)
         return self
 
