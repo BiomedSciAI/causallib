@@ -81,10 +81,10 @@ class GFormula(GMethodBase):
         unique_sample_ids = X[self.group_by].unique()
         all_sim_result = []
         for sample_id in unique_sample_ids:
-            sample_data = X.loc[X[self.group_by] == sample_id]
+            sample_X = X.loc[X[self.group_by] == sample_id]
             sample_a = a.loc[a[self.group_by] == sample_id]
             sample_y = y.loc[y[self.group_by] == sample_id]
-            sample_sim = self._estimate_individual_outcome_single_sample(X=sample_data,
+            sample_sim = self._estimate_individual_outcome_single_sample(X=sample_X,
                                                                          a=sample_a,
                                                                          t=t,
                                                                          y=sample_y,
@@ -99,7 +99,7 @@ class GFormula(GMethodBase):
             sample_sim_act.act = a.columns
 
             sample_sim_res = pd.concat([sample_sim_cov, sample_sim_act.drop(t.name, axis=1)], axis=1)
-            sample_sim_res['sample_id'] = sample_id
+            sample_sim_res[self.group_by] = sample_id
             all_sim_result.append(sample_sim_res)
 
         return pd.DataFrame(all_sim_result)
@@ -177,7 +177,7 @@ class GFormula(GMethodBase):
                                     ) -> pd.DataFrame:
 
         """
-            Calculates population outcome for each subgroup stratified by treatment assignment.
+            Calculates population outcome for each covariate across 't' times.
             Backlog: Support for multiple treatment strategies. Like a list of  "always_treated"  and "never_treated".
         """
         individual_prediction_curves = self.estimate_individual_outcome(X=X,
