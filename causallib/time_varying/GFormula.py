@@ -95,7 +95,7 @@ class GFormula(GMethodBase):
             sample_sim_act = sample_sim['actions'].mean(axis=0).squeeze(axis=0)  # n_steps * act_cols
 
             sample_sim_cov.columns = self.covariate_models.keys()
-            sample_sim_cov.act = a.columns
+            sample_sim_act.act = a.columns
 
             sample_sim_res = pd.concat([sample_sim_cov, sample_sim_act.drop('time', axis=1)], axis=1)
             sample_sim_res['sample_id'] = sample_id
