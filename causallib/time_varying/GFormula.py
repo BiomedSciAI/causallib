@@ -67,14 +67,15 @@ class GFormula(GMethodBase):
 
         Steps:
             1. For each sample,
-                a. Get the simulation outcome (n_sim * n_steps * X-dim) from _estimate_individual_outcome_single_sample
-                b. Take mean across n_sim and then drop that axis, which will result (n_steps * X-dim)
+                a. Get the simulation outcome (n_sim * n_steps * cov_cols) from _estimate_individual_outcome_single_sample
+                b. Take mean across 'n_sim' and then drop that axis, which will result (n_steps * cov_cols)
                 c. Repeat #b for treatment (act) as well
                 d. Assign the column names for the returned dataframes from #b (cov) and #c (act)
-                e. Concatenate these two dataframes (cov and act) across column, which results (n_steps * (X-dim + a-dim))
-                f. Add sample_id in the resulted dataframe from #e
+                e. Concatenate these two dataframes (cov and act) across column,
+                 which results (n_steps * (cov_cols + act_cols))
+                f. Add 'sample_id' column in the resulted dataframe from #e
                 g. Add the dataframe in a list
-            2. Finally, return the result (n_steps * (X-dim + a-dim + 1)) from #1g
+            2. Finally, return the result (n_steps * (cov_cols + act_cols + sample_id_col)) from #1g
         """
 
         unique_sample_ids = X[self.group_by].unique()
@@ -97,7 +98,7 @@ class GFormula(GMethodBase):
             sample_sim_cov.columns = self.covariate_models.keys()
             sample_sim_act.act = a.columns
 
-            sample_sim_res = pd.concat([sample_sim_cov, sample_sim_act.drop('time', axis=1)], axis=1)
+            sample_sim_res = pd.concat([sample_sim_cov, sample_sim_act.drop(t.name, axis=1)], axis=1)
             sample_sim_res['sample_id'] = sample_id
             all_sim_result.append(sample_sim_res)
 
@@ -185,7 +186,7 @@ class GFormula(GMethodBase):
                                                                         y=y,
                                                                         treatment_strategy=treatment_strategy,
                                                                         timeline_start=timeline_start,
-                                                                        timeline_end=timeline_end)  # n_steps * n_cols
+                                                                        timeline_end=timeline_end)
 
         # Averaging across time
         by_row_index = individual_prediction_curves.groupby(individual_prediction_curves.time)
