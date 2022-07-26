@@ -63,18 +63,18 @@ class GFormula(GMethodBase):
                                     timeline_end: Optional[int] = None
                                     ) -> pd.DataFrame:
         """
-            Returns individual estimated curves for each subject row in X/a/t
+            Returns dataframe (individual estimated curves) for each subject in (t * (X and a))
 
         Steps:
             1. For each sample,
-                i. get the simulation outcome (n_sim * n_steps * X-dim) from _estimate_individual_outcome_single_sample
-                ii. take mean across n_sim and then drop that axis, which will result (n_steps * X-dim)
-            2. The result from #1 is appended to list for all the samples, i.e n_samples * n_steps * X-dim
-            3. Repeat #1 and #2 for treatment (a) as well
-            4. Finally, merge these two results from #2 and #3 across last dimension,
-                which results (n_sub * n_steps * (X-dim + a-dim))
-            5. Finally, return the result from #4
-            #TODO may be add more details
+                a. Get the simulation outcome (n_sim * n_steps * X-dim) from _estimate_individual_outcome_single_sample
+                b. Take mean across n_sim and then drop that axis, which will result (n_steps * X-dim)
+                c. Repeat #b for treatment (act) as well
+                d. Assign the column names for the returned dataframes from #b (cov) and #c (act)
+                e. Concatenate these two dataframes (cov and act) across column, which results (n_steps * (X-dim + a-dim))
+                f. Add sample_id in the resulted dataframe from #e
+                g. Add the dataframe in a list
+            2. Finally, return the result (n_steps * (X-dim + a-dim + 1)) from #1g
         """
 
         unique_sample_ids = X[self.group_by].unique()
@@ -97,7 +97,7 @@ class GFormula(GMethodBase):
             sample_sim_cov.columns = self.covariate_models.keys()
             sample_sim_cov.act = a.columns
 
-            sample_sim_res = pd.concat([sample_sim_cov, sample_sim_act.drop('time', axis =1)], axis=1)
+            sample_sim_res = pd.concat([sample_sim_cov, sample_sim_act.drop('time', axis=1)], axis=1)
             sample_sim_res['sample_id'] = sample_id
             all_sim_result.append(sample_sim_res)
 
