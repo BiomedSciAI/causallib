@@ -217,7 +217,7 @@ class BinaryOutcomePlotDataExtractor(BaseEvaluationPlotDataExtractor):
             )
         if plot_name in {plots.ROC_CURVE_PLOT}:
             proba_list = [x.get_proba_by_treatment(self.a) for x in fold_predictions]
-            curve_data = curve_data_makers.calculate_curve_data_binary(
+            curve_data = curve_data_makers.calculate_curve_data_binary_outcome(
                 proba_list,
                 self.y,
                 metrics.roc_curve,
@@ -229,7 +229,7 @@ class BinaryOutcomePlotDataExtractor(BaseEvaluationPlotDataExtractor):
 
         if plot_name in {plots.PR_CURVE_PLOT}:
             proba_list = [x.get_proba_by_treatment(self.a) for x in fold_predictions]
-            curve_data = curve_data_makers.calculate_curve_data_binary(
+            curve_data = curve_data_makers.calculate_curve_data_binary_outcome(
                 proba_list,
                 self.y,
                 metrics.precision_recall_curve,

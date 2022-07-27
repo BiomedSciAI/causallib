@@ -115,7 +115,7 @@ def calculate_performance_curve_data_on_folds(
     return area_folds, first_ret_folds, second_ret_folds, threshold_folds
 
 
-def calculate_curve_data_binary(
+def calculate_curve_data_binary_outcome(
     folds_predictions,
     targets,
     curve_metric,
