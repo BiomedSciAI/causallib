@@ -13,16 +13,15 @@ class GFormula(GMethodBase):
     """
         GFormula class that is based on Monte Carlo Simulation for creating the noise.
     """
-    def __init__(self, treatment_model, covariate_models, outcome_model, refit_models, seed, n_obsv, n_sims, n_steps, mode, resid_val, group_by):
+    def __init__(self, treatment_model, covariate_models, outcome_model, refit_models, random_state, n_obsv, n_sims, n_steps, mode, resid_val):
         super(GFormula, self).__init__(treatment_model, covariate_models, outcome_model, refit_models)
-        self.seed = seed
+        self.random_state = random_state
         self.n_obsv = n_obsv
         self.n_sims = n_sims
         self.n_steps = n_steps
         self.mode = mode
         self.resid_val = resid_val
-        self.group_by = group_by
-
+        self.id_col = 'id'
 
     def fit(self,
             X: pd.DataFrame,
@@ -30,6 +29,7 @@ class GFormula(GMethodBase):
             t: Optional[pd.Series] = None,
             y: Optional[Any] = None,
             refit_models: bool = True,
+            id_col: str = None,
             **kwargs
             ):
 
@@ -51,6 +51,7 @@ class GFormula(GMethodBase):
                 cov_model.fit(X, a, y, **kwargs)
 
         self.outcome_model.fit(X, a, y, **kwargs)
+        self.id_col = id_col if id_col else self.id_col
         return
 
     def estimate_individual_outcome(self,
@@ -78,6 +79,8 @@ class GFormula(GMethodBase):
             2. Finally, return the result (n_steps * (cov_cols + act_cols + sample_id_col)) from #1g
         """
 
+        if self.random_state is not None:
+            np.random.seed(self.random_state)
         unique_sample_ids = X[self.group_by].unique()
         all_sim_result = []
         for sample_id in unique_sample_ids:
