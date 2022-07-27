@@ -80,12 +80,12 @@ class GFormula(GMethodBase):
 
         if self.random_state is not None:
             np.random.seed(self.random_state)
-        unique_sample_ids = X[self.group_by].unique()
+        unique_sample_ids = X[self.id_col].unique()
         all_sim_result = []
         for sample_id in unique_sample_ids:
-            sample_X = X.loc[X[self.group_by] == sample_id]
-            sample_a = a.loc[a[self.group_by] == sample_id]
-            sample_y = y.loc[y[self.group_by] == sample_id]
+            sample_X = X.loc[X[self.id_col] == sample_id]
+            sample_a = a.loc[a[self.id_col] == sample_id]
+            sample_y = y.loc[y[self.id_col] == sample_id]
             sample_sim = self._estimate_individual_outcome_single_sample(X=sample_X,
                                                                          a=sample_a,
                                                                          t=t,
@@ -101,7 +101,7 @@ class GFormula(GMethodBase):
             sample_sim_act.act = a.columns
 
             sample_sim_res = pd.concat([sample_sim_cov, sample_sim_act.drop(t.name, axis=1)], axis=1)
-            sample_sim_res[self.group_by] = sample_id
+            sample_sim_res[self.id_col] = sample_id
             all_sim_result.append(sample_sim_res)
 
         return pd.DataFrame(all_sim_result)
@@ -133,7 +133,7 @@ class GFormula(GMethodBase):
         simulation = dict(actions=list(),
                           covariates=list(),
                           time=list(),
-                          pat_id=X['id'][0],
+                          pat_id=X[self.id_col][0],
                           )
 
         X = X.repeat(self.n_sims, 1, 1)  # N_sims * T * F
@@ -171,7 +171,7 @@ class GFormula(GMethodBase):
     def estimate_population_outcome(self,
                                     X: pd.DataFrame,
                                     a: pd.Series,
-                                    t: pd.Series,
+                                    t: pd.Series = None,
                                     y: Optional[Any] = None,
                                     treatment_strategy: TreatmentStrategy = None,
                                     timeline_start: Optional[int] = None,
@@ -262,18 +262,18 @@ class GFormula(GMethodBase):
         treatment_cols = list(a.columns)
         prev_covariate_cols = ['prev_' + cov for cov in covariate_cols]
         prev_treatment_cols = ['prev_' + a for a in treatment_cols]
-        index_cols = ['id', 'time']
+        index_cols = [self.id_col, 'time']
         cols_in_order = index_cols + prev_covariate_cols + prev_treatment_cols + covariate_cols + treatment_cols
 
         data = X.join(a)
         for cov in covariate_cols:
-            data['prev_' + cov] = data.groupby('id')[cov].shift(1)
+            data['prev_' + cov] = data.groupby(self.id_col)[cov].shift(1)
         for a in treatment_cols:
-            data['prev_' + a] = data.groupby('id')[a].shift(1)
+            data['prev_' + a] = data.groupby(self.id_col)[a].shift(1)
 
         data.dropna(inplace=True)  # dropping first row
         data = data[cols_in_order]
-        data.set_index(['id', 'time'], inplace=True)
+        data.set_index(index_cols, inplace=True)
 
         treatment_data = self._extract_treatment_model_data(data,
                                                             cols_in_order,
