@@ -33,26 +33,25 @@ class GFormula(GMethodBase):
             **kwargs
             ):
 
-        raise NotImplementedError
-
         if kwargs is None:
             kwargs = {}
 
-        # TODO More to work on preparing data to be fed into the model
-        treatment_model_is_not_fitted = not g_tools.check_learner_is_fitted(self.treatment_model.learner)
+        treatment_data, covariate_data, outcome_data = self._prepare_data(X, a, t, y)
+
+        treatment_model_is_not_fitted = not g_tools.check_learner_is_fitted(self.treatment_model)
         if refit_models or treatment_model_is_not_fitted:
-            self.treatment_model.fit(X, a, y, **kwargs)
+            self.treatment_model.fit(treatment_data, a, **kwargs)
 
         for cov in self.covariate_models:
-            cov_model = self.covariate_models[cov]
-            cov_model_is_not_fitted = not g_tools.check_learner_is_fitted(cov_model.learner)
-
+            cov_model_is_not_fitted = not g_tools.check_learner_is_fitted(self.covariate_models[cov])
             if refit_models or cov_model_is_not_fitted:
-                cov_model.fit(X, a, y, **kwargs)
+                self.covariate_models[cov].fit(covariate_data[cov], X[cov], **kwargs)
 
-        self.outcome_model.fit(X, a, y, **kwargs)
-        self.id_col = id_col if id_col else self.id_col
-        return
+        outcome_model_is_not_fitted = not g_tools.check_learner_is_fitted(self.outcome_model)
+        if refit_models or outcome_model_is_not_fitted:
+            self.outcome_model.fit(outcome_data, y, **kwargs)
+        # self.id_col = id_col if id_col else self.id_col
+        return self
 
     def estimate_individual_outcome(self,
                                     X: pd.DataFrame,
@@ -145,7 +144,7 @@ class GFormula(GMethodBase):
         x_t = X[:, :t, :].clone()  # .unsqueeze(1)
         a_t = a[:, :t, :].clone()  # .unsqueeze(1)
         act_t = treatment_strategy(x_t[:, -1, :], x_t[:, :-1, :], a_t[:, -1, :])
-        a_t = T.cat(a_t[:, -1, :], act_t)
+        a_t = pd.concat(a_t[:, -1, :], act_t)
 
         # init all the models
         self._init_models()  # TODO
@@ -258,11 +257,39 @@ class GFormula(GMethodBase):
         sample = val_arr[choice, :]
         return sample
 
-    def _prepare_data(self, X, a):
-        return NotImplementedError()
-        # TODO Write actual code for data manipulation
-        X = pd.concat([a, X], join="outer", axis="columns")
-        return X
+    def _prepare_data(self, X, a, t, y):
+        covariate_cols = list(self.covariate_models.keys())
+        treatment_cols = list(a.columns)
+        prev_covariate_cols = ['prev_' + cov for cov in covariate_cols]
+        prev_treatment_cols = ['prev_' + a for a in treatment_cols]
+        index_cols = ['id', 'time']
+        cols_in_order = index_cols + prev_covariate_cols + prev_treatment_cols + covariate_cols + treatment_cols
+
+        data = X.join(a)
+        for cov in covariate_cols:
+            data['prev_' + cov] = data.groupby('id')[cov].shift(1)
+        for a in treatment_cols:
+            data['prev_' + a] = data.groupby('id')[a].shift(1)
+
+        data.dropna(inplace=True)  # dropping first row
+        data = data[cols_in_order]
+        data.set_index(['id', 'time'], inplace=True)
+
+        treatment_data = self._extract_treatment_model_data(data,
+                                                            cols_in_order,
+                                                            treatment_cols
+                                                            )
+        covariate_data = self._extract_covariate_models_data(data,
+                                                             cols_in_order,
+                                                             index_cols,
+                                                             prev_covariate_cols,
+                                                             prev_treatment_cols
+                                                             )
+        outcome_data = self._extract_outcome_model_data(data,
+                                                        cols_in_order,
+                                                        y.cols)
+
+        return treatment_data, covariate_data, outcome_data
 
     def _init_models(self):
         raise NotImplementedError()
@@ -309,3 +336,22 @@ class GFormula(GMethodBase):
         # drop treatment from _input
         sim_all_cov = _input.drop(a.name, axis=1)
         return sim_all_cov, a_pred
+
+    def _extract_treatment_model_data(self, X, all_columns, treatment_cols):
+        _columns = [col for col in all_columns if col not in treatment_cols]
+        X_treatment = X[_columns]
+        return X_treatment
+
+    def _extract_covariate_models_data(self, X, all_columns, index_cols, prev_covariates, prev_treatments):
+        X_covariates = {}
+        default_cols = index_cols + prev_covariates + prev_treatments
+        for i, cov in enumerate(self.covariate_models):
+            _columns = all_columns[: len(default_cols) + i]
+            X_covariates[cov] = X[_columns]
+        return X_covariates
+
+    def _extract_outcome_model_data(self, X, all_columns, y_cols):
+        _columns = [col for col in all_columns if col not in y_cols]
+        X_outcome = X[_columns]
+        return X_outcome
+
