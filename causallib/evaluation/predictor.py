@@ -224,10 +224,8 @@ class PropensityPredictor(WeightPredictor):
             PropensityEvaluatorPredictions
         """
         propensity = self.estimator.compute_propensity(X, a, treatment_values=a.max())
-        propensity_by_treatment_assignment = self.estimator.compute_propensity_matrix(X)
-        propensity_by_treatment_assignment = robust_lookup(
-            propensity_by_treatment_assignment, a
-        )
+        propensity_matrix = self.estimator.compute_propensity_matrix(X)
+        propensity_by_treatment_assignment = robust_lookup(propensity_matrix, a)
 
         weight_prediction = super().predict(X, a)
         # Do not force stabilize=False as in WeightEvaluator:
