@@ -1,5 +1,5 @@
 """
-Evaluator object for evaluating causal inference models.
+Methods for evaluating causal inference models.
 
 (C) Copyright 2019 IBM Corp.
 

@@ -128,7 +128,7 @@ class OutcomePredictor(BasePredictor):
         """
         if not isinstance(estimator, IndividualOutcomeEstimator):
             raise TypeError(
-                f"OutcomeEvaluator must be initialized with IndividualOutcomeEstimator. "
+                f"OutcomePredictor must be initialized with IndividualOutcomeEstimator. "
                 f"Received ({ type(estimator)}) instead."
             )
         super().__init__(estimator)
@@ -208,7 +208,7 @@ class PropensityPredictor(WeightPredictor):
         """
         if not isinstance(estimator, PropensityEstimator):
             raise TypeError(
-                "PropensityEvaluator must be initialized with PropensityEstimator. "
+                "PropensityPredictor must be initialized with PropensityEstimator. "
                 f"Received ({type(estimator)}) instead."
             )
         super().__init__(estimator)
