@@ -46,12 +46,12 @@ class WeightPredictions:
             WeightEvaluatorScores: Object with two data attributes: "predictions"
                 and "covariate_balance"
         """
-
+        y_pred_proba, y_pred = self._get_predictions_to_evaluate()
         evaluated_metrics = evaluate_metrics(
             metrics_to_evaluate=metrics_to_evaluate,
             y_true=a_true,
-            y_pred_proba=self.weight_for_being_treated,
-            y_pred=self.treatment_assignment_pred,
+            y_pred_proba=y_pred_proba,
+            y_pred=y_pred,
         )
         # Convert single-dtype Series to a row in a DataFrame:
         evaluated_metrics_df = pd.DataFrame(evaluated_metrics).T
@@ -66,6 +66,11 @@ class WeightPredictions:
 
         results = WeightEvaluatorScores(evaluated_metrics_df, covariate_balance)
         return results
+
+    def _get_predictions_to_evaluate(self):
+        y_pred_proba = self.weight_for_being_treated
+        y_pred = self.treatment_assignment_pred
+        return y_pred_proba, y_pred
 
 
 class PropensityPredictions(WeightPredictions):
@@ -87,6 +92,10 @@ class PropensityPredictions(WeightPredictions):
         self.propensity = propensity
         self.propensity_by_treatment_assignment = propensity_by_treatment_assignment
 
+    def _get_predictions_to_evaluate(self):
+        y_pred_proba = self.propensity
+        y_pred = self.treatment_assignment_pred
+        return y_pred_proba, y_pred
 
 class OutcomePredictions:
     """Data structure to hold outcome-model predictions"""
@@ -195,7 +204,6 @@ class OutcomePredictions:
         )
 
         return evaluated_metrics
-
 
     def get_prediction_by_treatment(self, a: pd.Series):
         """Get proba if available else prediction"""
