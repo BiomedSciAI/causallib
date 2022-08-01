@@ -321,14 +321,15 @@ class TestRlearner(unittest.TestCase):
             estimator.fit(data["X"], data["a"], data["y"])
 
     def ensure_rlearner_can_be_evaluated(self):
-        """ensure that Rlearner can be insert to the outcome evaluator"""
+        """ensure that Rlearner can be evaluated"""
         from causallib.evaluation import evaluate
+        from causallib.evaluation.results import ContinuousOutcomeEvaluationResults
         data = self.create_complex_dataset_nie_wagner()
         self.estimator.fit(data["X"], data["a"], data["y"])
-        with self.subTest("Test Outcome Evaluator with R-learner"):
+        with self.subTest("Test evaluate R-learner"):
             evaluation_results =evaluate(self.estimator, data['X'], data['a'], data['y'])
             self.assertIsNotNone(evaluation_results)  # Dummy assert for not thrown exception
-
+            self.assertIsInstance(evaluation_results, ContinuousOutcomeEvaluationResults)
 
 class TestRLearnerLinear(TestRlearner):
     @classmethod
