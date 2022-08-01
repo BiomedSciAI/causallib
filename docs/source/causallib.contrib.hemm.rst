@@ -1,5 +1,5 @@
-causallib.contrib.hemm package
-==============================
+
+.. mdinclude:: ../../causallib/contrib/hemm/README.md
 
 Submodules
 ----------

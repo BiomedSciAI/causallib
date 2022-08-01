@@ -12,6 +12,7 @@ Submodules
    causallib.tests.test_confounder_selection
    causallib.tests.test_datasets
    causallib.tests.test_doublyrobust
+   causallib.tests.test_evaluation
    causallib.tests.test_ipw
    causallib.tests.test_marginal_outcome
    causallib.tests.test_matching
@@ -23,6 +24,7 @@ Submodules
    causallib.tests.test_tmle
    causallib.tests.test_transformers
    causallib.tests.test_utils
+   causallib.tests.test_xlearner
 
 Module contents
 ---------------

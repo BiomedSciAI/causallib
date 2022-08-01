@@ -1,5 +1,13 @@
-causallib.evaluation package
-============================
+
+.. mdinclude:: ../../causallib/evaluation/README.md
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   causallib.evaluation.plots
 
 Submodules
 ----------
@@ -8,9 +16,11 @@ Submodules
    :maxdepth: 4
 
    causallib.evaluation.evaluator
-   causallib.evaluation.outcome_evaluator
-   causallib.evaluation.plots
-   causallib.evaluation.weight_evaluator
+   causallib.evaluation.metrics
+   causallib.evaluation.predictions
+   causallib.evaluation.predictor
+   causallib.evaluation.results
+   causallib.evaluation.scoring
 
 Module contents
 ---------------

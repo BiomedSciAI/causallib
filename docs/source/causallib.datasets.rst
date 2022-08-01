@@ -1,5 +1,5 @@
-causallib.datasets package
-==========================
+
+.. mdinclude:: ../../causallib/datasets/README.md
 
 Submodules
 ----------

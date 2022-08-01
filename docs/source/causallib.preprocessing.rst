@@ -1,5 +1,5 @@
-causallib.preprocessing package
-===============================
+
+.. mdinclude:: ../../causallib/preprocessing/README.md
 
 Submodules
 ----------
