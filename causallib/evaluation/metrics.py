@@ -36,7 +36,7 @@ REGRESSION_METRICS = {
     "expvar": metrics.explained_variance_score,
     "mae": metrics.mean_absolute_error,
     "mse": metrics.mean_squared_error,
-    "msle": metrics.mean_squared_log_error,
+#    "msle": metrics.mean_squared_log_error, #uncomment if predictions are all positive
     # Allow mdae receive sample_weight argument but ignore it. This unifies the interface:
     "mdae": lambda y_true, y_pred, **kwargs: metrics.median_absolute_error(
         y_true, y_pred
