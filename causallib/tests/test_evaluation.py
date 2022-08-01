@@ -1,0 +1,64 @@
+# (C) Copyright 2020 IBM Corp.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Created on Nov 12, 2020
+import unittest
+
+import matplotlib
+import matplotlib.axes
+
+from sklearn.linear_model import LogisticRegression, LinearRegression
+
+from causallib.evaluation import evaluate
+from causallib.evaluation.metrics import get_default_binary_metrics, get_default_regression_metrics
+from causallib.estimation import AIPW, IPW, StratifiedStandardization
+from causallib.datasets import load_nhefs
+
+
+matplotlib.use("Agg")
+
+
+class TestEvaluations(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        data = load_nhefs()
+        self.X, self.a, self.y = data.X, data.a, data.y
+        ipw = IPW(LogisticRegression(solver="liblinear"), clip_min=0.05, clip_max=0.95)
+        std = StratifiedStandardization(LinearRegression())
+        self.dr = AIPW(std, ipw)
+        self.dr.fit(self.X, self.a, self.y)
+
+    def test_metrics_to_evaluate_is_none_means_no_metrics_evaluated(self):
+        for model in (self.dr.outcome_model, self.dr.weight_model):
+            self.ensure_metrics_are_none(model)
+
+    def ensure_metrics_are_none(self, model):
+        results = evaluate(model, self.X, self.a, self.y, metrics_to_evaluate=None)
+        self.assertIsNone(results.evaluated_metrics)
+
+    def test_default_evaluation_metrics_weights(self):
+        model = self.dr.weight_model
+        results = evaluate(model, self.X, self.a, self.y)
+        self.assertEqual(
+            set(results.evaluated_metrics.prediction_scores.columns),
+            set(get_default_binary_metrics().keys()),
+        )
+    def test_default_evaluation_metrics_continuous_outcome(self):
+        model = self.dr.outcome_model
+        results = evaluate(model, self.X, self.a, self.y)
+        self.assertEqual(
+            set(results.evaluated_metrics.columns),
+            set(get_default_regression_metrics().keys()),
+        )
+

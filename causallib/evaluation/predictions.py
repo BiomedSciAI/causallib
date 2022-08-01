@@ -11,8 +11,7 @@ import pandas as pd
 from ..utils.stat_utils import robust_lookup
 from .metrics import (
     calculate_covariate_balance,
-    evaluate_binary_metrics,
-    evaluate_regression_metrics,
+    evaluate_metrics,
 )
 
 WeightEvaluatorScores = namedtuple(
@@ -42,29 +41,30 @@ class WeightPredictions:
             a_true (pd.Series): ground truth treatment assignment
             metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives
                 true labels, prediction and sample_weights (the latter may be ignored).
-                If not provided, default values from causallib.evaluation.metrics are used.
 
         Returns:
             WeightEvaluatorScores: Object with two data attributes: "predictions"
                 and "covariate_balance"
         """
 
-        prediction_scores = evaluate_binary_metrics(
+        evaluated_metrics = evaluate_metrics(
+            metrics_to_evaluate=metrics_to_evaluate,
             y_true=a_true,
             y_pred_proba=self.weight_for_being_treated,
             y_pred=self.treatment_assignment_pred,
-            metrics_to_evaluate=metrics_to_evaluate,
         )
         # Convert single-dtype Series to a row in a DataFrame:
-        prediction_scores = pd.DataFrame(prediction_scores).T
+        evaluated_metrics_df = pd.DataFrame(evaluated_metrics).T
         # change dtype of each column to numerical if possible:
-        prediction_scores = prediction_scores.apply(pd.to_numeric, errors="ignore")
+        evaluated_metrics_df = evaluated_metrics_df.apply(
+            pd.to_numeric, errors="ignore"
+        )
 
         covariate_balance = calculate_covariate_balance(
             X, a_true, self.weight_by_treatment_assignment
         )
 
-        results = WeightEvaluatorScores(prediction_scores, covariate_balance)
+        results = WeightEvaluatorScores(evaluated_metrics_df, covariate_balance)
         return results
 
 
@@ -168,15 +168,14 @@ class OutcomePredictions:
         else:
             prediction_prob_strata = None
 
-        score = self._score_single(
-            y_true_strata,
-            prediction_strata,
-            prediction_prob_strata,
-            y_is_binary,
-            metrics_to_evaluate,
+        evaluated_metrics = evaluate_metrics(
+            metrics_to_evaluate=metrics_to_evaluate,
+            y_true=y_true_strata,
+            y_pred=prediction_strata,
+            y_pred_proba=prediction_prob_strata,
         )
 
-        return score
+        return evaluated_metrics
 
     def _evaluate_metrics_overall(self, a_true, y_true, metrics_to_evaluate):
         # Score overall:
@@ -187,42 +186,16 @@ class OutcomePredictions:
             prediction_prob_strata = robust_lookup(self.prediction_event_prob, a_true)
         else:
             prediction_prob_strata = None
-        score = self._score_single(
-            y_true,
-            prediction_strata,
-            prediction_prob_strata,
-            y_is_binary,
-            metrics_to_evaluate,
+
+        evaluated_metrics = evaluate_metrics(
+            metrics_to_evaluate=metrics_to_evaluate,
+            y_true=y_true,
+            y_pred=prediction_strata,
+            y_pred_proba=prediction_prob_strata,
         )
 
-        return score
+        return evaluated_metrics
 
-    @staticmethod
-    def _score_single(
-        y_true,
-        prediction,
-        prediction_prob,
-        outcome_is_binary,
-        metrics_to_evaluate,
-    ):
-        """Score a single prediction based on whether `y_true` is classification or regression"""
-        if outcome_is_binary:
-            score = evaluate_binary_metrics(
-                y_true=y_true,
-                y_pred=prediction,
-                y_pred_proba=prediction_prob,
-                metrics_to_evaluate=metrics_to_evaluate,
-            )
-        else:
-            score = evaluate_regression_metrics(
-                y_true=y_true,
-                y_pred=prediction,
-                metrics_to_evaluate=metrics_to_evaluate,
-            )
-        # score = pd.DataFrame(score).T
-        # score = score.apply(pd.to_numeric, errors="ignore")
-        # change dtype of each column to numerical if possible.
-        return score
 
     def get_prediction_by_treatment(self, a: pd.Series):
         """Get proba if available else prediction"""

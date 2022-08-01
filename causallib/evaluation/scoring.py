@@ -12,8 +12,9 @@ from .predictions import (
     WeightEvaluatorScores,
 )
 
+from .metrics import get_default_binary_metrics, get_default_regression_metrics
 
-def score_cv(predictions, X, a, y, cv, metrics_to_evaluate=None):
+def score_cv(predictions, X, a, y, cv, metrics_to_evaluate="defaults"):
     """Evaluate the prediction against the true data using evaluation score metrics.
 
     Args:
@@ -23,16 +24,18 @@ def score_cv(predictions, X, a, y, cv, metrics_to_evaluate=None):
         y (pd.Series): Outcome.
         cv (list[tuples]): list the number of folds containing tuples of indices:
             (train_idx, validation_idx)
-        metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives
+        metrics_to_evaluate (dict | "defaults"): key: metric's name, value: callable that receives
             true labels, prediction and sample_weights (the latter is allowed to be ignored).
-            If not provided, default metrics from causallib.evaluation.metrics are used.
-
+            If `"defaults"`, default metrics are selected.
     Returns:
         pd.DataFrame | WeightEvaluatorScores:
             DataFrame whose columns are different metrics and each row is a
             product of phase x fold x strata.
             WeightEvaluatorScores also has a covariate-balance result in a DataFrame.
     """
+    if metrics_to_evaluate == "defaults":
+        metrics_to_evaluate = _get_default_metrics_to_evaluate(predictions["train"][0])
+
     phases = predictions.keys()
     scores = {phase: [] for phase in phases}
     for i, (train_idx, valid_idx) in enumerate(cv):
@@ -67,6 +70,13 @@ def score_cv(predictions, X, a, y, cv, metrics_to_evaluate=None):
     if isinstance(fold_scores, WeightEvaluatorScores):
         return _combine_weight_evaluator_fold_scores(scores)
     return _combine_fold_scores(scores)
+
+def _get_default_metrics_to_evaluate(first_prediction):
+    if isinstance(first_prediction, OutcomePredictions) and not first_prediction.is_binary_outcome:
+        metrics_to_evaluate = get_default_regression_metrics()
+    else:
+        metrics_to_evaluate = get_default_binary_metrics()
+    return metrics_to_evaluate
 
 
 def score_estimation(prediction, X, a_true, y_true, metrics_to_evaluate=None):

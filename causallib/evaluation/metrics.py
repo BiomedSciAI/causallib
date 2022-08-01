@@ -55,101 +55,91 @@ DISTRIBUTION_DISTANCE_METRICS = {
 }
 
 
-def evaluate_binary_metrics(
-    y_true,
-    y_pred_proba=None,
-    y_pred=None,
-    sample_weight=None,
-    metrics_to_evaluate=None,
-    only_numeric_metric=True,
-):
-    """Evaluates a binary prediction against true labels.
+def get_default_binary_metrics(only_numeric_metric=False):
+    """Get default metrics for evaluating binary models.
 
     Args:
+        only_numeric_metric (bool): If metrics_to_evaluate not provided and default is used,
+            whether to use only numerical metrics. Ignored if metrics_to_evaluate is provided.
+            Non-numerical metrics are for example roc_curve, that returns vectors and not scalars).
+    Returns:
+        dict [str, callable]: metrics dict with key: metric's name, value: callable that receives
+            true labels, prediction and sample_weights (the latter is allowed to be ignored).
+    """
+    if only_numeric_metric:
+        return NUMERICAL_CLASSIFICATION_METRICS
+
+    return CLASSIFICATION_METRICS
+
+
+def get_default_regression_metrics():
+    """Get default metrics for evaluating continuous prediction models.
+
+    Returns:
+        dict [str, callable]: metrics dict with key: metric's name, value: callable that receives
+            true labels, prediction and sample_weights (the latter is allowed to be ignored).
+    """
+    return REGRESSION_METRICS
+
+
+def evaluate_metrics(
+    metrics_to_evaluate,
+    y_true,
+    y_pred=None,
+    y_pred_proba=None,
+    sample_weight=None,
+):
+    """Evaluates the metrics against the supplied predictions and labels.
+
+    Note that some metrics operate on proba predictions (`y_pred_proba`) and others on
+    direct predictions. The function will select the correct input based on the name of the metric,
+    if it knows about the metric.
+    Otherwise it defaults to using the direct prediction (`y_pred`).
+
+    Args:
+        metrics_to_evaluate (dict): key: metric's name, value: callable that receives
+            true labels, prediction and sample_weights (the latter is allowed to be ignored).
         y_true (pd.Series): True labels
         y_pred_proba (pd.Series): continuous output of predictor,
             as in `predict_proba` or `decision_function`.
         y_pred (pd.Series): label (i.e., categories, decisions) predictions.
         sample_weight (pd.Series | None): weight of each sample.
-        metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives
-            true labels, prediction and sample_weights (the latter is allowed to be ignored).
-            If not provided, default are used.
-        only_numeric_metric (bool): If metrics_to_evaluate not provided and default is used,
-            whether to use only numerical metrics. Ignored if metrics_to_evaluate is provided.
-            Non-numerical metrics are for example roc_curve, that returns vectors and not scalars).
 
     Returns:
         pd.Series: name of metric as index and the evaluated score as value.
     """
-    if metrics_to_evaluate is None:
-        metrics_to_evaluate = (
-            NUMERICAL_CLASSIFICATION_METRICS
-            if only_numeric_metric
-            else CLASSIFICATION_METRICS
-        )
-    scores = {}
+    evaluated_metrics = {}
     for metric_name, metric_func in metrics_to_evaluate.items():
-        if metric_name in {
-            "hinge",
-            "brier",
-            "roc_curve",
-            "roc_auc",
-            "pr_curve",
-            "avg_precision",
-        }:
-            prediction = y_pred_proba
-        else:
-            prediction = y_pred
-
+        prediction = y_pred_proba if _metric_needs_proba(metric_name) else y_pred
         if prediction is None:
             continue
 
         try:
-            scores[metric_name] = metric_func(
-                y_true, prediction, sample_weight=sample_weight
-            )
+            metric_value = metric_func(y_true, prediction, sample_weight=sample_weight)
         except ValueError as v:  # if y_true has single value
             warnings.warn(f"metric {metric_name} could not be evaluated")
             warnings.warn(str(v))
-            scores[metric_name] = np.nan
+            metric_value = np.nan
+        evaluated_metrics[metric_name] = metric_value
 
-    dtype = (
-        float
-        if all(np.isscalar(score) for score in scores.values())
-        else np.dtype(object)
-    )
+    all_scalars = all(np.isscalar(v) for v in evaluated_metrics.values())
+    dtype = float if all_scalars else np.dtype(object)
+    
 
-    return pd.Series(scores, dtype=dtype)
+    return pd.Series(evaluated_metrics, dtype=dtype)
 
 
-def evaluate_regression_metrics(
-    y_true, y_pred, sample_weight=None, metrics_to_evaluate=None
-):
-    """Evaluates continuous prediction against true labels
+def _metric_needs_proba(metric_name):
+    use_proba = metric_name in {
+        "hinge",
+        "brier",
+        "roc_curve",
+        "roc_auc",
+        "pr_curve",
+        "avg_precision",
+    }
 
-    Args:
-        y_true (pd.Series): True label.
-        y_pred (pd.Series): Predictions.
-        sample_weight (pd.Series | None): weight for each sample.
-        metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives
-            true labels, prediction and sample_weights (the latter is allowed to be ignored).
-            If not provided, default metrics from causallib.evaluation.metrics are used.
-
-    Returns:
-        pd.Series: name of metric as index and the evaluated score as value.
-    """
-    metrics_to_evaluate = metrics_to_evaluate or REGRESSION_METRICS
-    evaluated_metrics = {}
-    for metric_name, metric_func in metrics_to_evaluate.items():
-        try:
-            evaluated_metrics[metric_name] = metric_func(
-                y_true, y_pred, sample_weight=sample_weight
-            )
-        except ValueError as v:
-            evaluated_metrics[metric_name] = np.nan
-            warnings.warn(f"metric {metric_name} could not be evaluated")
-            warnings.warn(str(v))
-    return pd.Series(evaluated_metrics)
+    return use_proba
 
 
 # ################# #

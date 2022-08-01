@@ -3,17 +3,18 @@
 This submodule allows evaluating the performance of the estimation models defined
 in `causallib.estmation`.
 
-The intended usage is to use `evaluate` from `causalib.evaluation` to generate `EvaluationResults` objects. Behind the scenes, `evaluate` generates a k-fold cross-validation with train and validation
-phases, refitting the model `k` times. This is essential for getting reliable evaluations.
-The cross-validation process can be customized, the default of `cv="auto"` gives a 5-fold CV.
-Single fold and bootstrap evaluation are also supported, see the docs.
+The intended usage is to use `evaluate` from `causalib.evaluation` to generate `EvaluationResults` objects. 
+If the cross-validation parameter `cv` is not supplied, a simple evaluation without cross-validation will 
+be performed. And an object will be returned that can generate various plots, accessible by name (see the docs)
+or all at once via `plot_all()`.
+The object also includes the model's predictions, evaluated metrics, the fitted models as `models`
+and a copy of the original data as (`X`, `a`, and `y`).
 
-The `EvaluationResults` objects contain all of the results of the cross-validation in the form
-of `predictions` and the actual indices used in `cv`. The object also includes `evaluated_metrics`,
-the fitted models as `models` and a copy of the original data.
+If the `cv` parameter is set to `"auto"`, `evaluate` generates a k-fold cross-validation with train and validation
+phases, refitting the model `k` times, with `k=5`. Other options are also supported
+for customizing cross-validation, see the docs.
+The `EvaluationResults` will also contain a list of train/test split indices used by cross-validation in `cv`.
 
-With an `EvaluationResults` object the actual performance of the model can be evaluated by examining
-the metrics or generating plots. Different models support different plots.
 
 ## Example: Inverse probability weighting
 
@@ -43,6 +44,9 @@ showing the performance on both the training and validation data.
 print(res.all_plot_names)
 # {'weight_distribution', 'pr_curve', 'covariate_balance_love', 'roc_curve', 'calibration', 'covariate_balance_slope'}
 res.plot_covariate_balance(kind="love", phase="valid")
+res.plot_weight_distribution()
+res.plot_roc_curve()
+res.plot_calibration_curve()
 ```
 
 ## Submodule structure

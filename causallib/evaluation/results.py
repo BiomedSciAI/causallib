@@ -22,7 +22,7 @@ class EvaluationResults(abc.ABC):
     """Data structure to hold evaluation results including cross-validation.
 
     Attrs:
-        evaluated_metrics (pd.DataFrame or WeightEvaluatorScores):
+        evaluated_metrics (Union[pd.DataFrame, WeightEvaluatorScores, None]):
         models (dict[str, Union[list[WeightEstimator], list[IndividualOutcomeEstimator]):
             Models trained during evaluation. May be dict or list or a model
             directly.
@@ -143,6 +143,17 @@ class EvaluationResults(abc.ABC):
             Any: the data required for the plot in question
         """
         return self._extractor.get_data_for_plot(plot_name, phase)
+
+    def remove_spurious_cv(self):
+        """Remove redundant information accumulated due to the use of cross-validation process."""
+        self.models = self.models[0]
+        if isinstance(self.evaluated_metrics, pd.DataFrame):
+            self.evaluated_metrics.reset_index(level=["phase", "fold"], drop=True, inplace=True)
+        elif isinstance(self.evaluated_metrics, WeightEvaluatorScores):
+            for metric in self.evaluated_metrics:
+                metric.reset_index(level=["phase", "fold"], drop=True, inplace=True)
+
+
 
 
 class WeightEvaluationResults(

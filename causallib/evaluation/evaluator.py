@@ -27,7 +27,7 @@ from sklearn.model_selection import StratifiedKFold
 from .predictor import predict_cv
 from .results import EvaluationResults
 from .scoring import score_cv
-
+from .metrics import get_default_binary_metrics, get_default_regression_metrics
 
 def _make_dummy_cv(n_samples):
     phases = ["train"]  # dummy phase
@@ -61,7 +61,7 @@ def evaluate(
     a,
     y,
     cv=None,
-    metrics_to_evaluate=None,
+    metrics_to_evaluate="defaults",
     plots=False,
 ):
     """Evaluate model in cross-validation of the provided data
@@ -78,14 +78,15 @@ def evaluate(
             indices (train_idx, validation_idx) in an iloc manner (row number).
             If None, there will be no cross-validation. If `cv="auto"`, a stratified Kfold with
             5 folds will be created and used for cross-validation.
-        metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives
-            true labels, prediction, and sample_weights (the latter is allowed to be ignored).
-            If not provided, defaults from `causallib.evaluation.metrics` are used.
+        metrics_to_evaluate (dict | "defaults" | None): key: metric's name, value: callable that
+            receives true labels, prediction, and sample_weights (the latter may be ignored).
+            If `"defaults"`, default metrics are selected. If `None`, no metrics are evaluated.
         plots (bool): whether to generate plots
 
     Returns:
         EvaluationResults
     """
+
     if cv is None:
         return _evaluate_simple(estimator, X, a, y, metrics_to_evaluate, plots)
     # when evaluate_cv gets cv=None it makes an auto cv so turn "auto" to None
@@ -137,15 +138,7 @@ def _evaluate_simple(estimator, X, a, y, metrics_to_evaluate=None, plots=False):
         plots=plots,
     )
 
-    # Remove redundant information accumulated due to the use of cross-validation process
-    results.models = results.models[0]
-    evaluation_metrics = (
-        [results.evaluated_metrics]
-        if isinstance(results.evaluated_metrics, pd.DataFrame)
-        else results.evaluated_metrics
-    )
-    for metric in evaluation_metrics:
-        metric.reset_index(level=["phase", "fold"], drop=True, inplace=True)
+    results.remove_spurious_cv()
 
     return results
 
@@ -173,9 +166,8 @@ def _evaluate_cv(
         phases (list[str]): {["train", "valid"], ["train"], ["valid"]}.
             Phases names to evaluate on - train ("train"), validation ("valid") or both.
             'train' corresponds to cv[i][0] and 'valid' to  cv[i][1]
-        metrics_to_evaluate (dict | None): key: metric's name, value: callable that receives
-            true labels, prediction, and sample_weights (the latter is allowed to be ignored).
-            If not provided, defaults from `causallib.evaluation.metrics` are used.
+        metrics_to_evaluate (dict | None): key: metric's name, value: callable that
+            receives true labels, prediction, and sample_weights (the latter may be ignored).
         plots (bool): whether to generate plots
 
     Returns:
@@ -193,9 +185,12 @@ def _evaluate_cv(
     cv = list(cv)
 
     predictions, models = predict_cv(estimator, X, a, y, cv, refit, phases)
-    evaluation_metrics = score_cv(predictions, X, a, y, cv, metrics_to_evaluate)
+    if metrics_to_evaluate is not None:
+        evaluated_metrics = score_cv(predictions, X, a, y, cv, metrics_to_evaluate)
+    else:
+        evaluated_metrics = None
     evaluation_results = EvaluationResults.make(
-        evaluated_metrics=evaluation_metrics,
+        evaluated_metrics=evaluated_metrics,
         predictions=predictions,
         cv=cv,
         models=models if refit is True else [estimator],
