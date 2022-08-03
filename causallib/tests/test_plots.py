@@ -20,6 +20,9 @@ import matplotlib.axes
 import matplotlib.pyplot as plt
 
 from sklearn.linear_model import LogisticRegression, LinearRegression
+import numpy as np
+import pandas as pd
+
 
 from causallib.evaluation import evaluate
 from causallib.estimation import AIPW, IPW, StratifiedStandardization
@@ -27,6 +30,22 @@ from causallib.datasets import load_nhefs
 
 
 matplotlib.use("Agg")
+
+
+def binarize(cts_output: pd.Series) -> pd.Series:
+    """Turn continuous outcome into binary by applying sigmoid.
+
+    Args:
+        cts_output (pd.Series): outcomes as continuous variables
+
+    Returns:
+        pd.Series: outcomes as binary variables
+    """
+
+    y = 1 / (1 + np.exp(-cts_output))
+    y = np.random.binomial(1, y)
+    y = pd.Series(y, index=cts_output.index)
+    return y
 
 
 class TestPlots(unittest.TestCase):
@@ -42,6 +61,10 @@ class TestPlots(unittest.TestCase):
             self.dr.outcome_model, self.X, self.a, self.y
         )
         self.weight_evaluation = evaluate(self.dr.weight_model, self.X, self.a, self.y)
+        self.y_bin = binarize(data.y)
+        self.std_bin = StratifiedStandardization(LogisticRegression(solver="liblinear"))
+        self.std_bin.fit(self.X, self.a, self.y_bin)
+        self.bin_outcome_evaluation = evaluate(self.std_bin, self.X, self.a, self.y_bin)
 
     def test_propensity_plots_only_exist_for_propensity_model(self):
         self.weight_evaluation.plot_covariate_balance
@@ -107,34 +130,20 @@ class TestPlots(unittest.TestCase):
         plt.close()
 
     def test_roc_curve_has_dashed_diag(self):
-        f, ax = plt.subplots()
-        axis = self.weight_evaluation.plot_roc_curve(ax=ax)
-        self.assertIsInstance(axis, matplotlib.axes.Axes)
-        diag = [x for x in axis.lines if len(x.get_xdata()) == 2][0]
-        self.assertEqual(diag.get_linestyle(), "--")
-        self.assertTrue(all(diag.get_xdata() == [0, 1]))
-        self.assertTrue(all(diag.get_ydata() == [0, 1]))
-        plt.close()
+        self.ensure_roc_curve_has_dashed_diag(self.weight_evaluation)
+        self.ensure_roc_curve_has_dashed_diag(self.bin_outcome_evaluation)
 
     def test_calibration_curve_has_dashed_diag(self):
-        f, ax = plt.subplots()
-        axis = self.weight_evaluation.plot_calibration_curve(ax=ax)
-        self.assertIsInstance(axis, matplotlib.axes.Axes)
-        diag = [x for x in axis.lines if len(x.get_xdata()) == 2][0]
-        self.assertEqual(diag.get_linestyle(), "--")
-        self.assertTrue(all(diag.get_xdata() == diag.get_ydata()))
-        plt.close()
+        self.ensure_calibration_curve_has_dashed_diag(self.weight_evaluation)
+        self.ensure_calibration_curve_has_dashed_diag(self.bin_outcome_evaluation)
 
     def test_pr_curve_has_flat_dashed_chance_line(self):
-        f, ax = plt.subplots()
-        axis = self.weight_evaluation.plot_pr_curve(ax=ax)
-        self.assertIsInstance(axis, matplotlib.axes.Axes)
-        chance_line = [x for x in axis.lines if len(x.get_xdata()) == 2][0]
-        self.assertEqual(chance_line.get_label(), "Chance")
-        self.assertEqual(chance_line.get_linestyle(), "--")
-        self.assertAlmostEqual(chance_line.get_ydata()[0], self.a.mean())
-        self.assertAlmostEqual(chance_line.get_ydata()[1], self.a.mean())
-        plt.close()
+        self.ensure_pr_curve_has_flat_dashed_chance_line(
+            self.weight_evaluation, chance=self.a.mean()
+        )
+        self.ensure_pr_curve_has_flat_dashed_chance_line(
+            self.bin_outcome_evaluation, chance=self.y_bin.mean()
+        )
 
     def test_accuracy_plot_has_dashed_diag(self):
         f, ax = plt.subplots()
@@ -155,6 +164,13 @@ class TestPlots(unittest.TestCase):
         plt.close()
         plt.close()
 
+    def test_plot_all_generates_correct_plot_names(self):
+        self.ensure_plot_all_generates_all_plot_names(self.weight_evaluation)
+        self.ensure_plot_all_generates_all_plot_names(self.cts_outcome_evaluation)
+        self.ensure_plot_all_generates_all_plot_names(self.bin_outcome_evaluation)
+
+
+
     def test_residuals_plot_has_dashed_zero_line(self):
         f, ax = plt.subplots()
         axis = self.cts_outcome_evaluation.plot_residuals(ax=ax)
@@ -164,3 +180,38 @@ class TestPlots(unittest.TestCase):
         self.assertEqual(zero_line.get_ydata()[0], 0)
         self.assertEqual(zero_line.get_ydata()[1], 0)
         plt.close()
+
+    def ensure_roc_curve_has_dashed_diag(self, results_object):
+        f, ax = plt.subplots()
+        axis = results_object.plot_roc_curve(ax=ax)
+        self.assertIsInstance(axis, matplotlib.axes.Axes)
+        diag = [x for x in axis.lines if len(x.get_xdata()) == 2][0]
+        self.assertEqual(diag.get_linestyle(), "--")
+        self.assertTrue(all(diag.get_xdata() == [0, 1]))
+        self.assertTrue(all(diag.get_ydata() == [0, 1]))
+        plt.close()
+
+    def ensure_calibration_curve_has_dashed_diag(self, results_object):
+        f, ax = plt.subplots()
+        axis = results_object.plot_calibration_curve(ax=ax)
+        self.assertIsInstance(axis, matplotlib.axes.Axes)
+        diag = [x for x in axis.lines if len(x.get_xdata()) == 2][0]
+        self.assertEqual(diag.get_linestyle(), "--")
+        self.assertTrue(all(diag.get_xdata() == diag.get_ydata()))
+        plt.close()
+
+    def ensure_pr_curve_has_flat_dashed_chance_line(self, results_object, chance):
+        f, ax = plt.subplots()
+        axis = results_object.plot_pr_curve(ax=ax)
+        self.assertIsInstance(axis, matplotlib.axes.Axes)
+        chance_line = [x for x in axis.lines if len(x.get_xdata()) == 2][0]
+        self.assertEqual(chance_line.get_label(), "Chance")
+        self.assertEqual(chance_line.get_linestyle(), "--")
+        self.assertAlmostEqual(chance_line.get_ydata()[0], chance)
+        self.assertAlmostEqual(chance_line.get_ydata()[1], chance)
+        plt.close()
+
+    def ensure_plot_all_generates_all_plot_names(self, evaluation_results):
+        all_plots = evaluation_results.plot_all()
+        all_names = evaluation_results.all_plot_names
+        self.assertEqual(set(all_plots["train"].keys()), all_names)

@@ -17,11 +17,16 @@ import unittest
 
 import matplotlib
 import matplotlib.axes
+import numpy as np
+import pandas as pd
 
 from sklearn.linear_model import LogisticRegression, LinearRegression
 
 from causallib.evaluation import evaluate
-from causallib.evaluation.metrics import get_default_binary_metrics, get_default_regression_metrics
+from causallib.evaluation.metrics import (
+    get_default_binary_metrics,
+    get_default_regression_metrics,
+)
 from causallib.estimation import AIPW, IPW, StratifiedStandardization
 from causallib.datasets import load_nhefs
 
@@ -29,15 +34,35 @@ from causallib.datasets import load_nhefs
 matplotlib.use("Agg")
 
 
+def binarize(cts_output: pd.Series) -> pd.Series:
+    """Turn continuous outcome into binary by applying sigmoid.
+
+    Args:
+        cts_output (pd.Series): outcomes as continuous variables
+
+    Returns:
+        pd.Series: outcomes as binary variables
+    """
+    
+    y = 1 / (1 + np.exp(-cts_output))
+    y = np.random.binomial(1, y)
+    y = pd.Series(y, index=cts_output.index)
+    return y
+
+
 class TestEvaluations(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         data = load_nhefs()
         self.X, self.a, self.y = data.X, data.a, data.y
+        self.y_bin = binarize(data.y)
         ipw = IPW(LogisticRegression(solver="liblinear"), clip_min=0.05, clip_max=0.95)
         std = StratifiedStandardization(LinearRegression())
         self.dr = AIPW(std, ipw)
         self.dr.fit(self.X, self.a, self.y)
+        self.std_bin = StratifiedStandardization(LogisticRegression(solver="liblinear"))
+        self.std_bin.fit(self.X, self.a, self.y_bin)
+        
 
     def test_metrics_to_evaluate_is_none_means_no_metrics_evaluated(self):
         for model in (self.dr.outcome_model, self.dr.weight_model):
@@ -54,6 +79,7 @@ class TestEvaluations(unittest.TestCase):
             set(results.evaluated_metrics.prediction_scores.columns),
             set(get_default_binary_metrics().keys()),
         )
+
     def test_default_evaluation_metrics_continuous_outcome(self):
         model = self.dr.outcome_model
         results = evaluate(model, self.X, self.a, self.y)
@@ -62,3 +88,10 @@ class TestEvaluations(unittest.TestCase):
             set(get_default_regression_metrics().keys()),
         )
 
+    def test_default_evaluation_metrics_binary_outcome(self):
+        model = self.std_bin
+        results = evaluate(model, self.X, self.a, self.y_bin)
+        self.assertEqual(
+            set(results.evaluated_metrics.columns),
+            set(get_default_binary_metrics().keys()),
+        )
