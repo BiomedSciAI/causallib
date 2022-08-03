@@ -52,10 +52,6 @@ WeightPlotNames = frozenset({
     COVARIATE_BALANCE_SLOPE_PLOT,
 })
 
-
-PropensityPlotNames = frozenset({WEIGHT_DISTRIBUTION_PLOT, CALIBRATION_PLOT} | WeightPlotNames)
-
-
 ContinuousOutputPlotNames = frozenset({
     CONTINUOUS_ACCURACY_PLOT,
     RESIDUALS_PLOT,
@@ -63,6 +59,9 @@ ContinuousOutputPlotNames = frozenset({
 })
 
 BinaryOutputPlotNames = frozenset({CALIBRATION_PLOT, ROC_CURVE_PLOT, PR_CURVE_PLOT})
+
+
+PropensityPlotNames = frozenset(BinaryOutputPlotNames | WeightPlotNames)
 
 
 
