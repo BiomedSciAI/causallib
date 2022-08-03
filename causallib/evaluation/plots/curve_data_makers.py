@@ -220,7 +220,7 @@ def calculate_curve_data_propensity(
             for fold_predictions in fold_predictions
         ],
         "expected": [
-            fold_predictions.propensity.append(1 - fold_predictions.propensity)
+            pd.concat([fold_predictions.propensity, 1 - fold_predictions.propensity])
             for fold_predictions in fold_predictions
         ],
     }
@@ -232,11 +232,10 @@ def calculate_curve_data_propensity(
         "unweighted": curves_folds_targets,
         "weighted": curves_folds_targets,
         "expected": [
-            pd.Series(
-                data=targets.max(), index=fold_predictions.propensity.index
-            ).append(
+            pd.concat([
+                pd.Series(data=targets.max(), index=fold_predictions.propensity.index),
                 pd.Series(data=targets.min(), index=fold_predictions.propensity.index)
-            )
+            ])
             for fold_predictions in fold_predictions
         ],
     }
@@ -248,7 +247,7 @@ def calculate_curve_data_propensity(
             fold_predictions.propensity for fold_predictions in fold_predictions
         ],
         "expected": [
-            fold_predictions.propensity.append(fold_predictions.propensity)
+            pd.concat([fold_predictions.propensity, fold_predictions.propensity])
             for fold_predictions in fold_predictions
         ],
     }
