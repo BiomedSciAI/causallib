@@ -177,8 +177,6 @@ class ContinuousOutcomePlotDataExtractor(BaseEvaluationPlotDataExtractor):
                 self.cv_by_phase(phase),
             )
         if plot_name in {plots.COMMON_SUPPORT_PLOT}:
-            if is_vector_binary(self.y):
-                return [p.prediction_event_prob for p in fold_predictions], self.a
             return (
                 [p.prediction for p in fold_predictions],
                 self.a,
