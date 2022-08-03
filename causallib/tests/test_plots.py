@@ -60,18 +60,18 @@ class TestPlots(unittest.TestCase):
         self.cts_outcome_evaluation = evaluate(
             self.dr.outcome_model, self.X, self.a, self.y
         )
-        self.weight_evaluation = evaluate(self.dr.weight_model, self.X, self.a, self.y)
+        self.propensity_evaluation = evaluate(self.dr.weight_model, self.X, self.a, self.y)
         self.y_bin = binarize(data.y)
         self.std_bin = StratifiedStandardization(LogisticRegression(solver="liblinear"))
         self.std_bin.fit(self.X, self.a, self.y_bin)
         self.bin_outcome_evaluation = evaluate(self.std_bin, self.X, self.a, self.y_bin)
 
     def test_propensity_plots_only_exist_for_propensity_model(self):
-        self.weight_evaluation.plot_covariate_balance
-        self.weight_evaluation.plot_weight_distribution
-        self.weight_evaluation.plot_pr_curve
-        self.weight_evaluation.plot_roc_curve
-        self.weight_evaluation.plot_calibration_curve
+        self.propensity_evaluation.plot_covariate_balance
+        self.propensity_evaluation.plot_weight_distribution
+        self.propensity_evaluation.plot_pr_curve
+        self.propensity_evaluation.plot_roc_curve
+        self.propensity_evaluation.plot_calibration_curve
 
         with self.assertRaises(AttributeError):
             self.cts_outcome_evaluation.plot_covariate_balance
@@ -86,13 +86,13 @@ class TestPlots(unittest.TestCase):
         self.cts_outcome_evaluation.plot_common_support
 
         with self.assertRaises(AttributeError):
-            self.weight_evaluation.plot_continuous_accuracy
-            self.weight_evaluation.plot_residuals
-            self.weight_evaluation.plot_common_support
+            self.propensity_evaluation.plot_continuous_accuracy
+            self.propensity_evaluation.plot_residuals
+            self.propensity_evaluation.plot_common_support
 
     def test_weight_distribution_reflect_has_negative_yaxis(self):
         f, ax = plt.subplots()
-        axis = self.weight_evaluation.plot_weight_distribution(reflect=True, ax=ax)
+        axis = self.propensity_evaluation.plot_weight_distribution(reflect=True, ax=ax)
         self.assertIsInstance(axis, matplotlib.axes.Axes)
         minx, maxx, miny, maxy = axis.axis()
         self.assertLess(miny, 0)
@@ -103,7 +103,7 @@ class TestPlots(unittest.TestCase):
 
     def test_weight_distribution_noreflect_has_nonegative_yaxis(self):
         f, ax = plt.subplots()
-        axis = self.weight_evaluation.plot_weight_distribution(reflect=False, ax=ax)
+        axis = self.propensity_evaluation.plot_weight_distribution(reflect=False, ax=ax)
         self.assertIsInstance(axis, matplotlib.axes.Axes)
         minx, maxx, miny, maxy = axis.axis()
         self.assertEqual(miny, 0)
@@ -115,7 +115,7 @@ class TestPlots(unittest.TestCase):
     def test_plot_covariate_balance_love_draws_thresh(self):
         thresh = 0.1
         f, ax = plt.subplots()
-        axis = self.weight_evaluation.plot_covariate_balance(
+        axis = self.propensity_evaluation.plot_covariate_balance(
             kind="love", thresh=thresh, ax=ax
         )
         self.assertIsInstance(axis, matplotlib.axes.Axes)
@@ -124,22 +124,22 @@ class TestPlots(unittest.TestCase):
 
     def test_plot_covariate_balance_slope_labeled_correctly(self):
         f, ax = plt.subplots()
-        axis = self.weight_evaluation.plot_covariate_balance(kind="slope", ax=ax)
+        axis = self.propensity_evaluation.plot_covariate_balance(kind="slope", ax=ax)
         self.assertIsInstance(axis, matplotlib.axes.Axes)
         self.assertEqual([x.get_xdata() for x in axis.get_lines()][1][0], "unweighted")
         plt.close()
 
     def test_roc_curve_has_dashed_diag(self):
-        self.ensure_roc_curve_has_dashed_diag(self.weight_evaluation)
+        self.ensure_roc_curve_has_dashed_diag(self.propensity_evaluation)
         self.ensure_roc_curve_has_dashed_diag(self.bin_outcome_evaluation)
 
     def test_calibration_curve_has_dashed_diag(self):
-        self.ensure_calibration_curve_has_dashed_diag(self.weight_evaluation)
+        self.ensure_calibration_curve_has_dashed_diag(self.propensity_evaluation)
         self.ensure_calibration_curve_has_dashed_diag(self.bin_outcome_evaluation)
 
     def test_pr_curve_has_flat_dashed_chance_line(self):
         self.ensure_pr_curve_has_flat_dashed_chance_line(
-            self.weight_evaluation, chance=self.a.mean()
+            self.propensity_evaluation, chance=self.a.mean()
         )
         self.ensure_pr_curve_has_flat_dashed_chance_line(
             self.bin_outcome_evaluation, chance=self.y_bin.mean()
@@ -165,7 +165,7 @@ class TestPlots(unittest.TestCase):
         plt.close()
 
     def test_plot_all_generates_correct_plot_names(self):
-        self.ensure_plot_all_generates_all_plot_names(self.weight_evaluation)
+        self.ensure_plot_all_generates_all_plot_names(self.propensity_evaluation)
         self.ensure_plot_all_generates_all_plot_names(self.cts_outcome_evaluation)
         self.ensure_plot_all_generates_all_plot_names(self.bin_outcome_evaluation)
 
