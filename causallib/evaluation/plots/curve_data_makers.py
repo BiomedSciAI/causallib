@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from sklearn import metrics
 
-from ..predictions import WeightPredictions
+
 def calculate_roc_curve(curve_data):
     """Calculates ROC curve on the folds
 
@@ -284,77 +284,4 @@ def calculate_curve_data_propensity(
     curve_data["Propensity"] = curve_data.pop("unweighted")
     curve_data["Weighted"] = curve_data.pop("weighted")
     curve_data["Expected"] = curve_data.pop("expected")
-    return curve_data
-
-
-def calculate_curve_data_weights(
-    fold_predictions: List[WeightPredictions],
-    targets,
-    curve_metric,
-    area_metric,
-):
-    """Calculate different performance (ROC or PR) curves
-
-    Args:
-        fold_predictions (list[WeightEvaluatorPredictions]): Predictions for each fold.
-        targets (pd.Series): True labels
-        curve_metric (callable): Performance metric returning 3 output vectors - metric1,
-            metric2 and thresholds.
-            Where metric1 and metric2 depict the curve when plotted on x-axis and y-axis.
-        area_metric (callable): Performance metric of the area under the curve.
-        **kwargs:
-
-    Returns:
-        dict[str, dict[str, list[np.ndarray]]]: Evaluation of the metric
-            for each fold and for each curve.
-            2 curves:
-                * "unweighted" regular
-                * "weighted" weighted by weights of each sample (according to their assignment)
-            On general: {curve_name: {metric1: [evaluation_fold_1, ...]}}.
-            For example: {"weighted": {"FPR": [FPR_fold_1, FPR_fold_2, FPR_fold3]}}
-    """
-
-    folds_treatment_weight = [p.weight_for_being_treated for p in fold_predictions]
-    folds_targets = []
-    for this_fold_weights in folds_treatment_weight:
-        # Since this is weight estimator, which takes the inverse of a class prediction
-        fold_targets = targets.loc[this_fold_weights.index]
-        min_target, max_target = fold_targets.min(), fold_targets.max()
-        fold_targets = fold_targets.replace(
-            {
-                min_target: max_target,
-                max_target: min_target,
-            }
-        )
-        folds_targets.append(fold_targets)
-
-    folds_sample_weights = {
-        "unweighted": [None for _ in fold_predictions],
-        "weighted": [p.weight_by_treatment_assignment for p in fold_predictions],
-    }
-    curve_data = {}
-    for curve_name, sample_weights in folds_sample_weights.items():
-        (
-            area,
-            first_ret_value,
-            second_ret_value,
-            threshold_folds,
-        ) = calculate_performance_curve_data_on_folds(
-            folds_treatment_weight,
-            folds_targets,
-            sample_weights,
-            area_metric,
-            curve_metric,
-        )
-
-        curve_data[curve_name] = {
-            "first_ret_value": first_ret_value,
-            "second_ret_value": second_ret_value,
-            "Thresholds": threshold_folds,
-            "area": area,
-        }
-
-    # Rename keys (as will be presented as curve labels in legend)
-    curve_data["Weights"] = curve_data.pop("unweighted")
-    curve_data["Weighted"] = curve_data.pop("weighted")
     return curve_data
