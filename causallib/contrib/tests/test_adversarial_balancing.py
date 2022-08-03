@@ -8,6 +8,7 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.datasets import make_classification
 
 from causallib.contrib.adversarial_balancing import AdversarialBalancing
+from causallib.evaluation import evaluate
 
 
 class TestAdversarialBalancing(unittest.TestCase):
@@ -140,6 +141,11 @@ class TestAdversarialBalancing(unittest.TestCase):
         pd.testing.assert_series_equal(w_1.loc[a == 1], w[a == 1])
         pd.testing.assert_series_equal(w_0.loc[a == 0], w[a == 0])
 
-
-# if __name__ == '__main__':
-#     unittest.main()
+    def test_evaluation_can_plot_all(self):
+        X, a = self.create_randomly_assigned_treatment()
+        y = X @ np.random.rand(X.shape[1]) + a * 2
+        estimator = AdversarialBalancing(LogisticRegression(solver='lbfgs', max_iter=500))
+        estimator.fit(X, a)
+        ab_evaluate = evaluate(estimator, X, a, y, metrics_to_evaluate=None)
+        ab_evaluate_plots = ab_evaluate.plot_all()
+        self.assertEqual(set(ab_evaluate_plots["train"].keys()), ab_evaluate.all_plot_names)
