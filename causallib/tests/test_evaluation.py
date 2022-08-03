@@ -23,6 +23,7 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression, LinearRegression
 
 from causallib.evaluation import evaluate
+from causallib.evaluation.evaluator import evaluate_bootstrap
 from causallib.evaluation.metrics import (
     get_default_binary_metrics,
     get_default_regression_metrics,
@@ -43,7 +44,7 @@ def binarize(cts_output: pd.Series) -> pd.Series:
     Returns:
         pd.Series: outcomes as binary variables
     """
-    
+
     y = 1 / (1 + np.exp(-cts_output))
     y = np.random.binomial(1, y)
     y = pd.Series(y, index=cts_output.index)
@@ -62,7 +63,14 @@ class TestEvaluations(unittest.TestCase):
         self.dr.fit(self.X, self.a, self.y)
         self.std_bin = StratifiedStandardization(LogisticRegression(solver="liblinear"))
         self.std_bin.fit(self.X, self.a, self.y_bin)
-        
+
+    def test_evaluate_bootstrap_with_refit_works(self):
+        ipw = IPW(LogisticRegression(solver="liblinear"), clip_min=0.05, clip_max=0.95)
+        evaluate_bootstrap(ipw, self.X, self.a, self.y, n_bootstrap=5, refit=True)
+
+    def test_evaluate_cv_works_with_unfit_models(self):
+        ipw = IPW(LogisticRegression(solver="liblinear"), clip_min=0.05, clip_max=0.95)
+        evaluate(ipw, self.X, self.a, self.y, cv="auto")
 
     def test_metrics_to_evaluate_is_none_means_no_metrics_evaluated(self):
         for model in (self.dr.outcome_model, self.dr.weight_model):
