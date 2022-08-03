@@ -70,22 +70,6 @@ class WeightPlotDataExtractor(BaseEvaluationPlotDataExtractor):
                 self.a,
                 self.cv_by_phase(phase),
             )
-
-        if plot_name in {plots.ROC_CURVE_PLOT}:
-            curve_data = curve_data_makers.calculate_curve_data_weights(
-                folds_predictions, self.a, metrics.roc_curve, metrics.roc_auc_score
-            )
-            roc_curve = curve_data_makers.calculate_roc_curve(curve_data)
-            return (roc_curve,)
-        if plot_name in {plots.PR_CURVE_PLOT}:
-            curve_data = curve_data_makers.calculate_curve_data_weights(
-                folds_predictions,
-                self.a,
-                metrics.precision_recall_curve,
-                metrics.average_precision_score,
-            )
-            pr_curve = curve_data_makers.calculate_pr_curve(curve_data, self.a)
-            return (pr_curve,)
         if plot_name in {
             plots.COVARIATE_BALANCE_LOVE_PLOT,
             plots.COVARIATE_BALANCE_SLOPE_PLOT,
