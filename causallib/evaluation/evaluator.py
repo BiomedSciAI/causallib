@@ -24,10 +24,10 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 
+from .predictions import WeightEvaluatorScores
 from .predictor import predict_cv
 from .results import EvaluationResults
 from .scoring import score_cv
-from .metrics import get_default_binary_metrics, get_default_regression_metrics
 
 def _make_dummy_cv(n_samples):
     phases = ["train"]  # dummy phase
@@ -254,14 +254,13 @@ def evaluate_bootstrap(
         plots=None,
     )
 
-    # Remove redundant information accumulated due to the use of cross-validation process:
-    results.models = results.models[0] if len(results.models) == 1 else results.models
-    evaluation_metrics = (
-        [results.evaluated_metrics]
-        if isinstance(results.evaluated_metrics, pd.DataFrame)
-        else results.evaluated_metrics
-    )
-    for metric in evaluation_metrics:
-        metric.reset_index(level=["phase"], drop=True, inplace=True)
-        metric.index.rename("sample", "fold", inplace=True)
+    
+    results.remove_spurious_cv()
+    if results.evaluated_metrics is not None:
+        if isinstance(results.evaluated_metrics, WeightEvaluatorScores):
+            results.evaluated_metrics.covariate_balance.index.rename("sample", "fold", inplace=True)
+            results.evaluated_metrics.prediction_scores.index.rename("sample", "fold", inplace=True)
+        else:
+            results.evaluated_metrics.index.rename("sample", "fold", inplace=True)
+    
     return results
