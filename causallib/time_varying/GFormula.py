@@ -315,39 +315,31 @@ class GFormula(GMethodBase):
         # todo add args
 
     def _predict(self, X, a, t, n_margin, treatment_strategy):
-        raise NotImplementedError()
-
-        # TODO Convert torch to np
         # TODO Debug with actual sklearn model and data
 
-        # all_cov = _prepare_data(X, a)
-        d_type_dict = dict(all_cov.dtypes)
+        act_t = treatment_strategy(X[:, -1, :], X[:, :, :], a[:, -1, :])
+        a = pd.concat([a[:, :-1, :], act_t])
+        all_input = pd.concat([X, a], axis=1)
 
-        for cov in self.covariate_models:
-            _input = all_cov.drop(cov, axis=1)
+        d_type_dict = dict(X.dtypes)
+        for i, cov in self.covariate_models:
+            _input = all_input.drop(cov, axis=1)
             if d_type_dict[cov] == 'float':
                 _pred = self.covariate_models[cov].predict(_input)
             elif d_type_dict[cov] == 'bool':
                 _pred = self.covariate_models[cov].predict_proba(_input)
             else:
-                raise ValueError("Data type error. {0}, is not supported".format(d_type_dict[cov]))
+                raise ValueError("Data type error. {0}, is not supported for {1}".format(d_type_dict[cov], cov))
 
-            if t < n_margin - 1:
-                sim_t = _pred[:, -1, :].unsqueeze(1)
-                # concatenate newly simulated value of each covariate in original input maintaining order
-                # _input =
-                # act_t = take the next action
-            else:
-                sim_t = self._apply_noise(_pred[:, -1, :].unsqueeze(1), t)  # bs * 1 * 1
-                # concatenate newly simulated value of each covariate in original input maintaining order
-                # _input =
-                act_t = treatment_strategy(_input[:, -1, :], _input[:, :, :], _input[:, -1, 1])
-            # concatenate act_t in original input
-            # _input =
+            # if t < n_margin - 1:
+            #     sim_t = _pred[:, -1, :].unsqueeze(1)
+            # else:
+            sim_t = self._apply_noise(_pred[:, -1, :].unsqueeze(1), t, d_type_dict[cov])  # bs * 1 * 1
 
-        a_pred = self.treatment_model.predict(_input)
-        # drop treatment from _input
-        sim_all_cov = _input.drop(a.name, axis=1)
+            # all_cov.loc[:, [-1], cov] = _pred
+            all_input.iloc[:, [-1], i] = sim_t  # TODO confirm syntax
+        sim_all_cov = all_input.drop(a.name, axis=1)
+        a_pred = self.treatment_model.predict(sim_all_cov)
         return sim_all_cov, a_pred
 
     def _extract_treatment_model_data(self, X, all_columns, treatment_cols):
