@@ -158,8 +158,8 @@ class GFormula(GMethodBase):
         # Simulate
         with T.no_grad():
             for _idx in range(self.n_steps):
-                # TODO add support for RNN later
-                sim_t, act_t = self._predict(x_t[:, -1, :], a_t, n_steps, self.n_obsv, treatment_strategy)  # TODO
+
+                sim_t, act_t = self._predict(x_t, a_t, n_steps, treatment_strategy)  # TODO add support for RNN later
                 simulation['actions'].append(act_t)
                 simulation['covariates'].append(sim_t)
                 simulation['time'].append(t)
@@ -314,16 +314,20 @@ class GFormula(GMethodBase):
         # self.treatment_model = sklearn.base.clone(self.treatment_model)
         # todo add args
 
-    def _predict(self, X, a, t, n_margin, treatment_strategy):
+    def _predict(self, X, a, t, treatment_strategy):
         # TODO Debug with actual sklearn model and data
 
-        act_t = treatment_strategy(X[:, -1, :], X[:, :, :], a[:, -1, :])
-        a = pd.concat([a[:, :-1, :], act_t])
-        all_input = pd.concat([X, a], axis=1)
+        # act_t = treatment_strategy(prev_x=X[:, -1, :], all_x=X[:, :-1, :], prev_a=a[:, -1, :])
+        # a = np.concatenate((a[:, :-1, :], act_t), axis=1)
+        X = np.squeeze(X, axis=0)
+        a = np.squeeze(a, axis=0)
 
-        d_type_dict = dict(X.dtypes)
-        for i, cov in self.covariate_models:
-            _input = all_input.drop(cov, axis=1)
+        all_input = pd.DataFrame(np.concatenate((X, a), axis=1), columns=['X', 'X2', 'A'])
+
+        d_type_dict = dict(all_input.dtypes)
+        for i, cov in enumerate(self.covariate_models):
+            _input = all_input.drop([cov], axis=1)
+
             if d_type_dict[cov] == 'float':
                 _pred = self.covariate_models[cov].predict(_input)
             elif d_type_dict[cov] == 'bool':
