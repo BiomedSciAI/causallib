@@ -1,11 +1,13 @@
 from abc import abstractmethod, ABC
 from typing import Callable
+import numpy as np
+import torch as T
 
 
 class TreatmentStrategy(ABC):
 
     def __call__(self, prev_x, all_x, prev_a):
-        self.get_action(prev_x, all_x, prev_a)
+        return self.get_action(prev_x, all_x, prev_a)
 
     @abstractmethod
     def get_action(self,  prev_x, all_x, prev_a):
@@ -63,11 +65,9 @@ class CFBernoulli(TreatmentStrategy):
         self.p = p
 
     def get_action(self, prev_x, all_x, prev_a):
-        raise NotImplementedError
-
-        # _prob_act_t = self.p * (T.ones_like(source_t[:, -1, 2].unsqueeze(1)))
-        # # cf_action(source_t[:, -1, :], n_obsv) # bs * 1
-        # act_t = T.bernoulli(_prob_act_t)  # bs * 1
+        _prob_act_t = self.p * (np.ones_like(np.expand_dims(prev_a, axis=0)))
+        act_t = np.random.binomial(1, _prob_act_t)
+        return act_t
 
 
 

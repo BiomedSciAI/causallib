@@ -36,21 +36,22 @@ class GFormula(GMethodBase):
         if kwargs is None:
             kwargs = {}
 
-        treatment_data, covariate_data, outcome_data = self._prepare_data(X, a, t, y)
+        treatment_X, treatment_Y, covariate_X, covariate_Y, outcome_X, outcome_Y = self._prepare_data(X, a, t, y)
 
         treatment_model_is_not_fitted = not g_tools.check_learner_is_fitted(self.treatment_model)
         if refit_models or treatment_model_is_not_fitted:
-            self.treatment_model.fit(treatment_data, a, **kwargs)
+            self.treatment_model.fit(treatment_X, treatment_Y, **kwargs)
 
         for cov in self.covariate_models:
             cov_model_is_not_fitted = not g_tools.check_learner_is_fitted(self.covariate_models[cov])
             if refit_models or cov_model_is_not_fitted:
-                self.covariate_models[cov].fit(covariate_data[cov], X[cov], **kwargs)
+                self.covariate_models[cov].fit(covariate_X[cov], covariate_Y[cov],  **kwargs)
 
-        outcome_model_is_not_fitted = not g_tools.check_learner_is_fitted(self.outcome_model)
-        if refit_models or outcome_model_is_not_fitted:
-            self.outcome_model.fit(outcome_data, y, **kwargs)
-        # self.id_col = id_col if id_col else self.id_col
+        if y:
+            outcome_model_is_not_fitted = not g_tools.check_learner_is_fitted(self.outcome_model)
+            if refit_models or outcome_model_is_not_fitted:
+                self.outcome_model.fit(outcome_X, outcome_Y, **kwargs)
+            self.id_col = id_col if id_col else self.id_col
         return self
 
     def estimate_individual_outcome(self,
@@ -85,7 +86,7 @@ class GFormula(GMethodBase):
         for sample_id in unique_sample_ids:
             sample_X = X.loc[X[self.id_col] == sample_id]
             sample_a = a.loc[a[self.id_col] == sample_id]
-            sample_y = y.loc[y[self.id_col] == sample_id]
+            sample_y = y.loc[y[self.id_col] == sample_id] if y else None
             sample_sim = self._estimate_individual_outcome_single_sample(X=sample_X,
                                                                          a=sample_a,
                                                                          t=t,
@@ -119,32 +120,37 @@ class GFormula(GMethodBase):
                 }
             ]
         """
+        if t is None:
+            t = X['time']
         min_time = timeline_start if timeline_start is not None else int(t.min())
         max_time = timeline_end if timeline_end is not None else int(t.max())
         contiguous_times = pd.Series(data=range(min_time, max_time + 1), name=t.name)
         n_steps = len(contiguous_times)
-
-        X = X.unsqueeze(0)
-        a = a.unsqueeze(0)
-        lengths = np.array([len(X), ])
-
-        assert y.shape[1] >= self.n_obsv, "n_obsv bigger than observed data"
 
         simulation = dict(actions=list(),
                           covariates=list(),
                           time=list(),
                           pat_id=X[self.id_col][0],
                           )
+        X = X.drop([self.id_col, t.name], axis=1)
+        a = a.drop([self.id_col], axis=1)
 
-        X = X.repeat(self.n_sims, 1, 1)  # N_sims * T * F
-        a = a.repeat(self.n_sims, 1, 1)  # N_sims * T * F
+        X = np.expand_dims(X.to_numpy(), axis=0)
+        a = np.expand_dims(a.to_numpy(), axis=0)
+        lengths = np.array([len(X), ])
+
+        # assert y.shape[1] >= self.n_obsv, "n_obsv bigger than observed data"
+
+
+        X = X.repeat(self.n_sims, 0)  # N_sims * T * F
+        a = a.repeat(self.n_sims, 0)  # N_sims * T * F
         lengths = lengths.repeat(self.n_sims)
 
         t = self.n_obsv
-        x_t = X[:, :t, :].clone()  # .unsqueeze(1)
-        a_t = a[:, :t, :].clone()  # .unsqueeze(1)
-        act_t = treatment_strategy(x_t[:, -1, :], x_t[:, :-1, :], a_t[:, -1, :])
-        a_t = pd.concat(a_t[:, -1, :], act_t)
+        x_t = X[:, :t, :]
+        a_t = a[:, :t, :]
+        act_t = treatment_strategy(prev_x=x_t[:, -1, :], all_x=x_t[:, :-1, :], prev_a=a_t[:, -1, :])
+        a_t = np.concatenate((a_t[:, :-1, :], act_t), axis=1)
 
         # init all the models
         self._init_models()  # TODO
@@ -265,6 +271,7 @@ class GFormula(GMethodBase):
         index_cols = [self.id_col, 'time']
         cols_in_order = index_cols + prev_covariate_cols + prev_treatment_cols + covariate_cols + treatment_cols
 
+        # data = X.set_index(self.id_col).join(a.set_index(self.id_col))
         data = X.join(a)
         for cov in covariate_cols:
             data['prev_' + cov] = data.groupby(self.id_col)[cov].shift(1)
@@ -273,33 +280,39 @@ class GFormula(GMethodBase):
 
         data.dropna(inplace=True)  # dropping first row
         data = data[cols_in_order]
-        data.set_index(index_cols, inplace=True)
+        # data.set_ index(index_cols, inplace=True)
 
-        treatment_data = self._extract_treatment_model_data(data,
-                                                            cols_in_order,
-                                                            treatment_cols
-                                                            )
-        covariate_data = self._extract_covariate_models_data(data,
-                                                             cols_in_order,
-                                                             index_cols,
-                                                             prev_covariate_cols,
-                                                             prev_treatment_cols
-                                                             )
-        outcome_data = self._extract_outcome_model_data(data,
-                                                        cols_in_order,
-                                                        y.cols)
+        X_treatment, Y_treatment = self._extract_treatment_model_data(data,
+                                                                      cols_in_order,
+                                                                      treatment_cols
+                                                                      )
+        X_covariates, Y_covariates = self._extract_covariate_models_data(data,
+                                                                         cols_in_order,
+                                                                         index_cols,
+                                                                         prev_covariate_cols,
+                                                                         prev_treatment_cols
+                                                                         )
 
-        return treatment_data, covariate_data, outcome_data
+        X_outcome, Y_outcome = self._extract_outcome_model_data(data,
+                                                                cols_in_order,
+                                                                y.cols
+                                                                )  if y else None, None
 
-    def _init_models(self):
-        raise NotImplementedError()
+
+        return X_treatment, Y_treatment, X_covariates, Y_covariates, X_outcome, Y_outcome
+
+    def _init_models(self, *args, **kwargs):
+        return
 
         # TODO Write actual code for model initialization
         # TODO Initially do it for only sklearn
-        for model in self.covariate_models:
-            model.init()
-        self.treatment_model.init()
-        self.outcome_model.init()
+        # for model in self.covariate_models:
+        #     model.init()
+        # self.treatment_model.init()
+        # self.outcome_model.init()
+
+        # self.treatment_model = sklearn.base.clone(self.treatment_model)
+        # todo add args
 
     def _predict(self, X, a, t, n_margin, treatment_strategy):
         raise NotImplementedError()
@@ -307,7 +320,7 @@ class GFormula(GMethodBase):
         # TODO Convert torch to np
         # TODO Debug with actual sklearn model and data
 
-        all_cov = _prepare_data(X, a)
+        # all_cov = _prepare_data(X, a)
         d_type_dict = dict(all_cov.dtypes)
 
         for cov in self.covariate_models:
@@ -340,18 +353,22 @@ class GFormula(GMethodBase):
     def _extract_treatment_model_data(self, X, all_columns, treatment_cols):
         _columns = [col for col in all_columns if col not in treatment_cols]
         X_treatment = X[_columns]
-        return X_treatment
+        Y_treatment = X[treatment_cols]
+        return X_treatment, Y_treatment
 
     def _extract_covariate_models_data(self, X, all_columns, index_cols, prev_covariates, prev_treatments):
         X_covariates = {}
+        Y_covariates = {}
         default_cols = index_cols + prev_covariates + prev_treatments
         for i, cov in enumerate(self.covariate_models):
             _columns = all_columns[: len(default_cols) + i]
             X_covariates[cov] = X[_columns]
-        return X_covariates
+            Y_covariates[cov] = X[cov]
+        return X_covariates, Y_covariates
 
     def _extract_outcome_model_data(self, X, all_columns, y_cols):
         _columns = [col for col in all_columns if col not in y_cols]
         X_outcome = X[_columns]
-        return X_outcome
+        Y_outcome = X[y_cols]
+        return X_outcome, Y_outcome
 
