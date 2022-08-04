@@ -320,17 +320,16 @@ class TestRlearner(unittest.TestCase):
         with self.assertWarns(UserWarning):
             estimator.fit(data["X"], data["a"], data["y"])
 
-    def ensure_rlearner_in_outcome_evaluator(self):
-        """ensure that Rlearner can be insert to the outcome evaluator"""
-        from causallib.evaluation import OutcomeEvaluator
+    def ensure_rlearner_can_be_evaluated(self):
+        """ensure that Rlearner can be evaluated"""
+        from causallib.evaluation import evaluate
+        from causallib.evaluation.results import ContinuousOutcomeEvaluationResults
         data = self.create_complex_dataset_nie_wagner()
         self.estimator.fit(data["X"], data["a"], data["y"])
-        with self.subTest("Test Outcome Evaluator with R-learner"):
-            evaluator = OutcomeEvaluator(self.estimator)
-            evaluator._regression_metrics.pop("msle")
-            evaluator.evaluate_simple(data['X'], data['a'], data['y'])
-            self.assertTrue(True)  # Dummy assert for not thrown exception
-
+        with self.subTest("Test evaluate R-learner"):
+            evaluation_results =evaluate(self.estimator, data['X'], data['a'], data['y'])
+            self.assertIsNotNone(evaluation_results)  # Dummy assert for not thrown exception
+            self.assertIsInstance(evaluation_results, ContinuousOutcomeEvaluationResults)
 
 class TestRLearnerLinear(TestRlearner):
     @classmethod
@@ -376,8 +375,8 @@ class TestRLearnerLinear(TestRlearner):
     def test_warning_when_linear_model_and_non_parametric_is_true(self):
         self.ensure_warning_when_linear_model_and_non_parametric_is_true()
 
-    def test_rlearner_in_outcome_evaluator(self):
-        self.ensure_rlearner_in_outcome_evaluator()
+    def test_rlearner_can_be_evaluated(self):
+        self.ensure_rlearner_can_be_evaluated()
 
     @unittest.skip("long testing procedure")
     def test_compare_literature_ate_results(self):

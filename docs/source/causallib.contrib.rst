@@ -1,5 +1,5 @@
-causallib.contrib package
-=========================
+
+.. mdinclude:: ../../causallib/contrib/README.md
 
 Subpackages
 -----------

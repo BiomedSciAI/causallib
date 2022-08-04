@@ -1,5 +1,5 @@
-causallib.estimation package
-============================
+
+.. mdinclude:: ../../causallib/estimation/README.md
 
 Submodules
 ----------
@@ -17,6 +17,7 @@ Submodules
    causallib.estimation.rlearner
    causallib.estimation.standardization
    causallib.estimation.tmle
+   causallib.estimation.xlearner
 
 Module contents
 ---------------

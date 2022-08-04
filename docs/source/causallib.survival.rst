@@ -1,5 +1,5 @@
-causallib.survival package
-==========================
+
+.. mdinclude:: ../../causallib/survival/README.md
 
 Submodules
 ----------

@@ -1,5 +1,5 @@
-causallib package
-=================
+
+.. mdinclude:: ../../causallib/README.md
 
 Subpackages
 -----------
