@@ -216,41 +216,48 @@ class GFormula(GMethodBase):
            box: box id
            mode: mode of operation
            """
-        _device = out.device
+        #  _device = out.device
         # (first_box_var, last_box_var, _, _) = self.model.box_dim[box]
         #  box_type = self.model.box_type[box]
 
         if box_type == 'boolean':
-            _sim = (np.random.rand(*out.shape) < out.data.cpu().numpy()).astype('int')
-            sim = T.from_numpy(_sim).float().to(out.device)  # , requires_grad=False).to(device)
-            sim.requires_grad_(False)
+            sim = (np.random.rand(*out.shape) < out).astype('int')
+            #  sim = T.from_numpy(_sim).float().to(out.device)  # , requires_grad=False).to(device)
+            #  sim.requires_grad_(False)
 
         elif box_type == 'float':
             if mode == 'empirical':
                 _resid_dist = residuals[t, :, :]  # bs * F
                 sim_noise = self._batch_choice(_resid_dist, num_samples=out.shape[0])
-                _sim_noise_t = T.from_numpy(sim_noise).float()  # , requires_grad=False)  # bs * <F-box>
-                _sim_noise_t.requires_grad_(False)
-                _sim_noise_t.unsqueeze_(1)  # bs * 1 * <F-box>
+                #  _sim_noise_t = T.from_numpy(sim_noise).float()  # , requires_grad=False)  # bs * <F-box>
+                #  _sim_noise_t.requires_grad_(False)
+
+                #TODO: change the unsqueeze to numpy to
+                _sim_noise_t = sim_noise.unsqueeze_(1)  # bs * 1 * <F-box>
                 # clamping values between 0 and 1
                 # sim.clamp_(0, 1)
             elif mode == 'normal':
                 #  import ipdb; ipdb.set_trace()  # BREAKPOINT
-                _sim_noise_t = 1.0 * T.randn(*out.shape)
+                _sim_noise_t = 1.0 * np.random.randn(*out.shape)
             elif mode == 'tdist':
                 #  import ipdb; ipdb.set_trace()  # BREAKPOINT
-                _dist = T.distributions.StudentT(df=residuals.shape[1] - 1)
-                _sim_noise_t = 1.0 * _dist.sample(out.shape)
+                #  _dist =  T.distributions.StudentT(df=residuals.shape[1] - 1)
+                raise NotImplementedError()
+                # TODO: chech the shape of the generated t-dist.
+                # https://numpy.org/doc/stable/reference/random/generated/numpy.random.standard_t.html
+                _sim_noise_t = 1.0 * np.random.standard_t(df=residuals.shape[1] -1, size=out.shape)  # _dist.sample(out.shape)
             elif mode == 'emp_std':
                 #  import ipdb; ipdb.set_trace()  # BREAKPOINT
-                _std = T.Tensor(residuals[t, :, :].std(axis=0))
-                _sim_noise_t = _std * T.randn(*out.shape)
+                _std = residuals[t, :, :].std(axis=0)
+                # TODO: chech the shape of the generated random variable
+                _sim_noise_t = _std * np.random.randn(*out.shape)
             elif mode == 'emp_mean_std':
                 #  import ipdb; ipdb.set_trace()  # BREAKPOINT
-                _std = T.Tensor(residuals[t, :, :].std(axis=0))
-                _mean = T.Tensor(residuals[t, :, :].mean(axis=0))
-                _sim_noise_t = _mean + _std * T.randn(*out.shape)
-            _sim_noise_t = _sim_noise_t.to(_device)
+                _std = residuals[t, :, :].std(axis=0)
+                _mean = residuals[t, :, :].mean(axis=0)
+                # TODO: chech the shape of the generated random variable
+                _sim_noise_t = _mean + _std * np.random.randn(*out.shape)
+            #  _sim_noise_t = _sim_noise_t.to(_device)
             sim = out + _sim_noise_t
         else:
             raise AttributeError()
