@@ -156,7 +156,7 @@ class GFormula(GMethodBase):
         self._init_models()  # TODO
 
         # Simulate
-        with T.no_grad():
+        with T.no_grad(): # TODO
             for _idx in range(self.n_steps):
 
                 sim_t, act_t = self._predict(x_t, a_t, n_steps, treatment_strategy)  # TODO add support for RNN later
@@ -268,8 +268,8 @@ class GFormula(GMethodBase):
         treatment_cols = list(a.columns)
         prev_covariate_cols = ['prev_' + cov for cov in covariate_cols]
         prev_treatment_cols = ['prev_' + a for a in treatment_cols]
-        index_cols = [self.id_col, 'time']
-        cols_in_order = index_cols + prev_covariate_cols + prev_treatment_cols + covariate_cols + treatment_cols
+        # index_cols = [self.id_col, 'time']
+        cols_in_order = prev_covariate_cols + prev_treatment_cols + covariate_cols + treatment_cols
 
         # data = X.set_index(self.id_col).join(a.set_index(self.id_col))
         data = X.join(a)
@@ -288,7 +288,6 @@ class GFormula(GMethodBase):
                                                                       )
         X_covariates, Y_covariates = self._extract_covariate_models_data(data,
                                                                          cols_in_order,
-                                                                         index_cols,
                                                                          prev_covariate_cols,
                                                                          prev_treatment_cols
                                                                          )
@@ -296,7 +295,7 @@ class GFormula(GMethodBase):
         X_outcome, Y_outcome = self._extract_outcome_model_data(data,
                                                                 cols_in_order,
                                                                 y.cols
-                                                                )  if y else None, None
+                                                                ) if y else None, None
 
 
         return X_treatment, Y_treatment, X_covariates, Y_covariates, X_outcome, Y_outcome
@@ -322,12 +321,24 @@ class GFormula(GMethodBase):
         X = np.squeeze(X, axis=0)
         a = np.squeeze(a, axis=0)
 
-        all_input = pd.DataFrame(np.concatenate((X, a), axis=1), columns=['X', 'X2', 'A'])
+        covariate_cols = list(self.covariate_models.keys())
+        treatment_cols = list('A')
+        prev_covariate_cols = ['prev_' + cov for cov in covariate_cols]
+        prev_treatment_cols = ['prev_' + a for a in treatment_cols]
+        cols_in_order = prev_covariate_cols + prev_treatment_cols + covariate_cols + treatment_cols
+
+        all_input = pd.DataFrame(np.concatenate((X, a), axis=1), columns=covariate_cols + treatment_cols)
+
+        for cov in covariate_cols:
+            all_input['prev_' + cov] = all_input[cov].shift(1)
+        for a in treatment_cols:
+            all_input['prev_' + a] = all_input[a].shift(1)
+        all_input.dropna(inplace=True)  # dropping first row
 
         d_type_dict = dict(all_input.dtypes)
         for i, cov in enumerate(self.covariate_models):
-            _input = all_input.drop([cov], axis=1)
-
+            _columns = cols_in_order[: len(prev_covariate_cols + prev_treatment_cols) + i]
+            _input = all_input[_columns]
             if d_type_dict[cov] == 'float':
                 _pred = self.covariate_models[cov].predict(_input)
             elif d_type_dict[cov] == 'bool':
@@ -352,10 +363,10 @@ class GFormula(GMethodBase):
         Y_treatment = X[treatment_cols]
         return X_treatment, Y_treatment
 
-    def _extract_covariate_models_data(self, X, all_columns, index_cols, prev_covariates, prev_treatments):
+    def _extract_covariate_models_data(self, X, all_columns, prev_covariates, prev_treatments):
         X_covariates = {}
         Y_covariates = {}
-        default_cols = index_cols + prev_covariates + prev_treatments
+        default_cols = prev_covariates + prev_treatments
         for i, cov in enumerate(self.covariate_models):
             _columns = all_columns[: len(default_cols) + i]
             X_covariates[cov] = X[_columns]
