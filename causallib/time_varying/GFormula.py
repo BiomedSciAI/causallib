@@ -120,6 +120,7 @@ class GFormula(GMethodBase):
                 }
             ]
         """
+        #TODO remove redundancy : n_obsv and n_steps
         if t is None:
             t = X['time']
         min_time = timeline_start if timeline_start is not None else int(t.min())
@@ -156,22 +157,21 @@ class GFormula(GMethodBase):
         self._init_models()  # TODO
 
         # Simulate
-        with T.no_grad(): # TODO
-            for _idx in range(self.n_steps):
+        for _idx in range(self.n_steps):
 
-                sim_t, act_t = self._predict(x_t, a_t, n_steps, treatment_strategy)  # TODO add support for RNN later
-                simulation['actions'].append(act_t)
-                simulation['covariates'].append(sim_t)
-                simulation['time'].append(t)
+            sim_t, act_t = self._predict(x_t, a_t, _idx, treatment_strategy)  # TODO add support for RNN later
+            simulation['actions'].append(act_t)
+            simulation['covariates'].append(sim_t)
+            simulation['time'].append(t)
 
-                # update x_t and a_t
-                x_t = np.concatenate([x_t, sim_t], axis=1)
-                a_t = np.concatenate([a_t, act_t], axis=1)
-                # if t <= self.n_obsv:
-                #     print(T.cat(simulation['covariates'], dim=1).squeeze())
+            # update x_t and a_t
+            x_t = np.concatenate([x_t, sim_t], axis=1)
+            a_t = np.concatenate([a_t, act_t], axis=1)
+            # if t <= self.n_obsv:
+            #     print(T.cat(simulation['covariates'], dim=1).squeeze())
 
-            simulation['actions'] = np.concatenate(simulation['actions'], axis=1)  # N_sim * n_steps * F-act
-            simulation['covariates'] = np.concatenate(simulation['covariates'], axis=1)  # N_sim * n_steps * F-act
+        simulation['actions'] = np.concatenate(simulation['actions'], axis=1)  # N_sim * n_steps * F-act
+        simulation['covariates'] = np.concatenate(simulation['covariates'], axis=1)  # N_sim * n_steps * F-act
         return simulation
 
     def estimate_population_outcome(self,
@@ -202,7 +202,6 @@ class GFormula(GMethodBase):
         return res
 
     def _apply_noise(self, out, t, box_type='float'):
-        raise NotImplementedError()
 
         # TODO: Convert Torch to np
         # TODO: infer box_type from data
@@ -343,6 +342,7 @@ class GFormula(GMethodBase):
         all_input.dropna(inplace=True)  # dropping first row
 
         d_type_dict = dict(all_input.dtypes)
+        new_row = []
         for i, cov in enumerate(self.covariate_models):
             _columns = cols_in_order[: len(prev_covariate_cols + prev_treatment_cols) + i]
             _input = all_input[_columns]
@@ -356,10 +356,13 @@ class GFormula(GMethodBase):
             # if t < n_margin - 1:
             #     sim_t = _pred[:, -1, :].unsqueeze(1)
             # else:
-            sim_t = self._apply_noise(_pred[:, -1, :].unsqueeze(1), t, d_type_dict[cov])  # bs * 1 * 1
+            temp = np.expand_dims(np.expand_dims(_pred, axis=1), axis=0)
+            # sim_t = self._apply_noise(temp[:, -1, :], t, d_type_dict[cov])  # bs * 1 * 1
+            sim_t = np.random.rand(self.n_sims, 1, 1)
 
-            # all_cov.loc[:, [-1], cov] = _pred
-            all_input.iloc[:, [-1], i] = sim_t  # TODO confirm syntax
+            all_input[:, t, :] = sim_t
+            new_row.append(sim_t)
+
         sim_all_cov = all_input.drop(a.name, axis=1)
         a_pred = self.treatment_model.predict(sim_all_cov)
         return sim_all_cov, a_pred

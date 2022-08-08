@@ -65,7 +65,7 @@ class CFBernoulli(TreatmentStrategy):
         self.p = p
 
     def get_action(self, prev_x, all_x, prev_a):
-        _prob_act_t = self.p * (np.ones_like(np.expand_dims(prev_a, axis=0)))
+        _prob_act_t = self.p * (np.ones_like(np.expand_dims(prev_a, axis=1)))
         act_t = np.random.binomial(1, _prob_act_t)
         return act_t
 
