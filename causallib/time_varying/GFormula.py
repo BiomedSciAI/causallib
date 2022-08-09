@@ -6,7 +6,6 @@ from causallib.time_varying.base import GMethodBase
 from causallib.time_varying.treament_strategy import TreatmentStrategy
 from causallib.utils import general_tools as g_tools
 import numpy as np
-import torch as T  # TODO remove torch dependency
 
 
 class GFormula(GMethodBase):
@@ -33,6 +32,7 @@ class GFormula(GMethodBase):
             **kwargs
             ):
 
+        # TODO calculate residual_values
         if kwargs is None:
             kwargs = {}
 
@@ -95,17 +95,17 @@ class GFormula(GMethodBase):
                                                                          timeline_start=timeline_start,
                                                                          timeline_end=timeline_end)
 
-            sample_sim_cov = sample_sim['covariates'].mean(axis=0).squeeze(axis=0)  # n_steps * cov_cols
-            sample_sim_act = sample_sim['actions'].mean(axis=0).squeeze(axis=0)  # n_steps * act_cols
+            sample_sim_cov = sample_sim['covariates'].mean(axis=0)  # n_steps * cov_cols
+            # sample_sim_cov = sample_sim_cov.squeeze(axis=0)  # n_steps * cov_cols
+            sample_sim_act = sample_sim['actions'].mean(axis=0)  # n_steps * act_cols
 
-            sample_sim_cov.columns = self.covariate_models.keys()
-            sample_sim_act.act = a.columns
-
-            sample_sim_res = pd.concat([sample_sim_cov, sample_sim_act.drop(t.name, axis=1)], axis=1)
+            sample_sim_res = pd.DataFrame(np.concatenate([sample_sim_cov, sample_sim_act], axis=1),
+                                          columns=list(self.covariate_models.keys()) + list('A'))
             sample_sim_res[self.id_col] = sample_id
             all_sim_result.append(sample_sim_res)
-
-        return pd.DataFrame(all_sim_result)
+            if sample_id == 50:
+                break
+        return pd.concat(all_sim_result)
 
     def _estimate_individual_outcome_single_sample(self, X, a, t, y, treatment_strategy, timeline_start, timeline_end) -> dict:
         """
@@ -131,7 +131,7 @@ class GFormula(GMethodBase):
         simulation = dict(actions=list(),
                           covariates=list(),
                           time=list(),
-                          pat_id=X[self.id_col][0],
+                          pat_id=X.iloc[0][self.id_col],
                           )
         X = X.drop([self.id_col, t.name], axis=1)
         a = a.drop([self.id_col], axis=1)
@@ -162,7 +162,7 @@ class GFormula(GMethodBase):
             act_t = treatment_strategy(prev_x=x_t[:, -1, :], all_x=x_t[:, :-1, :], prev_a=a_t[:, -1, :])
             a_t = np.concatenate((a_t[:, :-1, :], act_t), axis=1)
 
-            sim_t, act_t = self._predict(x_t, a_t, y_t)  # TODO add support for RNN later
+            sim_t, act_t = self._predict(x_t, a_t, y_t, _idx)  # TODO add support for RNN later
             simulation['actions'].append(act_t)
             simulation['covariates'].append(sim_t)
             simulation['time'].append(t)
@@ -172,6 +172,10 @@ class GFormula(GMethodBase):
             a_t = np.concatenate([a_t, act_t], axis=1)
             # if t <= self.n_obsv:
             #     print(T.cat(simulation['covariates'], dim=1).squeeze())
+        else:
+            pass
+            # act_t = treatment_strategy(prev_x=x_t[:, -1, :], all_x=x_t[:, :-1, :], prev_a=a_t[:, -1, :])
+            # a_t = np.concatenate((a_t[:, :-1, :], act_t), axis=1)
 
         simulation['actions'] = np.concatenate(simulation['actions'], axis=1)  # N_sim * n_steps * F-act
         simulation['covariates'] = np.concatenate(simulation['covariates'], axis=1)  # N_sim * n_steps * F-act
@@ -200,8 +204,7 @@ class GFormula(GMethodBase):
                                                                         timeline_end=timeline_end)
 
         # Averaging across time
-        by_row_index = individual_prediction_curves.groupby(individual_prediction_curves.time)
-        res = by_row_index.mean()
+        res = individual_prediction_curves.mean(level=0).reset_index()
         return res
 
     def _apply_noise(self, out, t, box_type='float'):
@@ -322,27 +325,19 @@ class GFormula(GMethodBase):
         # self.treatment_model = sklearn.base.clone(self.treatment_model)
         # todo add args
 
-    def _predict(self, X, a, y):
-
-        X = X.reshape((X.shape[0] * X.shape[1], -1))
-        a = a.reshape((a.shape[0] * a.shape[1], -1))
-        y = y.reshape((y.shape[0] * y.shape[1], -1)) if y else None
-
+    def _predict(self, X, a, y, step):
         covariate_cols = list(self.covariate_models.keys())
         treatment_cols = list('A')
         prev_covariate_cols = ['prev_' + cov for cov in covariate_cols]
         prev_treatment_cols = ['prev_' + a for a in treatment_cols]
         cols_in_order = prev_covariate_cols + prev_treatment_cols + covariate_cols + treatment_cols
 
-        all_input = pd.DataFrame(np.concatenate((X, a), axis=1), columns=covariate_cols + treatment_cols)
-        for cov in covariate_cols:
-            all_input['prev_' + cov] = all_input[cov].shift(1)
-        for a in treatment_cols:
-            all_input['prev_' + a] = all_input[a].shift(1)
-        all_input.dropna(inplace=True)  # dropping first row
+        all_input = np.concatenate((X, a), axis=2)
+        all_input = np.concatenate([all_input, np.roll(all_input, -all_input.shape[2])], axis=2)  # roll to number of input variables
+        all_input = pd.DataFrame(all_input[:, -1, :], columns=cols_in_order)
 
         d_type_dict = dict(all_input.dtypes)
-        sim_res = []
+        X_sim = []
         for i, cov in enumerate(self.covariate_models):
             _columns = cols_in_order[: len(prev_covariate_cols + prev_treatment_cols) + i]
             _input = all_input[_columns]
@@ -353,19 +348,17 @@ class GFormula(GMethodBase):
             else:
                 raise ValueError("Data type error. {0}, is not supported for {1}".format(d_type_dict[cov], cov))
 
-            temp = np.expand_dims(np.expand_dims(_pred, axis=1), axis=0)
-            # sim_t = self._apply_noise(temp[:, -1, :], t, d_type_dict[cov])  # bs * 1 * 1
-            sim_t = np.random.rand(self.n_sims, 1, 1)
-            sim_res.append(sim_t[:, -1, :])
-        sim_all_cov = np.concatenate(sim_res, axis=1)
-        sim_all_cov = np.expand_dims(sim_all_cov, axis=0)
+            _pred = np.expand_dims(_pred, axis=0)
+            _pred = self._apply_noise(_pred, step, d_type_dict[cov])  # bs * 1 * 1
+            X_sim.append(_pred)
+        X_sim = np.expand_dims(np.concatenate(X_sim, axis=1), axis=0)
 
         all_input = all_input.drop('A', axis=1)
         a_pred = self.treatment_model.predict(all_input)
-        a_sim_t = np.random.rand(self.n_sims, 1, 1)
-        # a_sim_t = np.expand_dims(a_sim_t, axis=0)
-
-        return sim_all_cov, a_sim_t
+        a_pred = np.expand_dims(a_pred, axis=0)
+        a_sim = self._apply_noise(a_pred, step, 'boolean')
+        a_sim = np.expand_dims(a_sim, axis=0)
+        return X_sim, a_sim
 
     def _extract_treatment_model_data(self, X, all_columns, treatment_cols):
         _columns = [col for col in all_columns if col not in treatment_cols]
