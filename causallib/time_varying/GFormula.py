@@ -146,12 +146,10 @@ class GFormula(GMethodBase):
         X = X.repeat(self.n_sims, 0)                 # N_sims * T * F
         a = a.repeat(self.n_sims, 0)                 # N_sims * T * F
         y = y.repeat(self.n_sims, 0) if y else None  # N_sims * T * F
-        lengths = lengths.repeat(self.n_sims)
 
-        t = self.n_obsv
-        x_t = X[:, :t, :]
-        a_t = a[:, :t, :]
-        y_t = y[:, :t, :] if y else None
+        x_t = X[:, :self.n_obsv, :]
+        a_t = a[:, :self.n_obsv, :]
+        y_t = y[:, :self.n_obsv, :] if y else None
 
         act_t = treatment_strategy(prev_x=x_t[:, -1, :], all_x=x_t[:, :-1, :], prev_a=a_t[:, -1, :])
         a_t = np.concatenate((a_t[:, :-1, :], act_t), axis=1)
@@ -275,30 +273,30 @@ class GFormula(GMethodBase):
         return sample
 
     def _prepare_data(self, X, a, t, y):
-        cols_dict = self.get_cols(X, a, t, y)
+        cols_d = self.get_cols(X, a, t, y)
 
         data = X.join(a)
-        for cov in cols_dict['covariate_cols']:
+        for cov in cols_d['covariate_cols']:
             data['prev_' + cov] = data.groupby(self.id_col)[cov].shift(1)
-        for a in cols_dict['treatment_cols']:
+        for a in cols_d['treatment_cols']:
             data['prev_' + a] = data.groupby(self.id_col)[a].shift(1)
 
         data.dropna(inplace=True)  # dropping first row
-        data = data[cols_dict['all_cols']]
+        data = data[cols_d['all_cols']]
         # data.set_ index(index_cols, inplace=True)
 
         X_treatment, Y_treatment = self._extract_treatment_model_data(data,
-                                                                      cols_dict['all_cols'],
-                                                                      cols_dict['treatment_cols']
+                                                                      cols_d['all_cols'],
+                                                                      cols_d['treatment_cols']
                                                                       )
         X_covariates, Y_covariates = self._extract_covariate_models_data(data,
-                                                                         cols_dict['all_cols'],
-                                                                         cols_dict['prev_covariate_cols'],
-                                                                         cols_dict['prev_treatment_cols']
+                                                                         cols_d['all_cols'],
+                                                                         cols_d['prev_covariate_cols'],
+                                                                         cols_d['prev_treatment_cols']
                                                                          )
         X_outcome, Y_outcome = self._extract_outcome_model_data(data,
-                                                                cols_dict['all_cols'],
-                                                                cols_dict['y_col']
+                                                                cols_d['all_cols'],
+                                                                cols_d['y_col']
                                                                 ) if y else None, None
 
         return X_treatment, Y_treatment, X_covariates, Y_covariates, X_outcome, Y_outcome
@@ -317,16 +315,17 @@ class GFormula(GMethodBase):
         # todo add args
 
     def _predict(self, X, a, y, step):
-        cols_dict = self.get_cols(X, a)
+        cols_d = self.get_cols(X, a)
 
         all_input = np.concatenate((X, a), axis=2)
         all_input = np.concatenate([all_input, np.roll(all_input, -all_input.shape[2])], axis=2)  # roll to number of input variables
-        all_input = pd.DataFrame(all_input[:, -1, :], columns=cols_dict['all_cols'])
+        all_input = pd.DataFrame(all_input[:, -1, :], columns=cols_d['all_cols'])
 
         d_type_dict = dict(all_input.dtypes)
         X_sim = []
+        default_cols = cols_d['prev_covariate_cols'] + cols_d['prev_treatment_cols']
         for i, cov in enumerate(self.covariate_models):
-            _columns = cols_dict['all_cols'][: len(cols_dict['prev_covariate_cols'] + cols_dict['prev_treatment_cols']) + i]
+            _columns = cols_d['all_cols'][: len(default_cols) + i]
             _input = all_input[_columns]
             if d_type_dict[cov] == 'float':
                 _pred = self.covariate_models[cov].predict(_input)
@@ -341,7 +340,7 @@ class GFormula(GMethodBase):
         X_sim = np.concatenate(X_sim, axis=1)
         X_sim = np.expand_dims(X_sim, axis=1)
 
-        all_input = all_input.drop(cols_dict['treatment_cols'], axis=1)   # assuming single treatment col
+        all_input = all_input.drop(cols_d['treatment_cols'], axis=1)   # assuming single treatment col
         a_pred = self.treatment_model.predict(all_input)
         a_pred = np.expand_dims(a_pred, axis=1)
         a_sim = self._apply_noise(a_pred, step, 'boolean')
