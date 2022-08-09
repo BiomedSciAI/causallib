@@ -320,7 +320,7 @@ class GFormula(GMethodBase):
 
         all_input = np.concatenate((X, a), axis=2)
         all_input = np.concatenate([all_input, np.roll(all_input, -all_input.shape[2])], axis=2)  # roll to number of input variables
-        all_input = pd.DataFrame(all_input[:, -1, :], columns=cols_d['all_cols'])
+        all_input = pd.DataFrame(all_input[:, -1, :], columns=self.all_cols)
 
         d_type_dict = dict(all_input.dtypes)
         X_sim = []
