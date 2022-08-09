@@ -96,7 +96,6 @@ class GFormula(GMethodBase):
                                                                          timeline_end=timeline_end)
 
             sample_sim_cov = sample_sim['covariates'].mean(axis=0)  # n_steps * cov_cols
-            # sample_sim_cov = sample_sim_cov.squeeze(axis=0)  # n_steps * cov_cols
             sample_sim_act = sample_sim['actions'].mean(axis=0)  # n_steps * act_cols
 
             sample_sim_res = pd.DataFrame(np.concatenate([sample_sim_cov, sample_sim_act], axis=1),
@@ -276,39 +275,31 @@ class GFormula(GMethodBase):
         return sample
 
     def _prepare_data(self, X, a, t, y):
-        covariate_cols = list(self.covariate_models.keys())
-        treatment_cols = list(a.columns)
-        prev_covariate_cols = ['prev_' + cov for cov in covariate_cols]
-        prev_treatment_cols = ['prev_' + a for a in treatment_cols]
-        # index_cols = [self.id_col, 'time']
-        cols_in_order = prev_covariate_cols + prev_treatment_cols + covariate_cols + treatment_cols
+        cols_dict = self.get_cols(X, a, t, y)
 
-        # data = X.set_index(self.id_col).join(a.set_index(self.id_col))
         data = X.join(a)
-        for cov in covariate_cols:
+        for cov in cols_dict['covariate_cols']:
             data['prev_' + cov] = data.groupby(self.id_col)[cov].shift(1)
-        for a in treatment_cols:
+        for a in cols_dict['treatment_cols']:
             data['prev_' + a] = data.groupby(self.id_col)[a].shift(1)
 
         data.dropna(inplace=True)  # dropping first row
-        data = data[cols_in_order]
+        data = data[cols_dict['all_cols']]
         # data.set_ index(index_cols, inplace=True)
 
         X_treatment, Y_treatment = self._extract_treatment_model_data(data,
-                                                                      cols_in_order,
-                                                                      treatment_cols
+                                                                      cols_dict['all_cols'],
+                                                                      cols_dict['treatment_cols']
                                                                       )
         X_covariates, Y_covariates = self._extract_covariate_models_data(data,
-                                                                         cols_in_order,
-                                                                         prev_covariate_cols,
-                                                                         prev_treatment_cols
+                                                                         cols_dict['all_cols'],
+                                                                         cols_dict['prev_covariate_cols'],
+                                                                         cols_dict['prev_treatment_cols']
                                                                          )
-
         X_outcome, Y_outcome = self._extract_outcome_model_data(data,
-                                                                cols_in_order,
-                                                                y.cols
+                                                                cols_dict['all_cols'],
+                                                                cols_dict['y_col']
                                                                 ) if y else None, None
-
 
         return X_treatment, Y_treatment, X_covariates, Y_covariates, X_outcome, Y_outcome
 
@@ -326,20 +317,16 @@ class GFormula(GMethodBase):
         # todo add args
 
     def _predict(self, X, a, y, step):
-        covariate_cols = list(self.covariate_models.keys())
-        treatment_cols = list('A')
-        prev_covariate_cols = ['prev_' + cov for cov in covariate_cols]
-        prev_treatment_cols = ['prev_' + a for a in treatment_cols]
-        cols_in_order = prev_covariate_cols + prev_treatment_cols + covariate_cols + treatment_cols
+        cols_dict = self.get_cols(X, a)
 
         all_input = np.concatenate((X, a), axis=2)
         all_input = np.concatenate([all_input, np.roll(all_input, -all_input.shape[2])], axis=2)  # roll to number of input variables
-        all_input = pd.DataFrame(all_input[:, -1, :], columns=cols_in_order)
+        all_input = pd.DataFrame(all_input[:, -1, :], columns=cols_dict['all_cols'])
 
         d_type_dict = dict(all_input.dtypes)
         X_sim = []
         for i, cov in enumerate(self.covariate_models):
-            _columns = cols_in_order[: len(prev_covariate_cols + prev_treatment_cols) + i]
+            _columns = cols_dict['all_cols'][: len(cols_dict['prev_covariate_cols'] + cols_dict['prev_treatment_cols']) + i]
             _input = all_input[_columns]
             if d_type_dict[cov] == 'float':
                 _pred = self.covariate_models[cov].predict(_input)
@@ -354,7 +341,7 @@ class GFormula(GMethodBase):
         X_sim = np.concatenate(X_sim, axis=1)
         X_sim = np.expand_dims(X_sim, axis=1)
 
-        all_input = all_input.drop('A', axis=1)
+        all_input = all_input.drop(cols_dict['treatment_cols'], axis=1)   # assuming single treatment col
         a_pred = self.treatment_model.predict(all_input)
         a_pred = np.expand_dims(a_pred, axis=1)
         a_sim = self._apply_noise(a_pred, step, 'boolean')
@@ -382,4 +369,28 @@ class GFormula(GMethodBase):
         X_outcome = X[_columns]
         Y_outcome = X[y_cols]
         return X_outcome, Y_outcome
+
+    def get_cols(self, X, a, t=None, y=None):
+        covariate_cols = list(self.covariate_models.keys())
+        treatment_cols = list('A')
+        time_col = t.name if t else 'time'
+        y_col = y.name if y else None
+
+        prev_covariate_cols = ['prev_' + cov for cov in covariate_cols]
+        prev_treatment_cols = ['prev_' + a for a in treatment_cols]
+        # index_cols = [self.id_col, time_col]
+        cols_in_order = prev_covariate_cols + prev_treatment_cols + covariate_cols + treatment_cols
+
+        return {
+            'covariate_cols': covariate_cols,
+            'treatment_cols': treatment_cols,
+            'time_col': time_col,
+            'y_col': y_col,
+            'prev_covariate_cols': prev_covariate_cols,
+            'prev_treatment_cols': prev_treatment_cols,
+            'all_cols': cols_in_order
+        }
+
+
+
 
