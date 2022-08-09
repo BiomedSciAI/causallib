@@ -10,7 +10,7 @@ import numpy as np
 
 class GFormula(GMethodBase):
     """
-        GFormula class that is based on Monte Carlo Simulation for creating the noise.
+        GFormula class that is based on Monte Carlo Simulation.
     """
     def __init__(self, treatment_model, covariate_models, outcome_model, refit_models, random_state, n_obsv, n_sims, n_steps, mode, resid_val):
         super(GFormula, self).__init__(treatment_model, covariate_models, outcome_model, refit_models)
@@ -68,15 +68,14 @@ class GFormula(GMethodBase):
 
         Steps:
             1. For each sample,
-                a. Get the simulation outcome (n_sim * n_steps * cov_cols) from _estimate_individual_outcome_single_sample
-                b. Take mean across 'n_sim', which will result (n_steps * cov_cols)
-                c. Repeat #b for treatment (act) as well
-                d. Assign the column names for the returned dataframes from #b (cov) and #c (act)
-                e. Concatenate these two dataframes (cov and act) across column,
-                 which results (n_steps * (cov_cols + act_cols))
-                f. Add 'sample_id' column in the resulted dataframe from #e
-                g. Add the dataframe in a list
-            2. Finally, return the result (n_steps * (cov_cols + act_cols + sample_id_col)) from #1g
+                a. Get the simulation outcomes (n_sim * n_steps * cov_cols) &
+                  (n_sim * n_steps * act_cols) from _estimate_individual_outcome_single_sample
+                b. Take mean across 'n_sim', which will result (n_steps * cov_cols) & (n_steps * act_cols)
+                d. Concatenate these two arrays across column
+                e. Convert the result to df
+                f. Add 'sample_id' to df
+                g. Add the df for each sample to list
+            2. Finally, concatenate list of dfs and return
         """
 
         if self.random_state is not None:
@@ -103,8 +102,6 @@ class GFormula(GMethodBase):
                                           columns=list(cols_d['covariate_cols']) + list(cols_d['treatment_cols']))
             sample_sim_res[self.id_col] = sample_id
             all_sim_result.append(sample_sim_res)
-            if sample_id == 50:    # TODO remove it
-                break
         return pd.concat(all_sim_result)
 
     def _estimate_individual_outcome_single_sample(self, X, a, t, y, treatment_strategy, timeline_start, timeline_end) -> dict:
@@ -113,8 +110,8 @@ class GFormula(GMethodBase):
             Returns:
                  sample_sim = [
                 {
-                    'actions' = N_sim * n_steps * dim(act)
-                    'covariates' = N_sim * n_steps * dim(X-cov)
+                    'actions' = n_sim * n_steps * cov_cols
+                    'covariates' = n_sim * n_steps * act_cols
                     'time' = 1 * n_steps
                     'pat_id' = str
                 }
@@ -200,8 +197,6 @@ class GFormula(GMethodBase):
                                                                         timeline_start=timeline_start,
                                                                         timeline_end=timeline_end)
 
-        # Averaging across time
-        # res = individual_prediction_curves.groupby(individual_prediction_curves.time).mean()
         res = individual_prediction_curves.mean(level=0).reset_index()
         return res
 
@@ -284,7 +279,6 @@ class GFormula(GMethodBase):
 
         data.dropna(inplace=True)  # dropping first row
         data = data[cols_d['all_cols']]
-        # data.set_ index(index_cols, inplace=True)
 
         X_treatment, Y_treatment = self._extract_treatment_model_data(data,
                                                                       cols_d['all_cols'],
