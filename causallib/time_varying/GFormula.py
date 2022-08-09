@@ -204,6 +204,7 @@ class GFormula(GMethodBase):
                                                                         timeline_end=timeline_end)
 
         # Averaging across time
+        # res = individual_prediction_curves.groupby(individual_prediction_curves.time).mean()
         res = individual_prediction_curves.mean(level=0).reset_index()
         return res
 
@@ -348,16 +349,17 @@ class GFormula(GMethodBase):
             else:
                 raise ValueError("Data type error. {0}, is not supported for {1}".format(d_type_dict[cov], cov))
 
-            _pred = np.expand_dims(_pred, axis=0)
+            _pred = np.expand_dims(_pred, axis=1)
             _pred = self._apply_noise(_pred, step, d_type_dict[cov])  # bs * 1 * 1
             X_sim.append(_pred)
-        X_sim = np.expand_dims(np.concatenate(X_sim, axis=1), axis=0)
+        X_sim = np.concatenate(X_sim, axis=1)
+        X_sim = np.expand_dims(X_sim, axis=1)
 
         all_input = all_input.drop('A', axis=1)
         a_pred = self.treatment_model.predict(all_input)
-        a_pred = np.expand_dims(a_pred, axis=0)
+        a_pred = np.expand_dims(a_pred, axis=1)
         a_sim = self._apply_noise(a_pred, step, 'boolean')
-        a_sim = np.expand_dims(a_sim, axis=0)
+        a_sim = np.expand_dims(a_sim, axis=1)
         return X_sim, a_sim
 
     def _extract_treatment_model_data(self, X, all_columns, treatment_cols):
