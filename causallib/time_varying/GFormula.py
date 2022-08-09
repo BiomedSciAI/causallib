@@ -69,7 +69,7 @@ class GFormula(GMethodBase):
         Steps:
             1. For each sample,
                 a. Get the simulation outcome (n_sim * n_steps * cov_cols) from _estimate_individual_outcome_single_sample
-                b. Take mean across 'n_sim' and then drop that axis, which will result (n_steps * cov_cols)
+                b. Take mean across 'n_sim', which will result (n_steps * cov_cols)
                 c. Repeat #b for treatment (act) as well
                 d. Assign the column names for the returned dataframes from #b (cov) and #c (act)
                 e. Concatenate these two dataframes (cov and act) across column,
@@ -83,6 +83,7 @@ class GFormula(GMethodBase):
             np.random.seed(self.random_state)
         unique_sample_ids = X[self.id_col].unique()
         all_sim_result = []
+        cols_d = self._get_cols(X, a, t, y)
         for sample_id in unique_sample_ids:
             sample_X = X.loc[X[self.id_col] == sample_id]
             sample_a = a.loc[a[self.id_col] == sample_id]
@@ -99,10 +100,10 @@ class GFormula(GMethodBase):
             sample_sim_act = sample_sim['actions'].mean(axis=0)  # n_steps * act_cols
 
             sample_sim_res = pd.DataFrame(np.concatenate([sample_sim_cov, sample_sim_act], axis=1),
-                                          columns=list(self.covariate_models.keys()) + list('A'))
+                                          columns=list(cols_d['covariate_cols']) + list(cols_d['treatment_cols']))
             sample_sim_res[self.id_col] = sample_id
             all_sim_result.append(sample_sim_res)
-            if sample_id == 50:
+            if sample_id == 50:    # TODO remove it
                 break
         return pd.concat(all_sim_result)
 
@@ -119,7 +120,7 @@ class GFormula(GMethodBase):
                 }
             ]
         """
-        #TODO remove redundancy : n_obsv and n_steps
+        # TODO remove redundancy : n_obsv and n_steps
         if t is None:
             t = X['time']
         min_time = timeline_start if timeline_start is not None else int(t.min())
@@ -273,7 +274,7 @@ class GFormula(GMethodBase):
         return sample
 
     def _prepare_data(self, X, a, t, y):
-        cols_d = self.get_cols(X, a, t, y)
+        cols_d = self._get_cols(X, a, t, y)
 
         data = X.join(a)
         for cov in cols_d['covariate_cols']:
@@ -315,7 +316,7 @@ class GFormula(GMethodBase):
         # todo add args
 
     def _predict(self, X, a, y, step):
-        cols_d = self.get_cols(X, a)
+        cols_d = self._get_cols(X, a)
 
         all_input = np.concatenate((X, a), axis=2)
         all_input = np.concatenate([all_input, np.roll(all_input, -all_input.shape[2])], axis=2)  # roll to number of input variables
@@ -369,7 +370,7 @@ class GFormula(GMethodBase):
         Y_outcome = X[y_cols]
         return X_outcome, Y_outcome
 
-    def get_cols(self, X, a, t=None, y=None):
+    def _get_cols(self, X, a, t=None, y=None):
         covariate_cols = list(self.covariate_models.keys())
         treatment_cols = list('A')
         time_col = t.name if t else 'time'
