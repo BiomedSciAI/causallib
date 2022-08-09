@@ -77,13 +77,14 @@ class GFormula(GMethodBase):
 
         Steps:
             1. For each sample,
-                a. Get the simulation outcomes (n_sim * n_steps * cov_cols) &
-                  (n_sim * n_steps * act_cols) from _estimate_individual_outcome_single_sample
-                b. Take mean across 'n_sim', which will result (n_steps * cov_cols) & (n_steps * act_cols)
+                a. Get the simulation outputs ('covariates', 'actions' & 'time')
+                   from _estimate_individual_outcome_single_sample
+                b. For covariate (n_sim * n_steps * cov_cols) & action (n_sim * n_steps * act_cols),
+                   take mean across 'n_sim', which will result (n_steps * cov_cols) & (n_steps * act_cols)
                 d. Concatenate these two arrays across column
                 e. Convert the result to df
-                f. Add 'sample_id' to df
-                g. Add the df for each sample to list
+                f. Add 'sample_id' and 'time' to df
+                g. Append each sample to list
             2. Finally, concatenate list of dfs and return
         """
 
@@ -109,6 +110,7 @@ class GFormula(GMethodBase):
             sample_sim_res = pd.DataFrame(np.concatenate([sample_sim_cov, sample_sim_act], axis=1),
                                           columns=list(self.covariate_cols) + list(self.treatment_cols))
             sample_sim_res[self.id_col] = sample_id
+            sample_sim_res[self.time_col] = sample_sim['time']
             all_sim_result.append(sample_sim_res)
         return pd.concat(all_sim_result)
 
@@ -169,7 +171,7 @@ class GFormula(GMethodBase):
             sim_t, act_t = self._predict(x_t, a_t, y_t, _idx)  # TODO add support for RNN later
             simulation['actions'].append(act_t)
             simulation['covariates'].append(sim_t)
-            simulation['time'].append(t)
+            simulation['time'].append(_idx)
 
             # update x_t and a_t
             x_t = np.concatenate([x_t, sim_t], axis=1)
@@ -205,7 +207,8 @@ class GFormula(GMethodBase):
                                                                         timeline_start=timeline_start,
                                                                         timeline_end=timeline_end)
 
-        res = individual_prediction_curves.mean(level=0).reset_index()
+        # Averaging across time
+        res = individual_prediction_curves.groupby(individual_prediction_curves.time).mean()
         return res
 
     def _apply_noise(self, out, t, box_type='float'):
