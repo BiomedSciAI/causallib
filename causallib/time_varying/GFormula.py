@@ -154,13 +154,14 @@ class GFormula(GMethodBase):
         a_t = a[:, :t, :]
         y_t = y[:, :t, :] if y else None
 
+        act_t = treatment_strategy(prev_x=x_t[:, -1, :], all_x=x_t[:, :-1, :], prev_a=a_t[:, -1, :])
+        a_t = np.concatenate((a_t[:, :-1, :], act_t), axis=1)
+
         # init all the models
         self._init_models()  # TODO
 
         # Simulate
         for _idx in range(self.n_steps):
-            act_t = treatment_strategy(prev_x=x_t[:, -1, :], all_x=x_t[:, :-1, :], prev_a=a_t[:, -1, :])
-            a_t = np.concatenate((a_t[:, :-1, :], act_t), axis=1)
 
             sim_t, act_t = self._predict(x_t, a_t, y_t, _idx)  # TODO add support for RNN later
             simulation['actions'].append(act_t)
@@ -170,12 +171,10 @@ class GFormula(GMethodBase):
             # update x_t and a_t
             x_t = np.concatenate([x_t, sim_t], axis=1)
             a_t = np.concatenate([a_t, act_t], axis=1)
-            # if t <= self.n_obsv:
-            #     print(T.cat(simulation['covariates'], dim=1).squeeze())
-        else:
-            pass
-            # act_t = treatment_strategy(prev_x=x_t[:, -1, :], all_x=x_t[:, :-1, :], prev_a=a_t[:, -1, :])
-            # a_t = np.concatenate((a_t[:, :-1, :], act_t), axis=1)
+
+            # get a new treatment_action
+            act_t = treatment_strategy(prev_x=x_t[:, -1, :], all_x=x_t[:, :-1, :], prev_a=a_t[:, -1, :])
+            a_t = np.concatenate((a_t[:, :-1, :], act_t), axis=1)
 
         simulation['actions'] = np.concatenate(simulation['actions'], axis=1)  # N_sim * n_steps * F-act
         simulation['covariates'] = np.concatenate(simulation['covariates'], axis=1)  # N_sim * n_steps * F-act
