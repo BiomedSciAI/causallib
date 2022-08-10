@@ -44,7 +44,7 @@ class GFormula(GMethodBase):
         if kwargs is None:
             kwargs = {}
 
-        self.set_cols(X, a, t, y)
+        self._set_cols(X, a, t, y)
         treatment_X, treatment_Y, covariate_X, covariate_Y, outcome_X, outcome_Y = self._prepare_data(X, a, t, y)
 
         treatment_model_is_not_fitted = not g_tools.check_learner_is_fitted(self.treatment_model)
@@ -81,10 +81,10 @@ class GFormula(GMethodBase):
                    from _estimate_individual_outcome_single_sample
                 b. For covariate (n_sim * n_steps * cov_cols) & action (n_sim * n_steps * act_cols),
                    take mean across 'n_sim', which will result (n_steps * cov_cols) & (n_steps * act_cols)
-                d. Concatenate these two arrays across column
-                e. Convert the result to df
-                f. Add 'sample_id' and 'time' to df
-                g. Append each sample to list
+                c. Concatenate these two arrays across column
+                d. Convert the result to df
+                e. Add 'sample_id' and 'time' to df
+                f. Append each sample to list
             2. Finally, concatenate list of dfs and return
         """
 
@@ -167,19 +167,20 @@ class GFormula(GMethodBase):
 
         # Simulate
         for _idx in range(self.n_steps):
-
-            sim_t, act_t = self._predict(x_t, a_t, y_t, _idx)  # TODO add support for RNN later
-            simulation['actions'].append(act_t)
-            simulation['covariates'].append(sim_t)
-            simulation['time'].append(_idx)
+            _idx = _idx + self.n_obsv
+            sim_t = self._predict(x_t, a_t, y_t, _idx)  # TODO add support for RNN later
 
             # update x_t and a_t
             x_t = np.concatenate([x_t, sim_t], axis=1)
-            a_t = np.concatenate([a_t, act_t], axis=1)
 
             # get a new treatment_action
             act_t = treatment_strategy(prev_x=x_t[:, -1, :], all_x=x_t[:, :-1, :], prev_a=a_t[:, -1, :])
-            a_t = np.concatenate((a_t[:, :-1, :], act_t), axis=1)
+            # a_t = np.concatenate((a_t[:, :-1, :], act_t), axis=1)
+            a_t = np.concatenate([a_t, act_t], axis=1)
+            
+            simulation['actions'].append(act_t)
+            simulation['covariates'].append(sim_t)
+            simulation['time'].append(_idx)
 
         simulation['actions'] = np.concatenate(simulation['actions'], axis=1)  # N_sim * n_steps * F-act
         simulation['covariates'] = np.concatenate(simulation['covariates'], axis=1)  # N_sim * n_steps * F-act
@@ -343,13 +344,7 @@ class GFormula(GMethodBase):
             X_sim.append(_pred)
         X_sim = np.concatenate(X_sim, axis=1)
         X_sim = np.expand_dims(X_sim, axis=1)
-
-        all_input = all_input.drop(self.treatment_cols, axis=1)   # assuming single treatment col
-        a_pred = self.treatment_model.predict(all_input)
-        a_pred = np.expand_dims(a_pred, axis=1)
-        a_sim = self._apply_noise(a_pred, step, 'boolean')
-        a_sim = np.expand_dims(a_sim, axis=1)
-        return X_sim, a_sim
+        return X_sim
 
     def _extract_treatment_model_data(self, X, all_columns, treatment_cols):
         _columns = [col for col in all_columns if col not in treatment_cols]
@@ -373,7 +368,7 @@ class GFormula(GMethodBase):
         Y_outcome = X[y_cols]
         return X_outcome, Y_outcome
 
-    def set_cols(self, X, a, t=None, y=None):
+    def _set_cols(self, X, a, t=None, y=None):
         self.covariate_cols = list(self.covariate_models.keys())
         self.treatment_cols = list('A')
         self.time_col = t.name if t else 'time'

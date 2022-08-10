@@ -1,7 +1,6 @@
 from abc import abstractmethod, ABC
 from typing import Callable
 import numpy as np
-import torch as T
 
 
 class TreatmentStrategy(ABC):
@@ -36,18 +35,19 @@ class Observational(TreatmentStrategy):
                    prev_x,
                    all_x,
                    prev_a):
-        _device = prev_x.device
-        raise NotImplementedError
-
-        import torch as T  # TODO Need to remove pytorch dependency
         if self.inverse_transform is not None:
-            prev_x = T.Tensor(self.inverse_transform(prev_x.data.cpu())).to(_device)
-            all_x = T.Tensor(self.inverse_transform(all_x.data.cpu())).to(_device)
+            prev_x = self.inverse_transform(prev_x.data)
+            all_x = self.inverse_transform(all_x.data)
+
         # rbinom(1,1,invlogit((X[i-1]-mean_x)/10.-A[i-1]))
-        x = (prev_x - all_x.mean(axis=1)) / 10. - prev_a
-        p = T.exp(x) / (1 + T.exp(x))
-        out = T.bernoulli(p)  # T.round(p) #
-        return out.unsqueeze(1)
+        prev_x = prev_x[:, [0]]
+        all_x = all_x[:, :, [0]]
+        # _diff_x = np.atleast_2d(prev_x - all_x.mean(axis=1))
+        x = (prev_x - all_x.mean(axis=1))/10 - prev_a
+        p = np.exp(x) / (1 + np.exp(x))
+        out = np.random.binomial(1, p)
+        out = np.expand_dims(out, axis=2)
+        return out
 
 
 class CFBernoulli(TreatmentStrategy):
