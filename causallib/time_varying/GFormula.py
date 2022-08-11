@@ -322,16 +322,16 @@ class GFormula(GMethodBase):
 
     def _predict(self, X, a, y, step):
 
-        all_input = np.concatenate((X, a), axis=2)
-        all_input = np.concatenate([all_input, np.roll(all_input, -all_input.shape[2])], axis=2)  # roll to number of input variables
-        all_input = pd.DataFrame(all_input[:, -1, :], columns=self.all_cols)
+        _input = np.concatenate((X, a), axis=2)
+        # roll/shift right to number of 'col_dim'
+        _input = np.concatenate([_input, np.roll(_input, -_input.shape[2])], axis=2)
+        _input = pd.DataFrame(_input[:, -1, :], columns=self.all_cols)
 
-        d_type_dict = dict(all_input.dtypes)
         X_sim = []
+        d_type_dict = dict(_input.dtypes)
         default_cols = self.prev_covariate_cols + self.prev_treatment_cols
+        _input = _input[default_cols]
         for i, cov in enumerate(self.covariate_models):
-            _columns = self.all_cols[: len(default_cols) + i]
-            _input = all_input[_columns]
             if d_type_dict[cov] == 'float':
                 _pred = self.covariate_models[cov].predict(_input)
             elif d_type_dict[cov] == 'bool':
@@ -341,7 +341,9 @@ class GFormula(GMethodBase):
 
             _pred = np.expand_dims(_pred, axis=1)
             _pred = self._apply_noise(_pred, step, d_type_dict[cov])  # bs * 1 * 1
+            _input = pd.DataFrame(np.concatenate((_input, _pred), axis=1), columns=self.all_cols[:len(default_cols)+i+1])
             X_sim.append(_pred)
+
         X_sim = np.concatenate(X_sim, axis=1)
         X_sim = np.expand_dims(X_sim, axis=1)
         return X_sim
