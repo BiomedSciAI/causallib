@@ -58,9 +58,7 @@ class WeightPlotterMixin:
                 thresh=thresh,
                 **kwargs,
             )
-        ###############################################################################
-        ######################### starting my addition ################################
-        ###############################################################################
+    
 
         if kind == "scatter":
             return plots.plot_mean_features_imbalance_scatter_plot(
@@ -70,9 +68,7 @@ class WeightPlotterMixin:
                 **kwargs,
             )
         
-        ###############################################################################
-        ######################### ending my addition ##################################
-        ###############################################################################
+
 
         raise ValueError(f"Unsupported covariate balance plot kind {kind}")
 

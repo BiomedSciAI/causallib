@@ -877,9 +877,7 @@ def plot_mean_features_imbalance_love_folds(
     ax.set_ylabel("Covariates")
     ax.legend(loc="lower right")
     return ax
-########################################################################################
-###################### starting my addition to the original code #######################
-########################################################################################
+
 
 def plot_mean_features_imbalance_scatter_plot(
     table1_folds,
@@ -950,15 +948,10 @@ def plot_mean_features_imbalance_scatter_plot(
     if ax_pixel_height / order.size < 10 + 3:
         ax.set_yticklabels([])  # Too many y-ticks for axis size, remove them.
 
-    ax.set_xlabel(f"{method_pretty_name[table1_folds[1].columns.name]} Unweighted")
-    ax.set_ylabel(f"{method_pretty_name[table1_folds[1].columns.name]} Weighted")
+    ax.set_xlabel("unweighted")
+    ax.set_ylabel("weighted")
 
     return ax 
-
-########################################################################################
-###################### ending my addition to the original code #########################
-########################################################################################
-
 
 
 def plot_mean_features_imbalance_slope_folds(
