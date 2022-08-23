@@ -887,7 +887,7 @@ def plot_mean_features_imbalance_scatter_plot(
     plot_semi_grid=True,
     ax=None,
 ):
-
+    # get current axes
     ax = ax or plt.gca()
 
     color_below="C0"
@@ -904,8 +904,6 @@ def plot_mean_features_imbalance_scatter_plot(
     aggregated_table1 = pd.concat(table1_folds)  # type: pd.DataFrame
     aggregated_table1 = aggregated_table1.groupby(aggregated_table1.index)
 
-    order = aggregated_table1.mean().sort_values(by="unweighted", ascending=True).index
-
     if aggregate_folds:
         # place in iterable to make compatible with input
         table1_folds = [aggregated_table1.mean()]
@@ -913,7 +911,7 @@ def plot_mean_features_imbalance_scatter_plot(
     # Plot:
     for table1 in table1_folds:
         for row in range(len(table1)):
-
+            # for each feature we check if the weighted value is above threshold to detemain the color text on plot 
             weighted_value = table1.iloc[row,:]['weighted']
             unweighted_value = table1.iloc[row,:]['unweighted']
 
@@ -927,7 +925,7 @@ def plot_mean_features_imbalance_scatter_plot(
                 ax.text(x = unweighted_value, y=weighted_value,s = table1.iloc[row,:].name,horizontalalignment = "left") 
 
             
-     # Plot vertical threshold line
+    # Plot vertical and horizontal threshold line
     if thresh is not None:
         ax.axvline(thresh, color="grey", linestyle="--", zorder=2)
         ax.axhline(thresh, color="grey", linestyle="--", zorder=2)
@@ -944,12 +942,11 @@ def plot_mean_features_imbalance_scatter_plot(
         ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted()).height
         * fig.dpi
     )
-    # 10 is hypothesized to be font size + 3 pt. margin
-    if ax_pixel_height / order.size < 10 + 3:
-        ax.set_yticklabels([])  # Too many y-ticks for axis size, remove them.
-
-    ax.set_xlabel("unweighted")
-    ax.set_ylabel("weighted")
+    # adding labels 
+    x_label_name = f'Unweighted [{method_pretty_name[table1_folds[0].columns.name]}]'
+    y_label_name = f'Weighted [{method_pretty_name[table1_folds[0].columns.name]}]'
+    ax.set_xlabel(x_label_name)
+    ax.set_ylabel(y_label_name)
 
     return ax 
 
