@@ -877,6 +877,88 @@ def plot_mean_features_imbalance_love_folds(
     ax.set_ylabel("Covariates")
     ax.legend(loc="lower right")
     return ax
+########################################################################################
+###################### starting my addition to the original code #######################
+########################################################################################
+
+def plot_mean_features_imbalance_scatter_plot(
+    table1_folds,
+    cv=None,
+    aggregate_folds=True,
+    thresh=None,
+    plot_semi_grid=True,
+    ax=None,
+):
+
+    ax = ax or plt.gca()
+
+    color_below="C0"
+    color_above="C1"
+
+
+    method_pretty_name = {
+        "smd": "Standard Mean Difference",
+        "abs_smd": "Absolute Standard Mean Difference",
+        "ks": "Kolmogorov-Smirnov",
+    }
+    # Aggregate across folds. This will be used to determine order, and extreme values.
+    # Use this groupby trick: https://stackoverflow.com/a/25058102
+    aggregated_table1 = pd.concat(table1_folds)  # type: pd.DataFrame
+    aggregated_table1 = aggregated_table1.groupby(aggregated_table1.index)
+
+    order = aggregated_table1.mean().sort_values(by="unweighted", ascending=True).index
+
+    if aggregate_folds:
+        # place in iterable to make compatible with input
+        table1_folds = [aggregated_table1.mean()]
+
+    # Plot:
+    for table1 in table1_folds:
+        for row in range(len(table1)):
+
+            weighted_value = table1.iloc[row,:]['weighted']
+            unweighted_value = table1.iloc[row,:]['unweighted']
+
+            cur_color = color_above if weighted_value > thresh else color_below
+            ax.scatter( 
+                x = unweighted_value,
+                y = weighted_value,
+                color = cur_color
+        )
+            if  weighted_value > thresh:
+                ax.text(x = unweighted_value, y=weighted_value,s = table1.iloc[row,:].name,horizontalalignment = "left") 
+
+            
+     # Plot vertical threshold line
+    if thresh is not None:
+        ax.axvline(thresh, color="grey", linestyle="--", zorder=2)
+        ax.axhline(thresh, color="grey", linestyle="--", zorder=2)
+        # There are negative values, plot the minus of threshold   
+        if aggregated_table1.min().min().min() < 0:
+            # There are negative values, plot the minus of threshold and adjust x-limits to be symmetric:
+            ax.axvline(-thresh, color="grey", linestyle="--", zorder=2)
+            ax.axhline(-thresh, color="grey", linestyle="--", zorder=2)
+            ax.set_xlim(-np.max(np.abs(ax.get_xlim())), np.max(np.abs(ax.get_xlim())))
+
+    # If too many features, remove their tick labels:
+    fig = ax.get_figure()
+    ax_pixel_height = (
+        ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted()).height
+        * fig.dpi
+    )
+    # 10 is hypothesized to be font size + 3 pt. margin
+    if ax_pixel_height / order.size < 10 + 3:
+        ax.set_yticklabels([])  # Too many y-ticks for axis size, remove them.
+
+    ax.set_xlabel(f"{method_pretty_name[table1_folds[1].columns.name]} Unweighted")
+    ax.set_ylabel(f"{method_pretty_name[table1_folds[1].columns.name]} Weighted")
+
+    return ax 
+
+########################################################################################
+###################### ending my addition to the original code #########################
+########################################################################################
+
 
 
 def plot_mean_features_imbalance_slope_folds(
