@@ -27,7 +27,7 @@ class WeightPlotterMixin:
         """Plot covariate balance before and after weighting.
 
         Args:
-            kind (str, optional): Plot kind, "love" or "slope. Defaults to "love".
+            kind (str, optional): Plot kind, "love" ,"slope" or "scatter". Defaults to "love".
             phase (str, optional): Phase to plot: "train" or "valid". Defaults to "train".
             ax (matplotlib.axes.Axes, optional): axis to plot on, if None creates new axis.
                 Defaults to None.
