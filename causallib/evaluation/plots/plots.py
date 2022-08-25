@@ -881,10 +881,7 @@ def plot_mean_features_imbalance_love_folds(
 
 def plot_mean_features_imbalance_scatter_plot(
     table1_folds,
-    cv=None,
-    aggregate_folds=True,
     thresh=None,
-    plot_semi_grid=True,
     ax=None,
 ):
     # get current axes
@@ -904,10 +901,7 @@ def plot_mean_features_imbalance_scatter_plot(
     aggregated_table1 = pd.concat(table1_folds)  # type: pd.DataFrame
     aggregated_table1 = aggregated_table1.groupby(aggregated_table1.index)
 
-    if aggregate_folds:
-        # place in iterable to make compatible with input
-        table1_folds = [aggregated_table1.mean()]
-
+    
     # Plot:
     for table1 in table1_folds:
         for row in range(len(table1)):
@@ -936,12 +930,8 @@ def plot_mean_features_imbalance_scatter_plot(
             ax.axhline(-thresh, color="grey", linestyle="--", zorder=2)
             ax.set_xlim(-np.max(np.abs(ax.get_xlim())), np.max(np.abs(ax.get_xlim())))
 
-    # If too many features, remove their tick labels:
-    fig = ax.get_figure()
-    ax_pixel_height = (
-        ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted()).height
-        * fig.dpi
-    )
+    
+    
     # adding labels 
     x_label_name = f'Unweighted [{method_pretty_name[table1_folds[0].columns.name]}]'
     y_label_name = f'Weighted [{method_pretty_name[table1_folds[0].columns.name]}]'
