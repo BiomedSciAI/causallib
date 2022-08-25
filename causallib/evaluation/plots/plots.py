@@ -898,7 +898,7 @@ def plot_mean_features_imbalance_scatter_plot(
     aggregated_table1 = pd.concat(table1_folds)  # type: pd.DataFrame
     aggregated_table1 = aggregated_table1.groupby(aggregated_table1.index)
 
-    if aggregate_folds == True:
+    if aggregate_folds:
         table1_folds = [aggregated_table1.mean()]
     
     # Plot:
