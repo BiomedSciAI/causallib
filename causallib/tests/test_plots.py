@@ -122,6 +122,17 @@ class TestPlots(unittest.TestCase):
         self.assertEqual(thresh, axis.get_lines()[0].get_xdata()[0])
         plt.close()
 
+
+    def test_plot_covariate_balance_scatter_draws_thresh(self):
+        thresh = 0.1
+        f, ax = plt.subplots()
+        axis = self.propensity_evaluation.plot_covariate_balance(
+            kind="scatter", thresh=thresh, ax=ax
+        )
+        self.assertIsInstance(axis, matplotlib.axes.Axes)
+        self.assertEqual(thresh, axis.get_lines()[0].get_xdata()[0])
+        plt.close()
+
     def test_plot_covariate_balance_slope_labeled_correctly(self):
         f, ax = plt.subplots()
         axis = self.propensity_evaluation.plot_covariate_balance(kind="slope", ax=ax)
