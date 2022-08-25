@@ -887,10 +887,6 @@ def plot_mean_features_imbalance_scatter_plot(
     # get current axes
     ax = ax or plt.gca()
 
-    color_below="C0"
-    color_above="C1"
-
-
     method_pretty_name = {
         "smd": "Standard Mean Difference",
         "abs_smd": "Absolute Standard Mean Difference",
@@ -901,23 +897,30 @@ def plot_mean_features_imbalance_scatter_plot(
     aggregated_table1 = pd.concat(table1_folds)  # type: pd.DataFrame
     aggregated_table1 = aggregated_table1.groupby(aggregated_table1.index)
 
+    table1_folds = [aggregated_table1.mean()]
     
     # Plot:
     for table1 in table1_folds:
-        for row in range(len(table1)):
-            # for each feature we check if the weighted value is above threshold to detemain the color text on plot 
-            weighted_value = table1.iloc[row,:]['weighted']
-            unweighted_value = table1.iloc[row,:]['unweighted']
 
-            cur_color = color_above if weighted_value > thresh else color_below
-            ax.scatter( 
-                x = unweighted_value,
-                y = weighted_value,
-                color = cur_color
+        # find index of features that are above threshold 
+        violating = table1["weighted"] > thresh
+        # determain color for dot on plot 
+        color = violating.replace({False: "C0", True: "C1"})
+        weighted_value = table1['weighted']
+        unweighted_value = table1['unweighted']
+        
+        ax.scatter( 
+            x = unweighted_value,
+            y = weighted_value,
+            color = color
         )
-            if  weighted_value > thresh:
-                ax.text(x = unweighted_value, y=weighted_value,s = table1.iloc[row,:].name,horizontalalignment = "left") 
-
+        for covariate_name, covariate_diff in table1.loc[violating].iterrows():
+            ax.text(
+                x=covariate_diff["unweighted"],
+                y=covariate_diff["weighted"],
+                s=covariate_name,
+                horizontalalignment="left",
+            )
             
     # Plot vertical and horizontal threshold line
     if thresh is not None:
@@ -930,7 +933,6 @@ def plot_mean_features_imbalance_scatter_plot(
             ax.axhline(-thresh, color="grey", linestyle="--", zorder=2)
             ax.set_xlim(-np.max(np.abs(ax.get_xlim())), np.max(np.abs(ax.get_xlim())))
 
-    
     
     # adding labels 
     x_label_name = f'Unweighted [{method_pretty_name[table1_folds[0].columns.name]}]'
