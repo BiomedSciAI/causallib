@@ -941,10 +941,12 @@ def plot_mean_features_imbalance_scatter_plot(
 
     
     # adding labels 
-    x_label_name = f'Unweighted [{method_pretty_name[table1_folds[0].columns.name]}]'
-    y_label_name = f'Weighted [{method_pretty_name[table1_folds[0].columns.name]}]'
-    ax.set_xlabel(x_label_name)
-    ax.set_ylabel(y_label_name)
+
+    metric_name = table1_folds[0].columns.name
+    metric_name = method_pretty_name.get(metric_name, metric_name)
+
+    ax.set_xlabel(f'Unweighted [{metric_name}]')
+    ax.set_ylabel(f'Weighted [{metric_name}]')
 
     return ax 
 
