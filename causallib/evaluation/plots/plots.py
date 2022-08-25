@@ -912,14 +912,13 @@ def plot_mean_features_imbalance_scatter_plot(
         violating = table1["weighted"] > thresh
         # determain color for dot on plot 
         color = violating.replace({False: "C0", True: "C1"})
-        weighted_value = table1['weighted']
-        unweighted_value = table1['unweighted']
+        
         
         ax.scatter( 
-            x = unweighted_value,
-            y = weighted_value,
+            x=table1['unweighted'],
+            y=table1['weighted'],
             marker=next(marker_cycle),
-            color = color
+            color=color
         )
         for covariate_name, covariate_diff in table1.loc[violating].iterrows():
             ax.text(
