@@ -902,7 +902,11 @@ def plot_mean_features_imbalance_scatter_plot(
         table1_folds = [aggregated_table1.mean()]
     
     # Plot:
+
     for table1 in table1_folds:
+        
+        # setting different marker shapes for each fold in aggregated_foldes == False
+        marker_cycle = cycle(["o", "^", "P", "s", "*"]) 
 
         # find index of features that are above threshold 
         violating = table1["weighted"] > thresh
@@ -914,6 +918,7 @@ def plot_mean_features_imbalance_scatter_plot(
         ax.scatter( 
             x = unweighted_value,
             y = weighted_value,
+            marker=next(marker_cycle),
             color = color
         )
         for covariate_name, covariate_diff in table1.loc[violating].iterrows():
