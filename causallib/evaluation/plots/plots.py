@@ -879,6 +879,78 @@ def plot_mean_features_imbalance_love_folds(
     return ax
 
 
+def plot_mean_features_imbalance_scatter_plot(
+    table1_folds,
+    aggregate_folds=True,
+    thresh=None,
+    ax=None,
+):
+    # get current axes
+    ax = ax or plt.gca()
+
+    method_pretty_name = {
+        "smd": "Standard Mean Difference",
+        "abs_smd": "Absolute Standard Mean Difference",
+        "ks": "Kolmogorov-Smirnov",
+    }
+    # Aggregate across folds. This will be used to determine order, and extreme values.
+    # Use this groupby trick: https://stackoverflow.com/a/25058102
+    aggregated_table1 = pd.concat(table1_folds)  # type: pd.DataFrame
+    aggregated_table1 = aggregated_table1.groupby(aggregated_table1.index)
+
+    if aggregate_folds:
+        table1_folds = [aggregated_table1.mean()]
+    
+    # Plot:
+
+    for table1 in table1_folds:
+        
+        # setting different marker shapes for each fold in aggregated_foldes == False
+        marker_cycle = cycle(["o", "^", "P", "s", "*"]) 
+
+        # find index of features that are above threshold 
+        violating = table1["weighted"] > thresh
+        # determain color for dot on plot 
+        color = violating.replace({False: "C0", True: "C1"})
+        
+        
+        ax.scatter( 
+            x=table1['unweighted'],
+            y=table1['weighted'],
+            marker=next(marker_cycle),
+            color=color
+        )
+        for covariate_name, covariate_diff in table1.loc[violating].iterrows():
+            ax.text(
+                x=covariate_diff["unweighted"],
+                y=covariate_diff["weighted"],
+                s=covariate_name,
+                horizontalalignment="left",
+            )
+            
+    # Plot vertical and horizontal threshold line
+    if thresh is not None:
+        ax.axvline(thresh, color="grey", linestyle="--", zorder=2)
+        ax.axhline(thresh, color="grey", linestyle="--", zorder=2)
+        # There are negative values, plot the minus of threshold   
+        if aggregated_table1.min().min().min() < 0:
+            # There are negative values, plot the minus of threshold and adjust x-limits to be symmetric:
+            ax.axvline(-thresh, color="grey", linestyle="--", zorder=2)
+            ax.axhline(-thresh, color="grey", linestyle="--", zorder=2)
+            ax.set_xlim(-np.max(np.abs(ax.get_xlim())), np.max(np.abs(ax.get_xlim())))
+
+    
+    # adding labels 
+
+    metric_name = table1_folds[0].columns.name
+    metric_name = method_pretty_name.get(metric_name, metric_name)
+
+    ax.set_xlabel(f'Unweighted [{metric_name}]')
+    ax.set_ylabel(f'Weighted [{metric_name}]')
+
+    return ax 
+
+
 def plot_mean_features_imbalance_slope_folds(
     table1_folds, cv=None, thresh=None, ax=None
 ):

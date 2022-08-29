@@ -27,7 +27,7 @@ class WeightPlotterMixin:
         """Plot covariate balance before and after weighting.
 
         Args:
-            kind (str, optional): Plot kind, "love" or "slope. Defaults to "love".
+            kind (str, optional): Plot kind, "love" ,"slope" or "scatter". Defaults to "love".
             phase (str, optional): Phase to plot: "train" or "valid". Defaults to "train".
             ax (matplotlib.axes.Axes, optional): axis to plot on, if None creates new axis.
                 Defaults to None.
@@ -58,6 +58,18 @@ class WeightPlotterMixin:
                 thresh=thresh,
                 **kwargs,
             )
+    
+
+        if kind == "scatter":
+            return plots.plot_mean_features_imbalance_scatter_plot(
+                table1_folds=table1_folds,
+                ax=ax,
+                thresh=thresh,
+                **kwargs,
+            )
+        
+
+
         raise ValueError(f"Unsupported covariate balance plot kind {kind}")
 
     def plot_weight_distribution(
