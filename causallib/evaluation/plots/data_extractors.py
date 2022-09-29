@@ -9,8 +9,7 @@ import abc
 from sklearn import metrics
 
 from . import curve_data_makers, plots
-from ...utils.stat_utils import is_vector_binary
-from ..metrics import calculate_covariate_balance
+from ...metrics.weight_metrics import calculate_covariate_balance
 
 
 class BaseEvaluationPlotDataExtractor(abc.ABC):
