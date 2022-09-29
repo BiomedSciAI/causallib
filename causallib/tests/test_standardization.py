@@ -180,6 +180,9 @@ class TestStandardizationStratified(TestStandardizationCommon):
         with self.subTest("Test no-treatment initialization after fit"):
             self.assertIsInstance(estimator.learner, dict)
             self.assertSetEqual(set(estimator.learner.keys()), set(self.data_lin["a"]))
+        with self.subTest("Test treatment values were added"):
+            self.assertIsNone(estimator.treatment_values)  # No treatment values in initiation
+            self.assertListEqual([0, 1], estimator.treatment_values_)  # Treatment values added after fit
 
     def test_initialization_with_dict_of_learners(self):
         learners = {0: LinearRegression(normalize=False),

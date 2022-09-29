@@ -32,10 +32,12 @@ import warnings
 import pandas as pd
 from numpy import isscalar
 
+from sklearn.base import BaseEstimator
+
 from ..utils.general_tools import create_repr_string
 
 
-class EffectEstimator:
+class EffectEstimator(BaseEstimator):
     """
     Class-based interface for estimating either individual-level or sample-level effect.
     """

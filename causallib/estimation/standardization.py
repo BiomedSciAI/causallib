@@ -111,6 +111,7 @@ class StratifiedStandardization(IndividualOutcomeEstimator):
             self.learner = learner
         elif treatment_values is not None:  # overwrite native `learner` with dictionary based one
             self.learner = self._clone_learner(treatment_values)
+        self.treatment_values = treatment_values
 
     def _clone_learner(self, treatment_values):
         """
@@ -161,8 +162,9 @@ class StratifiedStandardization(IndividualOutcomeEstimator):
         return res
 
     def fit(self, X, a, y, sample_weight=None):
+        self.treatment_values_ = g_tools.get_iterable_treatment_values(None, a)
         if not isinstance(self.learner, dict):  # sk-learner was not cloned yet to have one copy for each stratum
-            self.learner = self._clone_learner(a.unique())
+            self.learner = self._clone_learner(self.treatment_values_)
 
         for cur_X, cur_y, cur_sw, treatment_value in self._prepare_data(X, a, y, sample_weight):
             fit_params = _add_sample_weight_fit_params(self.learner[treatment_value], cur_sw)

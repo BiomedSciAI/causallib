@@ -60,7 +60,7 @@ def create_repr_string(o):
     # Filter peripheral unimportant attribute names:
     params = [
         attr for attr in dir(o) if not attr.startswith('__')  # Data-model dunder methods
-                                   and not callable(getattr(o, attr))  # Remove other methods, keep only fields
+                                   and not callable(getattr(o, attr, None))  # Remove other methods, keep only fields
                                    and not attr.startswith("_abc")  # Remove abstract-related attributes
                                    and not attr.endswith("_")  # Remove attributes stated after initialization
                                    and not attr == "CALCULATE_EFFECT"  # Remove the EffectEstimator attribute

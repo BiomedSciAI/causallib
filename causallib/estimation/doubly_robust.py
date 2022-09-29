@@ -91,6 +91,18 @@ class BaseDoublyRobust(IndividualOutcomeEstimator):
         X_weight = self._extract_weight_model_data(X)
         return X_outcome, X_weight
 
+    def _is_weight_model_fitted(self):
+        try:
+            weight_model_is_fitted = g_tools.check_learner_is_fitted(self.weight_model.learner)
+        except AttributeError:  # `weight_model` has no `learner` attribute. fit anyway
+            warnings.warn(
+                f"Weight model of type {type(self.weight_model)} does not"
+                f"have a `learner` attribute and cannot be tested whether"
+                f"it is fitted or not. Attempting to fit anyway."
+            )
+            weight_model_is_fitted = False
+        return weight_model_is_fitted
+
     def __repr__(self):
         repr_string = g_tools.create_repr_string(self)
         # Make a new line between outcome_model and weight_model
@@ -159,10 +171,10 @@ class AIPW(BaseDoublyRobust):
             )
 
         X_outcome, X_weight = self._prepare_data(X, a)
-        weight_model_is_not_fitted = not g_tools.check_learner_is_fitted(self.weight_model.learner)
+        weight_model_is_not_fitted = not self._is_weight_model_fitted()
 
         if refit_weight_model or weight_model_is_not_fitted:
-            self.weight_model.fit(X=X_weight, a=a)
+            self.weight_model.fit(X=X_weight, a=a, y=y)
 
         self.outcome_model.fit(X=X_outcome, y=y, a=a)
         return self
@@ -344,7 +356,6 @@ class PropensityFeatureStandardization(BaseDoublyRobust):
                          outcome_covariates, weight_covariates)
         self.feature_type = feature_type
 
-
     def estimate_individual_outcome(self, X, a, treatment_values=None, predict_proba=None):
         X_augmented = self._augment_outcome_model_data(X, a)
         prediction = self.outcome_model.estimate_individual_outcome(X_augmented, a, treatment_values, predict_proba)
@@ -375,10 +386,10 @@ class PropensityFeatureStandardization(BaseDoublyRobust):
 
     def fit(self, X, a, y, refit_weight_model=True, **kwargs):
         X_outcome, X_weight = self._prepare_data(X, a)
-        weight_model_is_not_fitted = not g_tools.check_learner_is_fitted(self.weight_model.learner)
+        weight_model_is_not_fitted = not self._is_weight_model_fitted()
 
         if refit_weight_model or weight_model_is_not_fitted:
-            self.weight_model.fit(X=X_weight, a=a)
+            self.weight_model.fit(X=X_weight, a=a, y=y)
 
         X_augmented = self._augment_outcome_model_data(X, a)
         self.outcome_model.fit(X=X_augmented, y=y, a=a)
@@ -461,10 +472,10 @@ class WeightedStandardization(BaseDoublyRobust):
 
     def fit(self, X, a, y, refit_weight_model=True, **kwargs):
         X_outcome, X_weight = self._prepare_data(X, a)
-        weight_model_is_not_fitted = not g_tools.check_learner_is_fitted(self.weight_model.learner)
+        weight_model_is_not_fitted = not self._is_weight_model_fitted()
 
         if refit_weight_model or weight_model_is_not_fitted:
-            self.weight_model.fit(X=X_weight, a=a)
+            self.weight_model.fit(X=X_weight, a=a, y=y)
 
         weights = self.weight_model.compute_weights(X_weight, a)
         self.outcome_model.fit(X=X_outcome, y=y, a=a, sample_weight=weights)
