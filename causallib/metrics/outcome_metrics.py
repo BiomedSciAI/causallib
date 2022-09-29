@@ -11,8 +11,7 @@ The outcome prediction is expected to be full potential outcome prediction
 import numpy as np
 import pandas as pd
 
-from causallib.evaluation.weight_evaluator import calculate_covariate_balance
-from causallib.utils.stat_utils import calc_weighted_standardized_mean_differences, calc_weighted_ks2samp
+from causallib.utils.stat_utils import calc_weighted_standardized_mean_differences
 from causallib.utils.stat_utils import robust_lookup
 
 
