@@ -284,7 +284,8 @@ class TestNHEFS(unittest.TestCase):
     """
     def setUp(self) -> None:
         np.random.seed(RANDOM_SEED)
-        self.X, self.a, self.t, self.y = load_nhefs_survival()
+        data = load_nhefs_survival()
+        self.X, self.a, self.t, self.y = data.X, data.a, data.t, data.y
 
         # Init various multiple models
         self.estimators = {

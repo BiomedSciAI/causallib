@@ -154,7 +154,8 @@ def load_nhefs_survival(augment=True, onehot=True):
     # Make timeline 1-index (to comply with some lifelines fitters that require strictly positive time steps)
     t = t + 1
 
-    return X, a, t, y
+    data = Bunch(X=X, a=a, t=t, y=y)
+    return data
 
 
 def load_acic16(instance=1, raw=False):
