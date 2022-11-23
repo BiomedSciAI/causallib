@@ -55,7 +55,7 @@ class WeightedStandardizedSurvival(StandardizedSurvival):
             self
         """
         a, t, y, _, X = canonize_dtypes_and_names(a=a, t=t, y=y, w=None, X=X)
-        self.weight_model.fit(X=X, a=a)
+        self.weight_model.fit(X=X, a=a, y=y)
         iptw_weights = self.weight_model.compute_weights(X, a)
 
         # Call fit from StandardizedSurvival, with added ipt weights

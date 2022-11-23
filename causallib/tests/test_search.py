@@ -219,6 +219,38 @@ class TestGridSearch(unittest.TestCase):
             # AIPW's individual outcome is the internal standardization individual outcome
         )
 
+    def test_with_survival_ipw(self):
+        from causallib.survival import WeightedSurvival, WeightedStandardizedSurvival
+        from causallib.datasets import load_nhefs_survival
+        from sklearn.dummy import DummyClassifier
+
+        data = load_nhefs_survival()
+        idx = data.X.sample(n=100, random_state=0).index
+        X, a, t, y = data.X.loc[idx], data.a.loc[idx], data.t.loc[idx], data.y.loc[idx]
+        CausalGridSearchCV = causalize_searcher(GridSearchCV)
+
+        ipw = IPW(LogisticRegression(penalty="none", solver="saga", max_iter=10000))
+        ipw_grid_model = CausalGridSearchCV(
+            ipw,
+            param_grid=dict(clip_min=[0.2, 0.3]), cv=2,
+            scoring="weighted_roc_auc_error",
+        )
+
+        for Model in [WeightedSurvival, WeightedStandardizedSurvival]:
+            model = Model(
+                weight_model=ipw_grid_model,
+                survival_model=DummyClassifier(strategy="prior")
+            )
+            model.fit(X, a, t, y)
+
+            self.assertIsInstance(model.weight_model, CausalGridSearchCV)
+
+            propensities = model.weight_model.compute_propensity(X, a)
+            self.assertLessEqual(0.2, propensities.min())
+
+            outcomes = model.estimate_population_outcome(X, a, t, y, timeline_start=1)
+            self.assertEqual(outcomes.shape, (t.max(), a.nunique()))
+
     def test_selecting_different_core_estimators(self):
         from sklearn.dummy import DummyClassifier
         data = self.data
