@@ -130,6 +130,7 @@ class TestGridSearch(unittest.TestCase):
         }
         scorers_list = ["weighted_roc_auc_error", "covariate_balancing_error"]
         scorers_tuple = ("weighted_roc_auc_error", "covariate_balancing_error")
+        scorers_set = {"weighted_roc_auc_error", "covariate_balancing_error"}
         grid_model_dict = self._fit_search_model(
             model, scorers_dict,
             dict(clip_min=[0.05, 0.2]),
@@ -142,6 +143,11 @@ class TestGridSearch(unittest.TestCase):
         )
         grid_model_tuple = self._fit_search_model(
             model, scorers_tuple,
+            dict(clip_min=[0.05, 0.2]),
+            refit="weighted_roc_auc_error"
+        )
+        grid_model_set = self._fit_search_model(
+            model, scorers_set,
             dict(clip_min=[0.05, 0.2]),
             refit="weighted_roc_auc_error"
         )
@@ -171,6 +177,20 @@ class TestGridSearch(unittest.TestCase):
         )
         pd.testing.assert_series_equal(
             grid_model_tuple.estimate_population_outcome(data['X'], data['a'], data['y']),
+            grid_model_list.estimate_population_outcome(data['X'], data['a'], data['y']),
+            check_exact=False,
+        )
+        # set with list
+        self.assertEqual(
+            grid_model_set.best_estimator_.clip_min,
+            grid_model_list.best_estimator_.clip_min,
+        )
+        np.testing.assert_array_almost_equal(
+            grid_model_set.best_estimator_.learner.coef_,
+            grid_model_list.best_estimator_.learner.coef_,
+        )
+        pd.testing.assert_series_equal(
+            grid_model_set.estimate_population_outcome(data['X'], data['a'], data['y']),
             grid_model_list.estimate_population_outcome(data['X'], data['a'], data['y']),
             check_exact=False,
         )
