@@ -78,6 +78,8 @@ class StandardizedSurvival(SurvivalBase):
             self.survival_model.fit(df=fit_data, duration_col=t_name, event_col=y_name, weights_col=w_name,
                                     **fit_kwargs)
 
+        return self
+
     def estimate_individual_outcome(self,
                                     X: pd.DataFrame,
                                     a: pd.Series,
@@ -149,7 +151,7 @@ class StandardizedSurvival(SurvivalBase):
         Returns:
             pd.DataFrame: with time-step index, treatment values as columns and survival as entries
         """
-
+        a, t, _, _, X = canonize_dtypes_and_names(a=a, t=t,  X=X)
         unique_treatment_values = a.unique()
         res = {}
         for treatment_value in unique_treatment_values:

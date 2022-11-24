@@ -284,7 +284,8 @@ class TestNHEFS(unittest.TestCase):
     """
     def setUp(self) -> None:
         np.random.seed(RANDOM_SEED)
-        self.X, self.a, self.t, self.y = load_nhefs_survival()
+        data = load_nhefs_survival()
+        self.X, self.a, self.t, self.y = data.X, data.a, data.t, data.y
 
         # Init various multiple models
         self.estimators = {
@@ -412,7 +413,10 @@ class TestIPW(unittest.TestCase):
         t.name = None
         ipw = WeightedSurvival(weight_model=IPW(LogisticRegression()), survival_model=LogisticRegression())
         ipw.fit(X, a, t, y)
-        _ = ipw.estimate_population_outcome(X=X, a=a, t=t, y=y)
+        outcomes = ipw.estimate_population_outcome(X=X, a=a, t=t, y=y)
+
+        self.assertEqual(outcomes.index.name, "t")  # Default time name when canonizing names
+        self.assertEqual(outcomes.columns.name, "a")  # Default time name when canonizing names
 
 
 class TestStandardization(unittest.TestCase):
@@ -493,7 +497,10 @@ class TestStandardization(unittest.TestCase):
         t.name = None
         std = StandardizedSurvival(survival_model=LogisticRegression())
         std.fit(X, a, t, y)
-        _ = std.estimate_population_outcome(X=X, a=a, t=t, y=y)
+        outcomes = std.estimate_population_outcome(X=X, a=a, t=t, y=y)
+
+        self.assertEqual(outcomes.index.name, "t")  # Default time name when canonizing names
+        self.assertEqual(outcomes.columns.name, "a")  # Default time name when canonizing names
 
 
 @unittest.skipUnless(LIFELINES_FOUND, 'lifelines not found')

@@ -56,7 +56,7 @@ def _adapt_causal_scorers_to_sklearn(scorers):
     if isinstance(scorers, dict):
         scorers = {name: _adapt_causal_scorer_to_sklearn(scorer)
                    for name, scorer in scorers.items()}
-    elif isinstance(scorers, (list, tuple)):
+    elif isinstance(scorers, (list, tuple, set)):
         scorers = {name: _adapt_causal_scorer_to_sklearn(get_scorer(name))
                    for name in scorers}
     elif isinstance(scorers, str):

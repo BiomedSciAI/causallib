@@ -59,9 +59,9 @@ class WeightedSurvival(SurvivalBase):
         Returns:
             self
         """
-        a, _, _, _, X = canonize_dtypes_and_names(a=a, t=None, y=None, w=None, X=X)
+        a, _, y, _, X = canonize_dtypes_and_names(a=a, t=None, y=y, w=None, X=X)
         if self.weight_model is not None:
-            self.weight_model.fit(X=X, a=a)
+            self.weight_model.fit(X=X, a=a, y=y)
 
         return self
 

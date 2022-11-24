@@ -130,6 +130,7 @@ class TestGridSearch(unittest.TestCase):
         }
         scorers_list = ["weighted_roc_auc_error", "covariate_balancing_error"]
         scorers_tuple = ("weighted_roc_auc_error", "covariate_balancing_error")
+        scorers_set = {"weighted_roc_auc_error", "covariate_balancing_error"}
         grid_model_dict = self._fit_search_model(
             model, scorers_dict,
             dict(clip_min=[0.05, 0.2]),
@@ -142,6 +143,11 @@ class TestGridSearch(unittest.TestCase):
         )
         grid_model_tuple = self._fit_search_model(
             model, scorers_tuple,
+            dict(clip_min=[0.05, 0.2]),
+            refit="weighted_roc_auc_error"
+        )
+        grid_model_set = self._fit_search_model(
+            model, scorers_set,
             dict(clip_min=[0.05, 0.2]),
             refit="weighted_roc_auc_error"
         )
@@ -171,6 +177,20 @@ class TestGridSearch(unittest.TestCase):
         )
         pd.testing.assert_series_equal(
             grid_model_tuple.estimate_population_outcome(data['X'], data['a'], data['y']),
+            grid_model_list.estimate_population_outcome(data['X'], data['a'], data['y']),
+            check_exact=False,
+        )
+        # set with list
+        self.assertEqual(
+            grid_model_set.best_estimator_.clip_min,
+            grid_model_list.best_estimator_.clip_min,
+        )
+        np.testing.assert_array_almost_equal(
+            grid_model_set.best_estimator_.learner.coef_,
+            grid_model_list.best_estimator_.learner.coef_,
+        )
+        pd.testing.assert_series_equal(
+            grid_model_set.estimate_population_outcome(data['X'], data['a'], data['y']),
             grid_model_list.estimate_population_outcome(data['X'], data['a'], data['y']),
             check_exact=False,
         )
@@ -218,6 +238,38 @@ class TestGridSearch(unittest.TestCase):
             model.outcome_model.estimate_individual_outcome(data['X'], data['a'])
             # AIPW's individual outcome is the internal standardization individual outcome
         )
+
+    def test_with_survival_ipw(self):
+        from causallib.survival import WeightedSurvival, WeightedStandardizedSurvival
+        from causallib.datasets import load_nhefs_survival
+        from sklearn.dummy import DummyClassifier
+
+        data = load_nhefs_survival()
+        idx = data.X.sample(n=100, random_state=0).index
+        X, a, t, y = data.X.loc[idx], data.a.loc[idx], data.t.loc[idx], data.y.loc[idx]
+        CausalGridSearchCV = causalize_searcher(GridSearchCV)
+
+        ipw = IPW(LogisticRegression(penalty="none", solver="saga", max_iter=10000))
+        ipw_grid_model = CausalGridSearchCV(
+            ipw,
+            param_grid=dict(clip_min=[0.2, 0.3]), cv=2,
+            scoring="weighted_roc_auc_error",
+        )
+
+        for Model in [WeightedSurvival, WeightedStandardizedSurvival]:
+            model = Model(
+                weight_model=ipw_grid_model,
+                survival_model=DummyClassifier(strategy="prior")
+            )
+            model.fit(X, a, t, y)
+
+            self.assertIsInstance(model.weight_model, CausalGridSearchCV)
+
+            propensities = model.weight_model.compute_propensity(X, a)
+            self.assertLessEqual(0.2, propensities.min())
+
+            outcomes = model.estimate_population_outcome(X, a, t, y, timeline_start=1)
+            self.assertEqual(outcomes.shape, (t.max(), a.nunique()))
 
     def test_selecting_different_core_estimators(self):
         from sklearn.dummy import DummyClassifier
