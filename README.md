@@ -1,4 +1,4 @@
-[![Travis (.com) branch](https://img.shields.io/travis/com/IBM/causallib/master?logo=travis)](https://app.travis-ci.com/IBM/causallib)
+[![CI Status](https://github.com/IBM/causallib/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/IBM/causallib/actions/workflows/build.yml)
 [![Code Climate coverage](https://img.shields.io/codeclimate/coverage/IBM/causallib?logo=codeclimate)](https://codeclimate.com/github/IBM/causallib/test_coverage)
 [![PyPI](https://img.shields.io/pypi/v/causallib?color=blue&logo=pypi&logoColor=yellow)](https://badge.fury.io/py/causallib)
 [![Documentation Status](https://readthedocs.org/projects/causallib/badge/?version=latest)](https://causallib.readthedocs.io/en/latest/)

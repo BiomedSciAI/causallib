@@ -1,4 +1,4 @@
-name: Install and test causallib
+name: Build
 
 on: [push, pull_request]
 
@@ -18,8 +18,8 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-#          cache: 'pip'
-#          cache-dependency-path: setup.py
+          # cache: 'pip'
+          # cache-dependency-path: setup.py
 
       - name: Install and upgrade latest CI dependencies
         run: |
@@ -30,7 +30,7 @@ jobs:
       - name: Install local causallib
         run: | 
           pip install .
-          pip install .[contrib]  # Optional reuirements for contrib module
+          pip install .[contrib]  # Optional requirements for contrib module
 
       - name: Show environment's final dependencies
         run: pip freeze --all
@@ -38,4 +38,4 @@ jobs:
       - name: Test with pytest
         run: |
           coverage run --source=. --omit=*__init__.py,setup.py -m pytest
-#          pytest tests.py --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html
+          # pytest tests.py --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html
