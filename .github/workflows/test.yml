@@ -6,7 +6,8 @@ jobs:
   build_and_test:
     runs-on: linux
     strategy:
-      # fail-fast: false  # Don't cancel entire run if one python-version fails
+      fail-fast: false  # Don't cancel entire run if one python-version fails
+      max-parallel: 1
       matrix:
         python-version: ["3.6", "3.7", "3.8", "3.9"]
     name: Build and test on Python ${{ matrix.python-version }}
