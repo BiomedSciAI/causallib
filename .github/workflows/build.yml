@@ -42,7 +42,7 @@ jobs:
           # pytest tests.py --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html
       
       - name: Publish to CodeClimate
-        uses: paambaati/codeclimate-action@v3
+        uses: paambaati/codeclimate-action@v3.2.0
         env:
           CC_TEST_REPORTER_ID: ${{ secrets.CODECLIMATE_REPORTER_ID }}
           
