@@ -27,7 +27,9 @@ jobs:
           pip install --upgrade importlib-metadata  # Solves a python 3.7 install bug: https://app.travis-ci.com/github/IBM/causallib/jobs/566048347
 
       - name: Install local causallib
-        run: pip install .
+        run: | 
+          pip install .
+          pip install .[contrib]  # Optional reuirements for contrib module
 
       - name: Test with pytest
         run: |
