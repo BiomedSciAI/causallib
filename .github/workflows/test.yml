@@ -1,0 +1,34 @@
+name: Install and test causallib
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.6", "3.7", "3.8", "3.9"]
+    name: Setup Python ${{ matrix.python-version }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+#          cache: 'pip'
+#          cache-dependency-path: setup.py
+
+      - name: Install and upgrade latest CI dependencies
+        run: |
+          pip install --upgrade pip
+          pip install --upgrade pytest coverage  # pytest-cov
+          pip install --upgrade importlib-metadata  # Solves a python 3.7 install bug: https://app.travis-ci.com/github/IBM/causallib/jobs/566048347
+
+      - name: Install local causallib
+        run: pip install .
+
+      - name: Test with pytest
+        run: |
+#          pytest tests.py --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html
+          coverage run --source=. --omit=*__init__.py,setup.py -m pytest
