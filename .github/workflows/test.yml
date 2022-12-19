@@ -3,13 +3,13 @@ name: Install and test causallib
 on: [push, pull_request]
 
 jobs:
-  build:
+  build_and_test:
     runs-on: linux
     strategy:
       fail-fast: false  # Don't cancel entire run if one python-version fails
       matrix:
         python-version: ["3.6", "3.7", "3.8", "3.9"]
-    name: Setup Python ${{ matrix.python-version }}
+    name: Build and test on Python ${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@v3
 
@@ -31,6 +31,9 @@ jobs:
           pip install .
           pip install .[contrib]  # Optional reuirements for contrib module
 
+      - name: Show environment's final dependencies
+        run: pip freeze --all
+      
       - name: Test with pytest
         run: |
           coverage run --source=. --omit=*__init__.py,setup.py -m pytest
