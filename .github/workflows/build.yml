@@ -7,7 +7,7 @@ jobs:
     runs-on: linux
     strategy:
       fail-fast: false  # Don't cancel entire run if one python-version fails
-      max-parallel: 1
+      max-parallel: 1  # >1 fails the matrix build (only a single py-version) succeeds
       matrix:
         python-version: ["3.6", "3.7", "3.8", "3.9"]
     name: Build and test on Python ${{ matrix.python-version }}
@@ -38,4 +38,11 @@ jobs:
       - name: Test with pytest
         run: |
           coverage run --source=. --omit=*__init__.py,setup.py -m pytest
+          coverage xml
           # pytest tests.py --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html
+      
+      - name: Publish to CodeClimate
+        uses: paambaati/codeclimate-action@v3
+        env:
+          CC_TEST_REPORTER_ID: ${{ secrets.CODECLIMATE_REPORTER_ID }}
+          
