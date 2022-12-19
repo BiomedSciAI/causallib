@@ -6,6 +6,7 @@ jobs:
   build:
     runs-on: linux
     strategy:
+      fail-fast: false  # Don't cancel entire run if one python-version fails
       matrix:
         python-version: ["3.6", "3.7", "3.8", "3.9"]
     name: Setup Python ${{ matrix.python-version }}
