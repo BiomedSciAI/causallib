@@ -1,5 +1,5 @@
 [![CI Status](https://github.com/IBM/causallib/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/IBM/causallib/actions/workflows/build.yml)
-[![Code Climate coverage](https://img.shields.io/codeclimate/coverage/IBM/causallib?logo=codeclimate)](https://codeclimate.com/github/IBM/causallib/test_coverage)
+[![Code Climate coverage](https://img.shields.io/codeclimate/coverage/BiomedSciAI/causallib?logo=codeclimate)](https://codeclimate.com/github/BiomedSciAI/causallib/test_coverage)
 [![PyPI](https://img.shields.io/pypi/v/causallib?color=blue&logo=pypi&logoColor=yellow)](https://badge.fury.io/py/causallib)
 [![Documentation Status](https://readthedocs.org/projects/causallib/badge/?version=latest)](https://causallib.readthedocs.io/en/latest/)
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/IBM/causallib/HEAD)
