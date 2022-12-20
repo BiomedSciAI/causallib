@@ -4,7 +4,7 @@ on: [push, pull_request]
 
 jobs:
   build_and_test:
-    runs-on: linux
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false  # Don't cancel entire run if one python-version fails
       max-parallel: 1  # >1 fails the matrix build (only a single py-version) succeeds
