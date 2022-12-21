@@ -1,0 +1,47 @@
+name: Build
+
+on: [push, pull_request]
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false  # Don't cancel entire run if one python-version fails
+      matrix:
+        python-version: ["3.7", "3.8", "3.9"]
+    name: Build and test on Python ${{ matrix.python-version }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          # cache: 'pip'
+          # cache-dependency-path: setup.py
+
+      - name: Install and upgrade latest CI dependencies
+        run: |
+          pip install --upgrade pip
+          pip install --upgrade pytest coverage  # pytest-cov
+          pip install --upgrade importlib-metadata  # Solves a python 3.7 install bug
+
+      - name: Install local causallib
+        run: | 
+          pip install .
+          pip install .[contrib]  # Optional requirements for contrib module
+
+      - name: Show environment's final dependencies
+        run: pip freeze --all
+      
+      - name: Test with pytest
+        run: |
+          coverage run --source=. --omit=*__init__.py,setup.py -m pytest
+          coverage xml
+          # pytest tests.py --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html
+      
+      - name: Publish to CodeClimate
+        uses: paambaati/codeclimate-action@v3.2.0
+        env:
+          CC_TEST_REPORTER_ID: ${{ secrets.CODECLIMATE_REPORTER_ID }} 
+          

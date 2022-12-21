@@ -10,7 +10,7 @@ Welcome to causallib's documentation!
 
 Examples
 ========
-Comprehensive Jupyter Notebooks examples can be found in the `examples directory on GitHub <https://github.com/IBM/causallib/tree/master/examples>`_.
+Comprehensive Jupyter Notebooks examples can be found in the `examples directory on GitHub <https://github.com/BiomedSciAI/causallib/tree/master/examples>`_.
 
 
 Documentation
