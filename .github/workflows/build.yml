@@ -24,7 +24,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install --upgrade pytest coverage  # pytest-cov
-          pip install --upgrade importlib-metadata  # Solves a python 3.7 install bug: https://app.travis-ci.com/github/IBM/causallib/jobs/566048347
+          pip install --upgrade importlib-metadata  # Solves a python 3.7 install bug
 
       - name: Install local causallib
         run: | 

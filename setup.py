@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 import os
 
 
-GIT_URL = "https://github.com/IBM/causallib"
+GIT_URL = "https://github.com/BiomedSciAI/causallib"
 
 this_directory = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(this_directory, 'README.md'), encoding='utf-8') as f:
@@ -35,11 +35,11 @@ setup(name='causallib',
       version=get_version(os.path.join('causallib', '__init__.py')),
       # packages=find_packages(exclude=['scripts', 'data', 'tests']),
       packages=find_packages(),
-      description='A library of causal inference tools by IBM Haifa Research Labs',
+      description='A Python package for flexible and modular causal inference modeling',
       long_description=long_description,
       long_description_content_type='text/markdown',
       url=GIT_URL,
-      author='IBM Research Haifa Labs - Machine Learning for Healthcare and Life Sciences',
+      author='Causal Machine Learning for Healthcare and Life Sciences, IBM Research Israel',
       # author_email=None,
       license="Apache License 2.0",
       keywords="causal inference effect estimation causality",
