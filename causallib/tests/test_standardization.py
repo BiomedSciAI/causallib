@@ -107,7 +107,7 @@ class TestStandardization(TestStandardizationCommon):
     def setUpClass(cls):
         TestStandardizationCommon.setUpClass()
         # Avoids regularization of the model:
-        cls.estimator = Standardization(LinearRegression(normalize=True))
+        cls.estimator = Standardization(LinearRegression())
 
     def setUp(self):
         self.estimator.fit(self.data_lin["X"], self.data_lin["a"], self.data_lin["y"])
@@ -185,7 +185,7 @@ class TestStandardizationStratified(TestStandardizationCommon):
             self.assertListEqual([0, 1], estimator.treatment_values_)  # Treatment values added after fit
 
     def test_initialization_with_dict_of_learners(self):
-        learners = {0: LinearRegression(normalize=False),
+        learners = {0: LinearRegression(),
                     1: Ridge(alpha=5.0)}
         estimator = StratifiedStandardization(learners)
         with self.subTest("Test dictionary-learners initialization before fit"):

@@ -173,7 +173,7 @@ class TestRlearner(unittest.TestCase):
         data = self.create_complex_data_for_ate_victor()
         estimator = estimator.__class__(
             outcome_model=estimator.outcome_model,
-            treatment_model=LinearRegression(normalize=True),
+            treatment_model=LinearRegression(),
             effect_model=estimator.effect_model,
         )
         with self.subTest("Test fit"):
@@ -294,9 +294,9 @@ class TestRlearner(unittest.TestCase):
         gs = GridSearchCV(RandomForestClassifier(), parameters)
         with self.subTest("Test initialization with models and gridsearch"):
             estimator = estimator.__class__(
-                outcome_model=LassoCV(normalize=True),
+                outcome_model=LassoCV(),
                 treatment_model=gs,
-                effect_model=LassoCV(fit_intercept=False, normalize=True),
+                effect_model=LassoCV(fit_intercept=False),
                 n_splits=2,
             )
             self.assertTrue(True)  # Dummy assert for not thrown exception
@@ -337,7 +337,7 @@ class TestRLearnerLinear(TestRlearner):
         TestRlearner.setUpClass()
         # Avoids regularization of the model:
         treatment_model = LogisticRegression(solver="sag", penalty="none")
-        outcome_model = LinearRegression(normalize=True)
+        outcome_model = LinearRegression()
         effect_model = LinearRegression(fit_intercept=False)
         cls.estimator = RLearner(
             outcome_model=outcome_model,
@@ -388,7 +388,7 @@ class TestRlearnerNonparam(TestRlearner):
     def setUpClass(cls):
         TestRlearner.setUpClass()
         treatment_model = LogisticRegression(solver="sag", penalty="none")
-        outcome_model = LinearRegression(normalize=True)
+        outcome_model = LinearRegression()
         effect_model = RandomForestRegressor()
         cls.estimator = RLearner(
             outcome_model=outcome_model,

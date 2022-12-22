@@ -216,7 +216,7 @@ class TestAIPW(TestDoublyRobustBase):
         TestDoublyRobustBase.setUpClass()
         # Avoids regularization of the model:
         ipw = IPW(LogisticRegression(C=1e6, solver='lbfgs', max_iter=500), use_stabilized=False)
-        std = Standardization(LinearRegression(normalize=True))
+        std = Standardization(LinearRegression())
         cls.estimator = AIPW(std, ipw)
 
     def test_uninformative_tx_leads_to_std_like_results(self):
@@ -328,7 +328,7 @@ class TestWeightedStandardization(TestDoublyRobustBase):
         TestDoublyRobustBase.setUpClass()
         # Avoids regularization of the model:
         ipw = IPW(LogisticRegression(C=1e6, solver='lbfgs'), use_stabilized=False)
-        std = Standardization(LinearRegression(normalize=True))
+        std = Standardization(LinearRegression())
         cls.estimator = WeightedStandardization(std, ipw)
 
     def test_uninformative_tx_leads_to_std_like_results(self):
@@ -408,14 +408,14 @@ class TestPropensityFeatureStandardization(TestDoublyRobustBase):
         TestDoublyRobustBase.setUpClass()
         # Avoids regularization of the model:
         ipw = IPW(LogisticRegression(C=1e6, solver='lbfgs'), use_stabilized=False)
-        std = Standardization(LinearRegression(normalize=True))
+        std = Standardization(LinearRegression())
         cls.estimator = PropensityFeatureStandardization(std, ipw)
 
     def fit_and_predict_all_learners(self, data, estimator):
         X, a, y = data["X"], data["a"], data["y"]
         self.estimator.fit(X, a, y)
         doubly_res = self.estimator.estimate_population_outcome(X, a)
-        std_res = Standardization(LinearRegression(normalize=True)).fit(X, a, y).estimate_population_outcome(X, a)
+        std_res = Standardization(LinearRegression()).fit(X, a, y).estimate_population_outcome(X, a)
         ipw_res = self.estimator.weight_model.estimate_population_outcome(X, a, y)
         return doubly_res, std_res, ipw_res
 
