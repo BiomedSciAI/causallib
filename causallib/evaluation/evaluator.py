@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 
-from .predictions import WeightEvaluatorScores
+from .predictions import PropensityEvaluatorScores
 from .predictor import predict_cv
 from .results import EvaluationResults
 from .scoring import score_cv
@@ -257,7 +257,7 @@ def evaluate_bootstrap(
     
     results.remove_spurious_cv()
     if results.evaluated_metrics is not None:
-        if isinstance(results.evaluated_metrics, WeightEvaluatorScores):
+        if isinstance(results.evaluated_metrics, PropensityEvaluatorScores):
             results.evaluated_metrics.covariate_balance.index.rename("sample", "fold", inplace=True)
             results.evaluated_metrics.prediction_scores.index.rename("sample", "fold", inplace=True)
         else:

@@ -13,8 +13,8 @@ from .metrics import evaluate_metrics
 from ..metrics.weight_metrics import calculate_covariate_balance
 
 
-WeightEvaluatorScores = namedtuple(
-    "WeightEvaluatorScores", ["prediction_scores", "covariate_balance"]
+PropensityEvaluatorScores = namedtuple(
+    "PropensityEvaluatorScores", ["prediction_scores", "covariate_balance"]
 )
 
 
@@ -44,7 +44,7 @@ class WeightPredictions:
         covariate_balance = calculate_covariate_balance(
             X, a_true, self.weight_by_treatment_assignment
         )
-        # results = WeightEvaluatorScores(None, covariate_balance)
+        # results = PropensityEvaluatorScores(None, covariate_balance)
         return covariate_balance
 
 
@@ -99,7 +99,7 @@ class PropensityPredictions(WeightPredictions):
             X, a_true, self.weight_by_treatment_assignment
         )
 
-        results = WeightEvaluatorScores(evaluated_metrics_df, covariate_balance)
+        results = PropensityEvaluatorScores(evaluated_metrics_df, covariate_balance)
         # TODO: rename to PropensityEvaluatorScorers ?
         return results
 
