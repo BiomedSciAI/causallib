@@ -25,11 +25,47 @@ class WeightPredictions:
         self,
         weight_by_treatment_assignment,
         weight_for_being_treated,
-        treatment_assignment_pred,
     ):
         self.weight_by_treatment_assignment = weight_by_treatment_assignment
         self.weight_for_being_treated = weight_for_being_treated
+
+    def evaluate_metrics(self, X, a_true, metrics_to_evaluate):
+        """
+        Evaluate covariate balancing of the weight model
+
+        Args:
+            X (pd.DataFrame): Covariates.
+            a_true (pd.Series): ground truth treatment assignment
+            metrics_to_evaluate (dict | None): IGNORED.
+
+        Returns:
+            pd.DataFrame: a `covariate_balance` dataframe
+        """
+        covariate_balance = calculate_covariate_balance(
+            X, a_true, self.weight_by_treatment_assignment
+        )
+        # results = WeightEvaluatorScores(None, covariate_balance)
+        return covariate_balance
+
+
+class PropensityPredictions(WeightPredictions):
+    """Data structure to hold propensity-model predictions"""
+
+    def __init__(
+        self,
+        weight_by_treatment_assignment,
+        weight_for_being_treated,
+        treatment_assignment_pred,
+        propensity,
+        propensity_by_treatment_assignment,
+    ):
+        super().__init__(
+            weight_by_treatment_assignment,
+            weight_for_being_treated,
+        )
         self.treatment_assignment_pred = treatment_assignment_pred
+        self.propensity = propensity
+        self.propensity_by_treatment_assignment = propensity_by_treatment_assignment
 
     def evaluate_metrics(self, X, a_true, metrics_to_evaluate):
         """
@@ -64,37 +100,14 @@ class WeightPredictions:
         )
 
         results = WeightEvaluatorScores(evaluated_metrics_df, covariate_balance)
+        # TODO: rename to PropensityEvaluatorScorers ?
         return results
-
-    def _get_predictions_to_evaluate(self):
-        y_pred_proba = self.weight_for_being_treated
-        y_pred = self.treatment_assignment_pred
-        return y_pred_proba, y_pred
-
-
-class PropensityPredictions(WeightPredictions):
-    """Data structure to hold propensity-model predictions"""
-
-    def __init__(
-        self,
-        weight_by_treatment_assignment,
-        weight_for_being_treated,
-        treatment_assignment_pred,
-        propensity,
-        propensity_by_treatment_assignment,
-    ):
-        super().__init__(
-            weight_by_treatment_assignment,
-            weight_for_being_treated,
-            treatment_assignment_pred,
-        )
-        self.propensity = propensity
-        self.propensity_by_treatment_assignment = propensity_by_treatment_assignment
 
     def _get_predictions_to_evaluate(self):
         y_pred_proba = self.propensity
         y_pred = self.treatment_assignment_pred
         return y_pred_proba, y_pred
+
 
 class OutcomePredictions:
     """Data structure to hold outcome-model predictions"""
