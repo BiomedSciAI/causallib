@@ -398,6 +398,28 @@ class TestWeightedStandardization(TestDoublyRobustBase):
                         # not all ML models support that and so calling should fail
                         model.fit(data["X"], data["a"], data["y"], refit_weight_model=False)
 
+    def test_with_matching(self):
+        from causallib.estimation import Matching
+
+        data = self.create_uninformative_tx_dataset()
+        matching = Matching(
+            matching_mode="control_to_treatment",
+            with_replacement=False,
+        )
+        model = WeightedStandardization(
+            outcome_model=self.estimator.outcome_model,
+            weight_model=matching,
+        )
+        model.fit(data["X"], data["a"], data["y"])
+        weights = model.weight_model.compute_weights(data["X"], data["a"])
+        np.testing.assert_array_equal(weights.values, 1)
+
+        po_wstd = model.estimate_population_outcome(data["X"], data["a"])
+
+        self.estimator.outcome_model.fit(data["X"], data["a"], data["y"])
+        po_std = self.estimator.outcome_model.estimate_population_outcome(data["X"], data["a"])
+        pd.testing.assert_series_equal(po_wstd, po_std)
+
     def test_effect_recovery(self):
         self.ensure_effect_recovery()
 
