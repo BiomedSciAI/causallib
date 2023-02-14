@@ -17,6 +17,7 @@ Created on Jun 27, 2018
 
 General (i.e. non-scientific) utils used throughout the package.
 """
+import pandas as pd
 from numpy import isscalar as np_is_scalar
 from pandas import Series
 
@@ -95,3 +96,30 @@ def check_learner_is_fitted(learner):
     after_init_attr = [attr for attr in learner.__dict__.keys() if attr.endswith("_")]
     is_fitted = len(after_init_attr) > 0
     return is_fitted
+
+
+def safe_join(u, w, join="outer"):
+    """Joins the columns of 2 pandas Dataframe/Series
+    in a way that respects scikit-learn's  demand for a single-type
+    column name (e.g., either all ints or all strings).
+
+    Args:
+        u (pd.DataFrame | pd.Series):
+        w (pd.DataFrame | pd.Series):
+        join (str): {"outer", "inner", "left" right"}. Compatible with `pd.concat`
+
+    Returns:
+        pd.DataFrame
+    """
+    if hasattr(u, "columns"):
+        columns = u.columns
+    elif hasattr(u, "name"):
+        columns = [u.name]
+    else:
+        columns = []
+
+    
+
+    res = pd.concat([u, w], join=join, axis="columns")
+    return res
+

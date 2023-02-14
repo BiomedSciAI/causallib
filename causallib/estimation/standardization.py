@@ -296,8 +296,8 @@ class Standardization(IndividualOutcomeEstimator):
         """
         if self.encode_treatment:
             a_transformed = self.treatment_encoder_.transform(a.values.reshape(-1, 1))
-            a_name = a.name or "a"
-            a = pd.DataFrame(a_transformed, index=a.index, columns=self.treatment_encoder_.categories_)
-            a = a.add_prefix(a_name + "_")
-        cur_X = pd.concat([a, X], join="outer", axis="columns")
+            a_name = a.name
+            a = pd.DataFrame(a_transformed, index=a.index, columns=self.treatment_encoder_.categories_[0])
+            a = a.add_prefix(f"{a_name}_")
+        cur_X = g_tools.safe_join(a, X, join="outer")
         return cur_X

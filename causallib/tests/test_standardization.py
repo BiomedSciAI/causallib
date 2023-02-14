@@ -143,6 +143,79 @@ class TestStandardization(TestStandardizationCommon):
     def test_many_models(self):
         self.ensure_many_models()
 
+    @unittest.expectedFailure
+    def test_mix_of_column_names_types(self):
+        """Test for compatibility with scikit-learn's v1.2.0
+        for a single type of column names
+        """
+        with self.subTest("Test string `X` and numeric `a`"):
+            X = self.data_lin["X"].rename(columns={0: "x"})
+            a = self.data_lin["a"]
+
+            estimator = Standardization(LinearRegression(), encode_treatment=False)
+            estimator.fit(X, a, self.data_lin["y"])
+
+            estimator = Standardization(LinearRegression(), encode_treatment=True)
+            estimator.fit(X, a, self.data_lin["y"])
+
+        with self.subTest("Test for numeric `X` and string `a`"):
+            X = self.data_lin["X"]
+            a = self.data_lin["a"].rename("a")
+
+            estimator = Standardization(LinearRegression(), encode_treatment=False)
+            estimator.fit(X, a, self.data_lin["y"])
+
+            estimator = Standardization(LinearRegression(), encode_treatment=True)
+            estimator.fit(X, a, self.data_lin["y"])
+
+    def test_column_names_types(self):
+        """Test for compatibility with scikit-learn's v1.2.0
+        for a single type of column names
+        """
+        with self.subTest("Test both `X` and `a` strings"):
+            X = self.data_lin["X"].rename(columns={0: "x"})
+            a = self.data_lin["a"].rename("a")
+
+            estimator = Standardization(LinearRegression(), encode_treatment=False)
+            estimator.fit(X, a, self.data_lin["y"])
+
+            estimator = Standardization(LinearRegression(), encode_treatment=True)
+            estimator.fit(X, a, self.data_lin["y"])
+
+        with self.subTest("Test both `X` and `a` int"):
+            X = self.data_lin["X"]
+            a = self.data_lin["a"]
+
+            estimator = Standardization(LinearRegression(), encode_treatment=False)
+            estimator.fit(X, a, self.data_lin["y"])
+
+            # estimator = Standardization(LinearRegression(), encode_treatment=True)
+            # estimator.fit(X, a, self.data_lin["y"])
+
+        with self.subTest("Test no-name Series, string `X`"):
+            X = self.data_lin["X"].rename(columns={0: "x"})
+            a = self.data_lin["a"].rename(None)
+
+            Xa = pd.concat([X, a], axis="columns")
+
+            estimator = Standardization(LinearRegression(), encode_treatment=False)
+            estimator.fit(X, a, self.data_lin["y"])
+
+            estimator = Standardization(LinearRegression(), encode_treatment=True)
+            estimator.fit(X, a, self.data_lin["y"])
+
+        with self.subTest("Test no-name Series, Int `X`"):
+            X = self.data_lin["X"]
+            a = self.data_lin["a"].rename(None)
+
+            Xa = pd.concat([X, a], axis="columns")
+
+            estimator = Standardization(LinearRegression(), encode_treatment=False)
+            estimator.fit(X, a, self.data_lin["y"])
+
+            estimator = Standardization(LinearRegression(), encode_treatment=True)
+            estimator.fit(X, a, self.data_lin["y"])
+
 
 class TestStandardizationStratified(TestStandardizationCommon):
     @classmethod
