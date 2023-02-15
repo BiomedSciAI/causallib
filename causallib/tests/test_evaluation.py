@@ -28,7 +28,8 @@ from causallib.evaluation.metrics import (
     get_default_binary_metrics,
     get_default_regression_metrics,
 )
-from causallib.estimation import AIPW, IPW, StratifiedStandardization
+from causallib.evaluation.scoring import PropensityEvaluatorScores
+from causallib.estimation import AIPW, IPW, StratifiedStandardization, Matching
 from causallib.datasets import load_nhefs
 
 
@@ -103,3 +104,31 @@ class TestEvaluations(unittest.TestCase):
             set(results.evaluated_metrics.columns),
             set(get_default_binary_metrics().keys()),
         )
+
+    def test_outcome_weight_propensity_evaluated_metrics(self):
+        matching = Matching(matching_mode="control_to_treatment").fit(self.X, self.a, self.y)
+        ipw = IPW(LogisticRegression(max_iter=4000)).fit(self.X, self.a, self.y)
+        std = StratifiedStandardization(LinearRegression()).fit(self.X, self.a, self.y)
+
+        matching_res = evaluate(matching, self.X, self.a, self.y).evaluated_metrics
+        ipw_res = evaluate(ipw, self.X, self.a, self.y).evaluated_metrics
+        std_res = evaluate(std, self.X, self.a, self.y).evaluated_metrics
+
+        covariate_balance_df_shape = (self.X.columns.size, 2)
+
+        with self.subTest("Matching evaluated metrics"):
+            self.assertIsInstance(matching_res, pd.DataFrame)
+            self.assertTupleEqual(matching_res.shape, covariate_balance_df_shape)
+
+        with self.subTest("IPW evaluated metrics"):
+            self.assertIsInstance(ipw_res, PropensityEvaluatorScores)
+            self.assertIsInstance(ipw_res.covariate_balance, pd.DataFrame)
+            self.assertTupleEqual(ipw_res.covariate_balance.shape, covariate_balance_df_shape)
+            self.assertIsInstance(ipw_res.prediction_scores, pd.DataFrame)
+            propensity_scores_shape = (1, len(get_default_binary_metrics()))
+            self.assertTupleEqual(ipw_res.prediction_scores.shape, propensity_scores_shape)
+
+        with self.subTest("Standardization evaluated metrics"):
+            self.assertIsInstance(std_res, pd.DataFrame)
+            outcome_scores_shape = (3, len(get_default_regression_metrics()))  # 3 = treated, control, overall
+            self.assertTupleEqual(std_res.shape, outcome_scores_shape)
