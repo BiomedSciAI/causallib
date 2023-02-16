@@ -7,6 +7,7 @@ from sklearn.pipeline import Pipeline
 from causallib.datasets.data_loader import load_nhefs_survival
 from causallib.survival.survival_utils import get_person_time_df, safe_join
 from causallib.estimation.ipw import IPW
+from causallib.estimation import Matching
 from causallib.survival.standardized_survival import StandardizedSurvival
 from causallib.survival.weighted_standardized_survival import WeightedStandardizedSurvival
 from causallib.survival.weighted_survival import WeightedSurvival
@@ -289,21 +290,26 @@ class TestNHEFS(unittest.TestCase):
 
         # Init various multiple models
         self.estimators = {
-            'observed_non_parametric': MarginalSurvival(),
-            'observed_parametric': MarginalSurvival(survival_model=LogisticRegression(max_iter=2000)),
-            'ipw_non_parametric': WeightedSurvival(
-                weight_model=IPW(LogisticRegression(max_iter=4000), use_stabilized=True),
-                survival_model=None),
-            'ipw_parametric': WeightedSurvival(weight_model=IPW(LogisticRegression(max_iter=4000), use_stabilized=True),
-                                               survival_model=LogisticRegression(max_iter=4000)),
-            'ipw_parametric_pipeline': WeightedSurvival(
-                weight_model=IPW(LogisticRegression(max_iter=4000), use_stabilized=True),
-                survival_model=Pipeline(
-                    [('transform', PolynomialFeatures(degree=2)), ('LR', LogisticRegression(max_iter=1000, C=2))])),
-            'standardization_non_stratified': StandardizedSurvival(survival_model=LogisticRegression(max_iter=4000),
-                                                                   stratify=False),
-            'standardization_stratified': StandardizedSurvival(survival_model=LogisticRegression(max_iter=4000),
-                                                               stratify=True),
+            # 'observed_non_parametric': MarginalSurvival(),
+            # 'observed_parametric': MarginalSurvival(survival_model=LogisticRegression(max_iter=2000)),
+            # 'ipw_non_parametric': WeightedSurvival(
+            #     weight_model=IPW(LogisticRegression(max_iter=4000), use_stabilized=True),
+            #     survival_model=None),
+            # 'ipw_parametric': WeightedSurvival(weight_model=IPW(LogisticRegression(max_iter=4000), use_stabilized=True),
+            #                                    survival_model=LogisticRegression(max_iter=4000)),
+            # 'ipw_parametric_pipeline': WeightedSurvival(
+            #     weight_model=IPW(LogisticRegression(max_iter=4000), use_stabilized=True),
+            #     survival_model=Pipeline(
+            #         [('transform', PolynomialFeatures(degree=2)), ('LR', LogisticRegression(max_iter=1000, C=2))])),
+            'matching_non_parametric': WeightedSurvival(
+                weight_model=Matching(
+                    matching_mode="treatment_to_control",
+                ),
+            ),
+            # 'standardization_non_stratified': StandardizedSurvival(survival_model=LogisticRegression(max_iter=4000),
+            #                                                        stratify=False),
+            # 'standardization_stratified': StandardizedSurvival(survival_model=LogisticRegression(max_iter=4000),
+            #                                                    stratify=True),
         }
 
     def test_nhefs(self, plot=False):
@@ -312,6 +318,7 @@ class TestNHEFS(unittest.TestCase):
                                    'ipw_non_parametric': 1,
                                    'ipw_parametric': 1,
                                    'ipw_parametric_pipeline': 1,
+                                   'matching_non_parametric': 2,  # ATC
                                    'standardization_non_stratified': 1,
                                    'standardization_stratified': 1,
                                    }

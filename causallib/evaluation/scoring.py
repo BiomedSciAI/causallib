@@ -9,7 +9,7 @@ from .predictions import (
     OutcomePredictions,
     PropensityPredictions,
     WeightPredictions,
-    WeightEvaluatorScores,
+    PropensityEvaluatorScores,
 )
 
 from .metrics import get_default_binary_metrics, get_default_regression_metrics
@@ -31,7 +31,7 @@ def score_cv(predictions, X, a, y, cv, metrics_to_evaluate="defaults"):
         pd.DataFrame | WeightEvaluatorScores:
             DataFrame whose columns are different metrics and each row is a
             product of phase x fold x strata.
-            WeightEvaluatorScores also has a covariate-balance result in a DataFrame.
+            PropensityEvaluatorScores also has a covariate-balance result in a DataFrame.
     """
     if metrics_to_evaluate == "defaults":
         metrics_to_evaluate = _get_default_metrics_to_evaluate(predictions["train"][0])
@@ -67,7 +67,7 @@ def score_cv(predictions, X, a, y, cv, metrics_to_evaluate="defaults"):
             )
             scores[phase].append(fold_scores)
 
-    if isinstance(fold_scores, WeightEvaluatorScores):
+    if isinstance(fold_scores, PropensityEvaluatorScores):
         return _combine_weight_evaluator_fold_scores(scores)
     return _combine_fold_scores(scores)
 
@@ -124,12 +124,12 @@ def _combine_fold_scores(scores):
 
 
 def _combine_weight_evaluator_fold_scores(scores):
-    # `scores` are provided as WeightEvaluatorScores object for each fold in each phase,
-    # Namely, dict[list[WeightEvaluatorScores]], which in turn hold two DataFrames components.
+    # `scores` are provided as PropensityEvaluatorScores object for each fold in each phase,
+    # Namely, dict[list[PropensityEvaluatorScores]], which in turn hold two DataFrames components.
     # In order to combine the underlying DataFrames into a multilevel DataFrame,
-    # one must first extract them from the WeightEvaluatorScores object, then recombine.
+    # one must first extract them from the PropensityEvaluatorScores object, then recombine.
 
-    # Extract the two components of WeightEvaluatorScores:
+    # Extract the two components of PropensityEvaluatorScores:
     prediction_scores_unfolded = {
         phase: [fold_score.prediction_scores for fold_score in phase_scores]
         for phase, phase_scores in scores.items()
@@ -147,7 +147,7 @@ def _combine_weight_evaluator_fold_scores(scores):
     # phase and fold
     # covariate_balance = covariate_balance.reorder_levels(["covariate", "phase", "fold"])
 
-    # Create a new WeightEvaluatorScores object
+    # Create a new PropensityEvaluatorScores object
     # with the combined (i.e., multilevel DataFrame) results:
-    scores = WeightEvaluatorScores(prediction_scores, covariate_balance)
+    scores = PropensityEvaluatorScores(prediction_scores, covariate_balance)
     return scores
