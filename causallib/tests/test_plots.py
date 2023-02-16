@@ -122,7 +122,6 @@ class TestPlots(unittest.TestCase):
         self.assertEqual(thresh, axis.get_lines()[0].get_xdata()[0])
         plt.close()
 
-
     def test_plot_covariate_balance_scatter_draws_thresh(self):
         thresh = 0.1
         f, ax = plt.subplots()
@@ -139,6 +138,17 @@ class TestPlots(unittest.TestCase):
         self.assertIsInstance(axis, matplotlib.axes.Axes)
         self.assertEqual([x.get_xdata() for x in axis.get_lines()][1][0], "unweighted")
         plt.close()
+
+    def test_plot_covariate_balance_types_exchangeable_kwargs(self):
+        f, ax = plt.subplots(1, 3)
+        for i, kind in enumerate(["love", "slope", "scatter"]):
+            self.propensity_evaluation.plot_covariate_balance(
+                kind=kind, ax=ax[i],
+                plot_semi_grid=True,  # A "love"-only kwarg
+                label_imbalanced=True,  # A "slope" and "scatter" only kwarg
+                thresh=0.1,  # So that there are imbalanced variables plotted
+            )
+        plt.close(f)
 
     def test_roc_curve_has_dashed_diag(self):
         self.ensure_roc_curve_has_dashed_diag(self.propensity_evaluation)
