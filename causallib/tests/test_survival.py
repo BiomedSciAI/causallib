@@ -504,7 +504,26 @@ class TestStandardization(unittest.TestCase):
             )
             ensure_individual_estimation(model, data)
 
-    # TODO: create different test class for weighted standardization:
+    def test_unnamed_input(self):
+        test_data = TEST_DATA_TTE_DRUG_EFFECTS['A']
+        X = test_data[['x_0', 'x_1']]
+        a = test_data['a']
+        y = test_data['y']
+        t = test_data['t']
+
+        X.index.name = None
+        a.name = None
+        y.name = None
+        t.name = None
+        std = StandardizedSurvival(survival_model=LogisticRegression())
+        std.fit(X, a, t, y)
+        outcomes = std.estimate_population_outcome(X=X, a=a, t=t, y=y)
+
+        self.assertEqual(outcomes.index.name, "t")  # Default time name when canonizing names
+        self.assertEqual(outcomes.columns.name, "a")  # Default time name when canonizing names
+
+
+class TestWeightedStandardizedSurvival(unittest.TestCase):
     def test_weighted_standardization_stratified(self):
         test_data = TEST_DATA_TTE_DRUG_EFFECTS['A']
         model = WeightedStandardizedSurvival
@@ -526,24 +545,6 @@ class TestStandardization(unittest.TestCase):
 
         self.assertAlmostEqual(adjusted_diff, TEST_DATA_DRUG_EFFECTS_A_ORACLE_DIFF,
                                delta=TEST_DATA_DRUG_EFFECTS_DELTA)
-
-    def test_unnamed_input(self):
-        test_data = TEST_DATA_TTE_DRUG_EFFECTS['A']
-        X = test_data[['x_0', 'x_1']]
-        a = test_data['a']
-        y = test_data['y']
-        t = test_data['t']
-
-        X.index.name = None
-        a.name = None
-        y.name = None
-        t.name = None
-        std = StandardizedSurvival(survival_model=LogisticRegression())
-        std.fit(X, a, t, y)
-        outcomes = std.estimate_population_outcome(X=X, a=a, t=t, y=y)
-
-        self.assertEqual(outcomes.index.name, "t")  # Default time name when canonizing names
-        self.assertEqual(outcomes.columns.name, "a")  # Default time name when canonizing names
 
 
 @unittest.skipUnless(LIFELINES_FOUND, 'lifelines not found')
