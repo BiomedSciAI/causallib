@@ -111,20 +111,25 @@ class StandardizedSurvival(SurvivalBase):
                                      name=t.name)  # contiguous time steps for inference
 
         a, _, _, _, X = canonize_dtypes_and_names(a=a, w=None, X=X)
-        unique_treatment_values = a.unique()
-        res = pd.DataFrame()
+        unique_treatment_values = sorted(a.unique())
+        res = {}
         for treatment_value in unique_treatment_values:
             if self.stratify:
-                predict_data = X[a == treatment_value]
-                stratum_curve_fitter = self.stratified_curve_fitters_[treatment_value]
+                predict_data = X
+                model = self.stratified_curve_fitters_[treatment_value]
             else:
-                predict_data, a_name = safe_join(df=X, list_of_series=[a], return_series_names=True)
-                stratum_curve_fitter = self.survival_model
-            stratum_individual_survival_curves = stratum_curve_fitter.predict_survival_function(
+                assignment = pd.Series(treatment_value, index=a.index, name=a.name)
+                predict_data, a_name = safe_join(
+                    df=X, list_of_series=[assignment],
+                    return_series_names=True
+                )
+                model = self.survival_model
+            treatment_individual_survival_curves = model.predict_survival_function(
                 X=predict_data,
                 times=contiguous_times
             )
-            res = pd.concat([res, stratum_individual_survival_curves], axis=1)
+            res[treatment_value] = treatment_individual_survival_curves
+        res = pd.concat(res, axis="columns", names=[a.name])
         return res
 
     def estimate_population_outcome(self,
@@ -152,16 +157,14 @@ class StandardizedSurvival(SurvivalBase):
             pd.DataFrame: with time-step index, treatment values as columns and survival as entries
         """
         a, t, _, _, X = canonize_dtypes_and_names(a=a, t=t,  X=X)
-        unique_treatment_values = a.unique()
-        res = {}
-        for treatment_value in unique_treatment_values:
-            assignment = pd.Series(data=treatment_value, index=X.index, name=a.name)
-            individual_survival_curves = self.estimate_individual_outcome(X=X, a=assignment, t=t,
-                                                                          timeline_start=timeline_start,
-                                                                          timeline_end=timeline_end)
-            res[treatment_value] = individual_survival_curves.mean(axis='columns')
-
-        res = pd.DataFrame(res)
+        individual_survival_curves = self.estimate_individual_outcome(
+            X=X, a=a, t=t,
+            timeline_start=timeline_start,
+            timeline_end=timeline_end,
+        )
+        res = individual_survival_curves.groupby(
+            level=0, axis="columns",
+        ).mean()
 
         # Setting index/column names
         res.index.name = t.name

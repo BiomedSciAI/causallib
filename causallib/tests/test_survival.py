@@ -4,6 +4,7 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import Pipeline
+from sklearn.utils import Bunch
 from causallib.datasets.data_loader import load_nhefs_survival
 from causallib.survival.survival_utils import get_person_time_df, safe_join
 from causallib.estimation.ipw import IPW
@@ -290,26 +291,26 @@ class TestNHEFS(unittest.TestCase):
 
         # Init various multiple models
         self.estimators = {
-            # 'observed_non_parametric': MarginalSurvival(),
-            # 'observed_parametric': MarginalSurvival(survival_model=LogisticRegression(max_iter=2000)),
-            # 'ipw_non_parametric': WeightedSurvival(
-            #     weight_model=IPW(LogisticRegression(max_iter=4000), use_stabilized=True),
-            #     survival_model=None),
-            # 'ipw_parametric': WeightedSurvival(weight_model=IPW(LogisticRegression(max_iter=4000), use_stabilized=True),
-            #                                    survival_model=LogisticRegression(max_iter=4000)),
-            # 'ipw_parametric_pipeline': WeightedSurvival(
-            #     weight_model=IPW(LogisticRegression(max_iter=4000), use_stabilized=True),
-            #     survival_model=Pipeline(
-            #         [('transform', PolynomialFeatures(degree=2)), ('LR', LogisticRegression(max_iter=1000, C=2))])),
+            'observed_non_parametric': MarginalSurvival(),
+            'observed_parametric': MarginalSurvival(survival_model=LogisticRegression(max_iter=2000)),
+            'ipw_non_parametric': WeightedSurvival(
+                weight_model=IPW(LogisticRegression(max_iter=4000), use_stabilized=True),
+                survival_model=None),
+            'ipw_parametric': WeightedSurvival(weight_model=IPW(LogisticRegression(max_iter=4000), use_stabilized=True),
+                                               survival_model=LogisticRegression(max_iter=4000)),
+            'ipw_parametric_pipeline': WeightedSurvival(
+                weight_model=IPW(LogisticRegression(max_iter=4000), use_stabilized=True),
+                survival_model=Pipeline(
+                    [('transform', PolynomialFeatures(degree=2)), ('LR', LogisticRegression(max_iter=1000, C=2))])),
             'matching_non_parametric': WeightedSurvival(
                 weight_model=Matching(
                     matching_mode="treatment_to_control",
                 ),
             ),
-            # 'standardization_non_stratified': StandardizedSurvival(survival_model=LogisticRegression(max_iter=4000),
-            #                                                        stratify=False),
-            # 'standardization_stratified': StandardizedSurvival(survival_model=LogisticRegression(max_iter=4000),
-            #                                                    stratify=True),
+            'standardization_non_stratified': StandardizedSurvival(survival_model=LogisticRegression(max_iter=4000),
+                                                                   stratify=False),
+            'standardization_stratified': StandardizedSurvival(survival_model=LogisticRegression(max_iter=4000),
+                                                               stratify=True),
         }
 
     def test_nhefs(self, plot=False):
@@ -326,9 +327,10 @@ class TestNHEFS(unittest.TestCase):
 
         res = {}
         for estimator_name, estimator in self.estimators.items():
-            estimator.fit(X=self.X, a=self.a, t=self.t, y=self.y)
-            survival_curves = estimator.estimate_population_outcome(X=self.X, a=self.a, t=self.t, y=self.y)
-            res[estimator_name] = survival_curves
+            with self.subTest(f"Test {estimator_name}"):
+                estimator.fit(X=self.X, a=self.a, t=self.t, y=self.y)
+                survival_curves = estimator.estimate_population_outcome(X=self.X, a=self.a, t=self.t, y=self.y)
+                res[estimator_name] = survival_curves
 
         for estimator_name, survival_curve in res.items():
             surv_non_qsmk = 100.0 * float(survival_curve[0].iloc[-1])
@@ -469,6 +471,59 @@ class TestStandardization(unittest.TestCase):
         self.assertAlmostEqual(adjusted_diff, TEST_DATA_DRUG_EFFECTS_B_ORACLE_DIFF,
                                delta=TEST_DATA_DRUG_EFFECTS_DELTA)
 
+    def test_individual_estimation(self):
+        def ensure_individual_estimation(model, data):
+            model.fit(data.X, data.a, data.t, data.y)
+            po = model.estimate_individual_outcome(data.X, data.a, data.t)
+            # Time points are rows:
+            self.assertEqual(po.shape[0], data.t.nunique())
+            # Samples are columns, times two treatments:
+            self.assertEqual(po.shape[1], data.X.shape[0] * 2)
+            # Columns are treatment over samples:
+            self.assertIsInstance(po.columns, pd.MultiIndex)
+            self.assertEqual(po.columns.names, ["a", "subject_id"])
+
+        data = TEST_DATA_TTE_DRUG_EFFECTS['B']
+        data = Bunch(
+            X=data[["x_0", "x_1"]],
+            a=data["a"], t=data["t"],
+            y=data["y"],
+        )
+
+        with self.subTest("Stratified Pooled Logistic Regression"):
+            model = StandardizedSurvival(
+                LogisticRegression(max_iter=2000),
+                stratify=True,
+            )
+            ensure_individual_estimation(model, data)
+
+        with self.subTest("Unstratified Pooled Logistic Regression"):
+            model = StandardizedSurvival(
+                LogisticRegression(max_iter=2000),
+                stratify=False,
+            )
+            ensure_individual_estimation(model, data)
+
+    def test_unnamed_input(self):
+        test_data = TEST_DATA_TTE_DRUG_EFFECTS['A']
+        X = test_data[['x_0', 'x_1']]
+        a = test_data['a']
+        y = test_data['y']
+        t = test_data['t']
+
+        X.index.name = None
+        a.name = None
+        y.name = None
+        t.name = None
+        std = StandardizedSurvival(survival_model=LogisticRegression())
+        std.fit(X, a, t, y)
+        outcomes = std.estimate_population_outcome(X=X, a=a, t=t, y=y)
+
+        self.assertEqual(outcomes.index.name, "t")  # Default time name when canonizing names
+        self.assertEqual(outcomes.columns.name, "a")  # Default time name when canonizing names
+
+
+class TestWeightedStandardizedSurvival(unittest.TestCase):
     def test_weighted_standardization_stratified(self):
         test_data = TEST_DATA_TTE_DRUG_EFFECTS['A']
         model = WeightedStandardizedSurvival
@@ -490,24 +545,6 @@ class TestStandardization(unittest.TestCase):
 
         self.assertAlmostEqual(adjusted_diff, TEST_DATA_DRUG_EFFECTS_A_ORACLE_DIFF,
                                delta=TEST_DATA_DRUG_EFFECTS_DELTA)
-
-    def test_unnamed_input(self):
-        test_data = TEST_DATA_TTE_DRUG_EFFECTS['A']
-        X = test_data[['x_0', 'x_1']]
-        a = test_data['a']
-        y = test_data['y']
-        t = test_data['t']
-
-        X.index.name = None
-        a.name = None
-        y.name = None
-        t.name = None
-        std = StandardizedSurvival(survival_model=LogisticRegression())
-        std.fit(X, a, t, y)
-        outcomes = std.estimate_population_outcome(X=X, a=a, t=t, y=y)
-
-        self.assertEqual(outcomes.index.name, "t")  # Default time name when canonizing names
-        self.assertEqual(outcomes.columns.name, "a")  # Default time name when canonizing names
 
 
 @unittest.skipUnless(LIFELINES_FOUND, 'lifelines not found')
@@ -579,6 +616,40 @@ class TestLifelines(unittest.TestCase):
         with self.assertRaises(AssertionError):  # negation workaround since there's no assertNotWarns
             with self.assertWarns(lifelines.exceptions.StatisticalWarning):
                 weighted_standardized_survival.fit(self.X, self.a, self.t, self.y, fit_kwargs={'robust': True})
+
+    def test_individual_estimation(self):
+        def ensure_individual_estimation(model, data):
+            model.fit(data.X, data.a, data.t, data.y)
+            po = model.estimate_individual_outcome(data.X, data.a, data.t)
+            # Time points are rows:
+            self.assertEqual(po.shape[0], data.t.nunique())
+            # Samples are columns, times two treatments:
+            self.assertEqual(po.shape[1], data.X.shape[0] * 2)
+            # Columns are treatment over samples:
+            self.assertIsInstance(po.columns, pd.MultiIndex)
+            # Cox regression does not save X.index name:
+            self.assertEqual(po.columns.names, ["a", None])
+
+        data = TEST_DATA_TTE_DRUG_EFFECTS['B']
+        data = Bunch(
+            X=data[["x_0", "x_1"]],
+            a=data["a"], t=data["t"],
+            y=data["y"],
+        )
+
+        with self.subTest("Stratified Cox Regression"):
+            model = StandardizedSurvival(
+                lifelines.CoxPHFitter(penalizer=10),
+                stratify=True,
+            )
+            ensure_individual_estimation(model, data)
+
+        with self.subTest("Unstratified Cox Regression"):
+            model = StandardizedSurvival(
+                lifelines.CoxPHFitter(penalizer=10),
+                stratify=False,
+            )
+            ensure_individual_estimation(model, data)
 
 
 class TestFeatureTransform(unittest.TestCase):
