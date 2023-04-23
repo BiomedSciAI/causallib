@@ -291,17 +291,17 @@ class TestNHEFS(unittest.TestCase):
 
         # Init various multiple models
         self.estimators = {
-            # 'observed_non_parametric': MarginalSurvival(),
-            # 'observed_parametric': MarginalSurvival(survival_model=LogisticRegression(max_iter=2000)),
-            # 'ipw_non_parametric': WeightedSurvival(
-            #     weight_model=IPW(LogisticRegression(max_iter=4000), use_stabilized=True),
-            #     survival_model=None),
-            # 'ipw_parametric': WeightedSurvival(weight_model=IPW(LogisticRegression(max_iter=4000), use_stabilized=True),
-            #                                    survival_model=LogisticRegression(max_iter=4000)),
-            # 'ipw_parametric_pipeline': WeightedSurvival(
-            #     weight_model=IPW(LogisticRegression(max_iter=4000), use_stabilized=True),
-            #     survival_model=Pipeline(
-            #         [('transform', PolynomialFeatures(degree=2)), ('LR', LogisticRegression(max_iter=1000, C=2))])),
+            'observed_non_parametric': MarginalSurvival(),
+            'observed_parametric': MarginalSurvival(survival_model=LogisticRegression(max_iter=2000)),
+            'ipw_non_parametric': WeightedSurvival(
+                weight_model=IPW(LogisticRegression(max_iter=4000), use_stabilized=True),
+                survival_model=None),
+            'ipw_parametric': WeightedSurvival(weight_model=IPW(LogisticRegression(max_iter=4000), use_stabilized=True),
+                                               survival_model=LogisticRegression(max_iter=4000)),
+            'ipw_parametric_pipeline': WeightedSurvival(
+                weight_model=IPW(LogisticRegression(max_iter=4000), use_stabilized=True),
+                survival_model=Pipeline(
+                    [('transform', PolynomialFeatures(degree=2)), ('LR', LogisticRegression(max_iter=1000, C=2))])),
             'matching_non_parametric': WeightedSurvival(
                 weight_model=Matching(
                     matching_mode="treatment_to_control",
@@ -327,9 +327,10 @@ class TestNHEFS(unittest.TestCase):
 
         res = {}
         for estimator_name, estimator in self.estimators.items():
-            estimator.fit(X=self.X, a=self.a, t=self.t, y=self.y)
-            survival_curves = estimator.estimate_population_outcome(X=self.X, a=self.a, t=self.t, y=self.y)
-            res[estimator_name] = survival_curves
+            with self.subTest(f"Test {estimator_name}"):
+                estimator.fit(X=self.X, a=self.a, t=self.t, y=self.y)
+                survival_curves = estimator.estimate_population_outcome(X=self.X, a=self.a, t=self.t, y=self.y)
+                res[estimator_name] = survival_curves
 
         for estimator_name, survival_curve in res.items():
             surv_non_qsmk = 100.0 * float(survival_curve[0].iloc[-1])
