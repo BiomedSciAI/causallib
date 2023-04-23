@@ -129,7 +129,7 @@ class StandardizedSurvival(SurvivalBase):
                 times=contiguous_times
             )
             res[treatment_value] = treatment_individual_survival_curves
-        res = pd.concat(res, axis="columns", names=a.name)
+        res = pd.concat(res, axis="columns", names=[a.name])
         return res
 
     def estimate_population_outcome(self,
@@ -157,16 +157,14 @@ class StandardizedSurvival(SurvivalBase):
             pd.DataFrame: with time-step index, treatment values as columns and survival as entries
         """
         a, t, _, _, X = canonize_dtypes_and_names(a=a, t=t,  X=X)
-        unique_treatment_values = a.unique()
-        res = {}
-        for treatment_value in unique_treatment_values:
-            assignment = pd.Series(data=treatment_value, index=X.index, name=a.name)
-            individual_survival_curves = self.estimate_individual_outcome(X=X, a=assignment, t=t,
-                                                                          timeline_start=timeline_start,
-                                                                          timeline_end=timeline_end)
-            res[treatment_value] = individual_survival_curves.mean(axis='columns')
-
-        res = pd.DataFrame(res)
+        individual_survival_curves = self.estimate_individual_outcome(
+            X=X, a=a, t=t,
+            timeline_start=timeline_start,
+            timeline_end=timeline_end,
+        )
+        res = individual_survival_curves.groupby(
+            level=0, axis="columns",
+        ).mean()
 
         # Setting index/column names
         res.index.name = t.name

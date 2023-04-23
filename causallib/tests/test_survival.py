@@ -307,10 +307,10 @@ class TestNHEFS(unittest.TestCase):
                     matching_mode="treatment_to_control",
                 ),
             ),
-            # 'standardization_non_stratified': StandardizedSurvival(survival_model=LogisticRegression(max_iter=4000),
-            #                                                        stratify=False),
-            # 'standardization_stratified': StandardizedSurvival(survival_model=LogisticRegression(max_iter=4000),
-            #                                                    stratify=True),
+            'standardization_non_stratified': StandardizedSurvival(survival_model=LogisticRegression(max_iter=4000),
+                                                                   stratify=False),
+            'standardization_stratified': StandardizedSurvival(survival_model=LogisticRegression(max_iter=4000),
+                                                               stratify=True),
         }
 
     def test_nhefs(self, plot=False):
