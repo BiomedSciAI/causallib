@@ -4,6 +4,7 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import Pipeline
+from sklearn.utils import Bunch
 from causallib.datasets.data_loader import load_nhefs_survival
 from causallib.survival.survival_utils import get_person_time_df, safe_join
 from causallib.estimation.ipw import IPW
@@ -469,6 +470,40 @@ class TestStandardization(unittest.TestCase):
         self.assertAlmostEqual(adjusted_diff, TEST_DATA_DRUG_EFFECTS_B_ORACLE_DIFF,
                                delta=TEST_DATA_DRUG_EFFECTS_DELTA)
 
+    def test_individual_estimation(self):
+        def ensure_individual_estimation(model, data):
+            model.fit(data.X, data.a, data.t, data.y)
+            po = model.estimate_individual_outcome(data.X, data.a, data.t)
+            # Time points are rows:
+            self.assertEqual(po.shape[0], data.t.nunique())
+            # Samples are columns, times two treatments:
+            self.assertEqual(po.shape[1], data.X.shape[0] * 2)
+            # Columns are treatment over samples:
+            self.assertIsInstance(po.columns, pd.MultiIndex)
+            self.assertEqual(po.columns.names, ["a", "subject_id"])
+
+        data = TEST_DATA_TTE_DRUG_EFFECTS['B']
+        data = Bunch(
+            X=data[["x_0", "x_1"]],
+            a=data["a"], t=data["t"],
+            y=data["y"],
+        )
+
+        with self.subTest("Stratified Pooled Logistic Regression"):
+            model = StandardizedSurvival(
+                LogisticRegression(max_iter=2000),
+                stratify=True,
+            )
+            ensure_individual_estimation(model, data)
+
+        with self.subTest("Unstratified Pooled Logistic Regression"):
+            model = StandardizedSurvival(
+                LogisticRegression(max_iter=2000),
+                stratify=False,
+            )
+            ensure_individual_estimation(model, data)
+
+    # TODO: create different test class for weighted standardization:
     def test_weighted_standardization_stratified(self):
         test_data = TEST_DATA_TTE_DRUG_EFFECTS['A']
         model = WeightedStandardizedSurvival
@@ -579,6 +614,40 @@ class TestLifelines(unittest.TestCase):
         with self.assertRaises(AssertionError):  # negation workaround since there's no assertNotWarns
             with self.assertWarns(lifelines.exceptions.StatisticalWarning):
                 weighted_standardized_survival.fit(self.X, self.a, self.t, self.y, fit_kwargs={'robust': True})
+
+    def test_individual_estimation(self):
+        def ensure_individual_estimation(model, data):
+            model.fit(data.X, data.a, data.t, data.y)
+            po = model.estimate_individual_outcome(data.X, data.a, data.t)
+            # Time points are rows:
+            self.assertEqual(po.shape[0], data.t.nunique())
+            # Samples are columns, times two treatments:
+            self.assertEqual(po.shape[1], data.X.shape[0] * 2)
+            # Columns are treatment over samples:
+            self.assertIsInstance(po.columns, pd.MultiIndex)
+            # Cox regression does not save X.index name:
+            self.assertEqual(po.columns.names, ["a", None])
+
+        data = TEST_DATA_TTE_DRUG_EFFECTS['B']
+        data = Bunch(
+            X=data[["x_0", "x_1"]],
+            a=data["a"], t=data["t"],
+            y=data["y"],
+        )
+
+        with self.subTest("Stratified Cox Regression"):
+            model = StandardizedSurvival(
+                lifelines.CoxPHFitter(penalizer=10),
+                stratify=True,
+            )
+            ensure_individual_estimation(model, data)
+
+        with self.subTest("Unstratified Cox Regression"):
+            model = StandardizedSurvival(
+                lifelines.CoxPHFitter(penalizer=10),
+                stratify=False,
+            )
+            ensure_individual_estimation(model, data)
 
 
 class TestFeatureTransform(unittest.TestCase):
