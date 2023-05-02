@@ -546,6 +546,48 @@ class TestWeightedStandardizedSurvival(unittest.TestCase):
         self.assertAlmostEqual(adjusted_diff, TEST_DATA_DRUG_EFFECTS_A_ORACLE_DIFF,
                                delta=TEST_DATA_DRUG_EFFECTS_DELTA)
 
+    def test_different_covariates_per_model(self):
+        data = TEST_DATA_TTE_DRUG_EFFECTS['A']
+        X = data[['x_0', 'x_1']]
+        a, t, y = data['a'], data['t'], data['y']
+
+        model = WeightedStandardizedSurvival(
+            weight_model=IPW(LogisticRegression(max_iter=2000)),
+            survival_model=LogisticRegression(max_iter=4000),
+            stratify=False,
+            weight_covariates=["x_0"],
+            outcome_covariates=None,
+        )
+        model.fit(X, a, t, y)
+
+        # Weight model is fitted only on `x_0`:
+        self.assertEqual(model.weight_model.learner.coef_.size, 1)
+        # Outcome model is fitted on all `x_0, x_1` and treatment and time:
+        self.assertEqual(model.survival_model.learner.coef_.size, 2 + 1 + 1)
+
+        po = model.estimate_population_outcome(X, a, t)
+
+    def test_fit_with_no_outcome_covariates(self):
+        data = TEST_DATA_TTE_DRUG_EFFECTS['A']
+        X = data[['x_0', 'x_1']]
+        a, t, y = data['a'], data['t'], data['y']
+
+        model = WeightedStandardizedSurvival(
+            weight_model=IPW(LogisticRegression(max_iter=2000)),
+            survival_model=LogisticRegression(max_iter=4000),
+            stratify=False,
+            weight_covariates=None,
+            outcome_covariates=[],
+        )
+        model.fit(X, a, t, y)
+
+        # Weight model is fitted on both `x_0, x_1`:
+        self.assertEqual(model.weight_model.learner.coef_.size, 2)
+        # Outcome model is fitted only on a treatment indicator and time:
+        self.assertEqual(model.survival_model.learner.coef_.size, 1 + 1)
+
+        po = model.estimate_population_outcome(X, a, t)
+
 
 @unittest.skipUnless(LIFELINES_FOUND, 'lifelines not found')
 class TestLifelines(unittest.TestCase):
@@ -650,6 +692,27 @@ class TestLifelines(unittest.TestCase):
                 stratify=False,
             )
             ensure_individual_estimation(model, data)
+
+    def test_fit_with_no_outcome_covariates(self):
+        data = TEST_DATA_TTE_DRUG_EFFECTS['A']
+        X = data[['x_0', 'x_1']]
+        a, t, y = data['a'], data['t'], data['y']
+
+        model = WeightedStandardizedSurvival(
+            weight_model=IPW(LogisticRegression(max_iter=2000)),
+            survival_model=lifelines.CoxPHFitter(),
+            stratify=False,
+            weight_covariates=None,
+            outcome_covariates=[],
+        )
+        model.fit(X, a, t, y)
+
+        # Weight model is fitted on both `x_0, x_1`:
+        self.assertEqual(model.weight_model.learner.coef_.size, 2)
+        # Outcome model is fitted only on a treatment indicator:
+        self.assertEqual(model.survival_model.params_.size, 1)
+
+        po = model.estimate_population_outcome(X, a, t)
 
 
 class TestFeatureTransform(unittest.TestCase):
