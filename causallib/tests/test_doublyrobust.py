@@ -118,6 +118,21 @@ class TestDoublyRobustBase(unittest.TestCase):
                          len(estimator.outcome_covariates) + n_added_outcome_model_features)
         self.assertEqual(estimator.weight_model.learner.coef_.size, len(estimator.weight_covariates))
 
+    def ensure_fit_with_no_outcome_covariates(self, estimator, n_added_outcome_model_features):
+        data = self.create_uninformative_ox_dataset()
+        # Reinitialize estimator:
+        estimator = estimator.__class__(estimator.outcome_model, estimator.weight_model,
+                                        outcome_covariates=[], weight_covariates=None)
+        estimator.fit(data["X"], data["a"], data["y"])
+        self.assertEqual(
+            estimator.outcome_model.learner.coef_.size,
+            n_added_outcome_model_features
+        )
+        self.assertEqual(
+            estimator.weight_model.learner.coef_.size,
+            data["X"].shape[1]
+        )
+
     def ensure_weight_refitting_refits(self, estimator):
         data = self.create_uninformative_ox_dataset()
         with self.subTest("Test first fit of weight_model did fit the model"):
@@ -243,6 +258,9 @@ class TestAIPW(TestDoublyRobustBase):
     def test_data_is_separated_between_models(self):
         self.ensure_data_is_separated_between_models(self.estimator, 1)  # 1 treatment assignment feature
 
+    def test_fit_with_no_outcome_covariates(self):
+        self.ensure_fit_with_no_outcome_covariates(self.estimator, 1)
+
     def test_weight_refitting_refits(self):
         self.ensure_weight_refitting_refits(self.estimator)
 
@@ -342,6 +360,10 @@ class TestWeightedStandardization(TestDoublyRobustBase):
 
     def test_data_is_separated_between_models(self):
         self.ensure_data_is_separated_between_models(self.estimator, 1)  # 1 treatment assignment feature
+
+    def test_fit_with_no_outcome_covariates(self):
+        # Basically an Marginal Structural Model (MSM)
+        self.ensure_fit_with_no_outcome_covariates(self.estimator, 1)
 
     def test_weight_refitting_refits(self):
         self.ensure_weight_refitting_refits(self.estimator)
@@ -452,6 +474,9 @@ class TestPropensityFeatureStandardization(TestDoublyRobustBase):
 
     def test_data_is_separated_between_models(self):
         self.ensure_data_is_separated_between_models(self.estimator, 1 + 1)  # 1 ip-feature + 1 treatment assignment
+
+    def test_fit_with_no_outcome_covariates(self):
+        self.ensure_fit_with_no_outcome_covariates(self.estimator, 1 + 1)
 
     def test_weight_refitting_refits(self):
         self.ensure_weight_refitting_refits(self.estimator)
