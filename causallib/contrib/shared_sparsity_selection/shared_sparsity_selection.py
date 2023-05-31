@@ -18,7 +18,6 @@ class MCPSelector:
         Args:
             lmda (str|float): Parameter (>= 0) to control shape of MCP regularizer.
                 The bigger the value the stronger the regularization.
-                "auto" will auto-select good regularization value.
             alpha (float): Associated lambda parameter (>= 0) to control shape of MCP regularizer.
                 The smaller the value the stronger the regularization.
             step (float): Step size for proximal gradient, equivalent of learning rate.
