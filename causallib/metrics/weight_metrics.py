@@ -119,3 +119,15 @@ def covariate_balancing_error(X, a, sample_weight, agg=max, **kwargs):
     weighted_asmds = asmds["weighted"]
     score = agg(weighted_asmds)
     return score
+
+
+def covariate_imbalance_count_error(
+    X, a, sample_weight, threshold=0.1, fraction=True
+) -> float:
+    asmds = calculate_covariate_balance(X, a, sample_weight, metric="abs_smd")
+    weighted_asmds = asmds["weighted"]
+    is_violating = weighted_asmds > threshold
+    score = sum(is_violating)
+    if fraction:
+        score /= is_violating.shape[0]
+    return score

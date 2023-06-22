@@ -141,6 +141,33 @@ class TestWeightScorer(BaseTestScorer):
         )
         self.assertLess(-score_agg_min, -score_default)  # Default is max. Scores are negative metrics values
 
+    def test_covariate_imbalance_count_error(self):
+        X = pd.DataFrame(
+            {
+                "imbalanced": [5, 5, 5, 5, 4, 6, 0, 0, 0, 0, -1, 1],
+                "balanced": [5, 5, 5, 5, 4, 6, 5, 5, 5, 5, 4, 6],
+            }
+        )
+        a = pd.Series([1] * 6 + [0] * 6)
+        ipw = IPW(LogisticRegression())
+        ipw.fit(X, a)
+
+        with self.subTest("Count score"):
+            scorer = get_scorer("covariate_imbalance_count_error")
+            score = scorer(ipw, X, a, y_true=None, fraction=False)
+            self.assertEqual(score, -1)
+
+        with self.subTest("Fractional score"):
+            scorer = get_scorer("covariate_imbalance_count_error")
+            score = scorer(ipw, X, a, y_true=None, fraction=True)
+            self.assertEqual(score, -0.5)
+
+        with self.subTest("Non-default threshold"):
+            threshold = 10  # Should result in not violating features
+            scorer = get_scorer("covariate_imbalance_count_error")
+            score = scorer(ipw, X, a, y_true=None, threshold=threshold)
+            self.assertEqual(score, 0)
+
 
 class TestOutcomeScorer(BaseTestScorer):
     @classmethod
