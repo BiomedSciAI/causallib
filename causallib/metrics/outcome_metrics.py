@@ -45,6 +45,7 @@ def balanced_residuals_error(
     y_true, y_pred, a_true,
     distance_metric=abs_standardized_mean_difference,
     distance_metric_kwargs=None,
+    **kwargs,
 ):
     """Computes how different is the residuals distribution of the control group
     from that of the treatment group.
