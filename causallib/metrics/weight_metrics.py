@@ -101,8 +101,7 @@ def calculate_distribution_distance_for_single_feature(
     return distribution_distance
 
 
-
-def covariate_balancing_error(X, a, sample_weight, agg=max):
+def covariate_balancing_error(X, a, sample_weight, agg=max, **kwargs):
     """Computes the weighted (i.e. balanced) absolute standardized mean difference
     of every covariate in X.
 
