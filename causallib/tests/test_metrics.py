@@ -298,6 +298,13 @@ class TestWeightMetrics(unittest.TestCase):
             )
             self.assertEqual(score, 1/2)
 
+        with self.subTest("Doesn't fail on unrelated kwargs"):
+            covariate_imbalance_count_error(
+                self.data["X"], self.data["a"], self.data["w"],
+                nonexistingkwarg=1,
+            )
+            self.assertTrue(True)
+
 
 class TestOutcomeMetrics(unittest.TestCase):
     def test_balanced_residuals(self):
