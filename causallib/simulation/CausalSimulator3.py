@@ -186,7 +186,7 @@ class CausalSimulator3(object):
 
         # Create a graph out of matrix topology:
         self.topology = topology
-        self.graph_topology = nx.from_numpy_matrix(topology.transpose(), create_using=nx.DiGraph())  # type:nx.DiGraph
+        self.graph_topology = nx.from_numpy_array(topology.transpose(), create_using=nx.DiGraph())  # type:nx.DiGraph
         self.graph_topology = nx.relabel_nodes(self.graph_topology,
                                                dict(list(zip(list(range(self.m)), self.var_names))))
 

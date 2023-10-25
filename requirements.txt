@@ -1,4 +1,4 @@
-pandas>=0.25.2,<3
+pandas>=0.25.2,<4
 scipy>=0.19,<2
 statsmodels>=0.9,<1
 networkx>=1.1,<3
