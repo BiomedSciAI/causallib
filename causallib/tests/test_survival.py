@@ -635,6 +635,9 @@ class TestLifelines(unittest.TestCase):
                                                   1: lifelines_km_a1.predict(sorted(self.t.unique()))})
         marginal_curves_lifelines.columns.name = 'a'
         marginal_curves_lifelines.index.name = 't'
+        marginal_curves_lifelines.columns = (
+            marginal_curves_lifelines.columns.astype(marginal_curves_causallib.columns.dtype)
+        )  # Avoid column dtype assert
 
         pd.testing.assert_frame_equal(marginal_curves_causallib, marginal_curves_causallib_lifelines)
         pd.testing.assert_frame_equal(marginal_curves_causallib, marginal_curves_lifelines)
