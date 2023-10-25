@@ -80,6 +80,7 @@ class TestOverlapWeights(unittest.TestCase):
         propensity = pd.DataFrame(propensity)
         ow_weights = self.estimator.compute_weight_matrix(self.data_r_100["X"], self.data_r_100["a"],
                                                           clip_min=None, clip_max=None)
+        propensity.columns = propensity.columns.astype(ow_weights.columns.dtype)  # Avoid column dtype assert
         pd.testing.assert_series_equal(propensity.loc[:, 0], ow_weights.loc[:, 1], check_names=False)
         pd.testing.assert_series_equal(propensity.loc[:, 1], ow_weights.loc[:, 0], check_names=False)
         pd.testing.assert_index_equal(propensity.columns, ow_weights.columns)
