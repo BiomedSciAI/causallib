@@ -216,7 +216,7 @@ class CausalSimulator3(object):
 
         # check that effect modifier is independent on treatment and affects only the outcome:
         for i in self.effmod_indices:
-            successors = self.graph_topology.successors(i)
+            successors = list(self.graph_topology.successors(i))
             if len(successors) == 0 or self.outcome_indices.intersection(successors).size < 1:
                 raise ValueError("Effect modifier variable {name} must affect an outcome variable".format(name=i))
             ancestors = nx.ancestors(self.graph_topology, i)
