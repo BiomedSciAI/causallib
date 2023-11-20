@@ -13,7 +13,7 @@ import pandas as pd
 from ..estimation.base_estimator import IndividualOutcomeEstimator
 from ..estimation.base_weight import PropensityEstimator, WeightEstimator
 
-from .predictions import WeightEvaluatorScores, SingleFoldPrediction
+from .predictions import PropensityEvaluatorScores, SingleFoldPrediction
 from .plots import mixins, data_extractors
 
 
@@ -22,7 +22,7 @@ class EvaluationResults(abc.ABC):
     """Data structure to hold evaluation results including cross-validation.
 
     Attrs:
-        evaluated_metrics (Union[pd.DataFrame, WeightEvaluatorScores, None]):
+        evaluated_metrics (Union[pd.DataFrame, PropensityEvaluatorScores, None]):
         models (dict[str, Union[list[WeightEstimator], list[IndividualOutcomeEstimator]):
             Models trained during evaluation. May be dict or list or a model
             directly.
@@ -36,7 +36,7 @@ class EvaluationResults(abc.ABC):
         y (pd.Series): outcome data
     """
 
-    evaluated_metrics: Union[pd.DataFrame, WeightEvaluatorScores]
+    evaluated_metrics: Union[pd.DataFrame, PropensityEvaluatorScores]
     models: Union[
         List[WeightEstimator],
         List[IndividualOutcomeEstimator],
@@ -58,7 +58,7 @@ class EvaluationResults(abc.ABC):
 
     @staticmethod
     def make(
-        evaluated_metrics: Union[pd.DataFrame, WeightEvaluatorScores],
+        evaluated_metrics: Union[pd.DataFrame, PropensityEvaluatorScores],
         models: Union[
             List[WeightEstimator],
             List[IndividualOutcomeEstimator],
@@ -149,7 +149,7 @@ class EvaluationResults(abc.ABC):
         self.models = self.models[0]
         if isinstance(self.evaluated_metrics, pd.DataFrame):
             self.evaluated_metrics.reset_index(level=["phase", "fold"], drop=True, inplace=True)
-        elif isinstance(self.evaluated_metrics, WeightEvaluatorScores):
+        elif isinstance(self.evaluated_metrics, PropensityEvaluatorScores):
             for metric in self.evaluated_metrics:
                 metric.reset_index(level=["phase", "fold"], drop=True, inplace=True)
 

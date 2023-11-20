@@ -66,12 +66,18 @@ class BaseDoublyRobust(IndividualOutcomeEstimator):
         raise NotImplementedError
 
     def _extract_outcome_model_data(self, X):
-        outcome_covariates = self.outcome_covariates or X.columns
+        if self.outcome_covariates is None:
+            outcome_covariates = X.columns
+        else:
+            outcome_covariates = self.outcome_covariates
         X_outcome = X[outcome_covariates]
         return X_outcome
 
     def _extract_weight_model_data(self, X):
-        weight_covariates = self.weight_covariates or X.columns
+        if self.weight_covariates is None:
+            weight_covariates = X.columns
+        else:
+            weight_covariates = self.weight_covariates
         X_weight = X[weight_covariates]
         return X_weight
 

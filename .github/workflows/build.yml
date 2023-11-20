@@ -8,7 +8,7 @@ jobs:
     strategy:
       fail-fast: false  # Don't cancel entire run if one python-version fails
       matrix:
-        python-version: ["3.7", "3.8", "3.9"]
+        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
     name: Build and test on Python ${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@v3
@@ -41,7 +41,7 @@ jobs:
           # pytest tests.py --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html
       
       - name: Publish to CodeClimate
-        uses: paambaati/codeclimate-action@v3.2.0
+        uses: paambaati/codeclimate-action@v5.0.0
         env:
           CC_TEST_REPORTER_ID: ${{ secrets.CODECLIMATE_REPORTER_ID }} 
           

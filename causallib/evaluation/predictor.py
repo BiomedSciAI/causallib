@@ -185,15 +185,10 @@ class WeightPredictor(BasePredictor):
         weight_for_being_treated = self.estimator.compute_weights(
             X, a, treatment_values=a.max(), use_stabilized=False
         )
-        treatment_assignment_pred = self.estimator.learner.predict(
-            X
-        )  # TODO: maybe add predict_label to interface instead
-        treatment_assignment_pred = pd.Series(treatment_assignment_pred, index=X.index)
 
         prediction = WeightPredictions(
             weight_by_treatment_assignment,
             weight_for_being_treated,
-            treatment_assignment_pred,
         )
         return prediction
 
@@ -227,13 +222,18 @@ class PropensityPredictor(WeightPredictor):
         propensity_matrix = self.estimator.compute_propensity_matrix(X)
         propensity_by_treatment_assignment = robust_lookup(propensity_matrix, a)
 
+        treatment_assignment_pred = self.estimator.learner.predict(
+            X
+        )  # TODO: maybe add predict_label to interface instead
+        treatment_assignment_pred = pd.Series(treatment_assignment_pred, index=X.index)
+
         weight_prediction = super().predict(X, a)
         # Do not force stabilize=False as in WeightEvaluator:
         weight_by_treatment_assignment = self.estimator.compute_weights(X, a)
         prediction = PropensityPredictions(
             weight_by_treatment_assignment,
             weight_prediction.weight_for_being_treated,
-            weight_prediction.treatment_assignment_pred,
+            treatment_assignment_pred,
             propensity,
             propensity_by_treatment_assignment,
         )

@@ -22,6 +22,7 @@ class WeightPlotterMixin:
         aggregate_folds=True,
         thresh=None,
         plot_semi_grid=True,
+        label_imbalanced=True,
         **kwargs,
     ):
         """Plot covariate balance before and after weighting.
@@ -34,7 +35,8 @@ class WeightPlotterMixin:
             aggregate_folds (bool, optional): Whether to aggregate folds. Defaults to True.
                 Ignored when kind="slope".
             thresh (float, optional): Draw threshold line at value. Defaults to None.
-            plot_semi_grid (bool, optional): Defaults to True. Ignored when kind="slope".
+            plot_semi_grid (bool, optional): Defaults to True. only for kind="love".
+            label_imbalanced (bool): Label covariates that weren't properly balanced. Ignored when kind="love".
 
         Returns:
             matplotlib.axes.Axes: axis with plot
@@ -56,19 +58,18 @@ class WeightPlotterMixin:
                 table1_folds=table1_folds,
                 ax=ax,
                 thresh=thresh,
+                label_imbalanced=label_imbalanced,
                 **kwargs,
             )
-    
 
         if kind == "scatter":
             return plots.plot_mean_features_imbalance_scatter_plot(
                 table1_folds=table1_folds,
                 ax=ax,
                 thresh=thresh,
+                label_imbalanced=label_imbalanced,
                 **kwargs,
             )
-        
-
 
         raise ValueError(f"Unsupported covariate balance plot kind {kind}")
 

@@ -22,6 +22,7 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.exceptions import NotFittedError
 from sklearn.base import clone as sk_clone
 from .base_estimator import IndividualOutcomeEstimator
+from .base_weight import WeightEstimator
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial import distance
 
@@ -36,7 +37,7 @@ def majority_rule(x):
     return Counter(x).most_common(1)[0][0]
 
 
-class Matching(IndividualOutcomeEstimator):
+class Matching(IndividualOutcomeEstimator, WeightEstimator):
 
     def __init__(
         self,
@@ -332,7 +333,6 @@ class Matching(IndividualOutcomeEstimator):
 
         return self._get_match_df(successful_matches_only=successful_matches_only)
 
-
     def matches_to_weights(self, match_df=None):
         """Calculate weights based on a given set of matches.
 
@@ -362,6 +362,42 @@ class Matching(IndividualOutcomeEstimator):
             for s, t in match_permutations],).T
 
         return weights_df
+
+    def compute_weights(self, X, a, treatment_values=None, use_stabilized=None, **kwargs):
+        """Calculate weights based on a given set of matches.
+
+        Only applicable for `matching_mode` "control_to_treatment"
+        or "treatment_to_control".
+
+        Args:
+            X (pd.DataFrame): DataFrame of shape (n,m) containing m covariates
+                for n samples.
+            a (pd.Series): Series of shape (n,) containing discrete treatment
+                values for the n samples.
+            treatment_values: IGNORED.
+            use_stabilized: IGNORED.
+            **kwargs:
+
+        Returns:
+            pd.Series: a Series of shape (n,) with a weight per sample.
+
+        Raises:
+            ValueError if `Matching().matching_mode == 'both'`.
+        """
+        self.match(X, a, successful_matches_only=False)
+
+        w = self.matches_to_weights()
+        if self.matching_mode == "both":
+            raise ValueError(
+                f"Matching mode {self.matching_mode} is not supported for weight calculation."
+                f"Please use 'control_to_treatment' or 'treatment_to_control'."
+            )
+        w = w[self.matching_mode]
+        return w
+
+    def compute_weight_matrix(self, X, a, use_stabilized=None, **kwargs):
+        raise NotImplementedError("Weight matrix is not supported for a Matching estimator.")
+        # TODO: is that so?
 
     def get_covariates_of_matches(self, s, t, covariates):
         """
@@ -643,7 +679,7 @@ class Matching(IndividualOutcomeEstimator):
         name = {0: "control", 1: "treatment"}
         weights.name = "{s}_to_{t}".format(s=name[s], t=name[t])
         s_to_t_matches = match_df.loc[t][self.treatments_ == s].matches
-        for source_idx, matches_list in s_to_t_matches.iteritems():
+        for source_idx, matches_list in s_to_t_matches.items():
             if matches_list:
                 weights.loc[source_idx] += 1
             for match in matches_list:

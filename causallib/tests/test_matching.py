@@ -435,6 +435,30 @@ class TestMatching(unittest.TestCase):
             0,
         )
 
+    def test_compute_weights(self):
+        X, a, y = self.data_serial_unbalanced_x
+
+        matching_mode = "control_to_treatment"
+        self.matching.matching_mode = matching_mode
+        self.matching.with_replacement = False
+        self.matching.fit(X, a, y)
+
+        w = self.matching.compute_weights(X, a)
+
+        with self.subTest("Compare to `matches_to_weights` base function"):
+            full_weights = self.matching.matches_to_weights()
+            pd.testing.assert_series_equal(w, full_weights[matching_mode])
+
+        with self.subTest("Fails for `matching_mode='both'`"):
+            with self.assertRaises(ValueError):
+                self.matching.matching_mode = "both"
+                self.matching.compute_weights(X, a)
+
+    def test_compute_weight_matrix(self):
+        X, a, y = self.data_serial_unbalanced_x
+        with self.assertRaises(NotImplementedError):
+            self.matching.compute_weight_matrix(X, a)
+
     def test_exception_for_no_replacement_and_n_neighbors_gt_1(self):
         X, a, y = self.data_serial_x
         self.matching.n_neighbors = 2

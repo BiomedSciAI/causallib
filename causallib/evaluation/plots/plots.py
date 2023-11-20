@@ -883,6 +883,7 @@ def plot_mean_features_imbalance_scatter_plot(
     table1_folds,
     aggregate_folds=True,
     thresh=None,
+    label_imbalanced=True,
     ax=None,
 ):
     # get current axes
@@ -912,21 +913,21 @@ def plot_mean_features_imbalance_scatter_plot(
         violating = table1["weighted"] > thresh
         # determain color for dot on plot 
         color = violating.replace({False: "C0", True: "C1"})
-        
-        
+
         ax.scatter( 
             x=table1['unweighted'],
             y=table1['weighted'],
             marker=next(marker_cycle),
             color=color
         )
-        for covariate_name, covariate_diff in table1.loc[violating].iterrows():
-            ax.text(
-                x=covariate_diff["unweighted"],
-                y=covariate_diff["weighted"],
-                s=covariate_name,
-                horizontalalignment="left",
-            )
+        if label_imbalanced:
+            for covariate_name, covariate_diff in table1.loc[violating].iterrows():
+                ax.text(
+                    x=covariate_diff["unweighted"],
+                    y=covariate_diff["weighted"],
+                    s=covariate_name,
+                    horizontalalignment="left",
+                )
             
     # Plot vertical and horizontal threshold line
     if thresh is not None:
@@ -952,7 +953,7 @@ def plot_mean_features_imbalance_scatter_plot(
 
 
 def plot_mean_features_imbalance_slope_folds(
-    table1_folds, cv=None, thresh=None, ax=None
+    table1_folds, cv=None, thresh=None, label_imbalanced=True, ax=None
 ):
     method_pretty_name = {
         "smd": "Standard Mean Difference",
@@ -975,6 +976,7 @@ def plot_mean_features_imbalance_slope_folds(
         left=aggregated_table1["unweighted"],
         right=aggregated_table1["weighted"],
         thresh=thresh,
+        label_imbalanced=label_imbalanced,
         ax=ax,
     )
 
@@ -988,7 +990,7 @@ def plot_mean_features_imbalance_slope_folds(
 
 
 def slope_graph(
-    left, right, thresh=None, color_below="C0", color_above="C1", marker="o", ax=None
+    left, right, thresh=None, label_imbalanced=True, color_below="C0", color_above="C1", marker="o", ax=None
 ):
     ax = ax or plt.gca()
     left_xtick = left.name or "unweighted"
@@ -1015,7 +1017,7 @@ def slope_graph(
             color=cur_color,
             marker=marker,
         )
-        if cur_right > thresh:
+        if label_imbalanced and cur_right > thresh:
             ax.text(x=1.01, y=cur_right, s=idx, horizontalalignment="left")
 
     # Place y-tick labels on both sides:

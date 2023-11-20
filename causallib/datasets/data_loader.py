@@ -125,36 +125,17 @@ def load_nhefs_survival(augment=True, onehot=True):
         t (pd.Series): Followup duration, size (num_subjects,).
         y (pd.Series): Observed outcome (1) or right censoring event (0), size (num_subjects,).
     """
+    nhefs_all = load_nhefs(raw=True)[0]
+    t = (nhefs_all["yrdth"] - 83) * 12 + nhefs_all["modth"]
+    t = t.fillna(120)
+    t = t.rename("longevity")
+    y = nhefs_all["death"]
 
-    nhefs_all = load_nhefs(raw=True, augment=augment, onehot=onehot)[0]
+    nhefs = load_nhefs(augment=augment, onehot=onehot, restrict=False)
+    a = nhefs.a
+    X = nhefs.X
 
-    nhefs_all['longevity'] = (nhefs_all.yrdth - 83) * 12 + nhefs_all.modth - 1
-    nhefs_all['longevity'].fillna(120, inplace=True)
-
-    # Pre-process data
-    a = nhefs_all['qsmk']
-    t = nhefs_all['longevity']
-    y = nhefs_all['death']
-    X = nhefs_all[[
-        "sex", "race", "age",
-        "active", "education", "exercise",
-        "smokeintensity", "smokeyrs",
-        "wt71"
-    ]]
-
-    # Add square terms and dummy variables
-    squares = {}
-    for col in ['age', 'wt71', 'smokeintensity', 'smokeyrs']:
-        squares[f'{col}^2'] = X[col] * X[col]
-    X = X.assign(**squares)
-    X = pd.get_dummies(
-        X, columns=["active", "education", "exercise"], drop_first=True
-    )
-
-    # Make timeline 1-index (to comply with some lifelines fitters that require strictly positive time steps)
-    t = t + 1
-
-    data = Bunch(X=X, a=a, t=t, y=y)
+    data = Bunch(X=X, a=a, t=t, y=y, descriptors=nhefs.descriptors)
     return data
 
 

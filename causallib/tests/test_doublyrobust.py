@@ -118,6 +118,21 @@ class TestDoublyRobustBase(unittest.TestCase):
                          len(estimator.outcome_covariates) + n_added_outcome_model_features)
         self.assertEqual(estimator.weight_model.learner.coef_.size, len(estimator.weight_covariates))
 
+    def ensure_fit_with_no_outcome_covariates(self, estimator, n_added_outcome_model_features):
+        data = self.create_uninformative_ox_dataset()
+        # Reinitialize estimator:
+        estimator = estimator.__class__(estimator.outcome_model, estimator.weight_model,
+                                        outcome_covariates=[], weight_covariates=None)
+        estimator.fit(data["X"], data["a"], data["y"])
+        self.assertEqual(
+            estimator.outcome_model.learner.coef_.size,
+            n_added_outcome_model_features
+        )
+        self.assertEqual(
+            estimator.weight_model.learner.coef_.size,
+            data["X"].shape[1]
+        )
+
     def ensure_weight_refitting_refits(self, estimator):
         data = self.create_uninformative_ox_dataset()
         with self.subTest("Test first fit of weight_model did fit the model"):
@@ -243,6 +258,9 @@ class TestAIPW(TestDoublyRobustBase):
     def test_data_is_separated_between_models(self):
         self.ensure_data_is_separated_between_models(self.estimator, 1)  # 1 treatment assignment feature
 
+    def test_fit_with_no_outcome_covariates(self):
+        self.ensure_fit_with_no_outcome_covariates(self.estimator, 1)
+
     def test_weight_refitting_refits(self):
         self.ensure_weight_refitting_refits(self.estimator)
 
@@ -343,6 +361,10 @@ class TestWeightedStandardization(TestDoublyRobustBase):
     def test_data_is_separated_between_models(self):
         self.ensure_data_is_separated_between_models(self.estimator, 1)  # 1 treatment assignment feature
 
+    def test_fit_with_no_outcome_covariates(self):
+        # Basically an Marginal Structural Model (MSM)
+        self.ensure_fit_with_no_outcome_covariates(self.estimator, 1)
+
     def test_weight_refitting_refits(self):
         self.ensure_weight_refitting_refits(self.estimator)
 
@@ -398,6 +420,28 @@ class TestWeightedStandardization(TestDoublyRobustBase):
                         # not all ML models support that and so calling should fail
                         model.fit(data["X"], data["a"], data["y"], refit_weight_model=False)
 
+    def test_with_matching(self):
+        from causallib.estimation import Matching
+
+        data = self.create_uninformative_tx_dataset()
+        matching = Matching(
+            matching_mode="control_to_treatment",
+            with_replacement=False,
+        )
+        model = WeightedStandardization(
+            outcome_model=self.estimator.outcome_model,
+            weight_model=matching,
+        )
+        model.fit(data["X"], data["a"], data["y"])
+        weights = model.weight_model.compute_weights(data["X"], data["a"])
+        np.testing.assert_array_equal(weights.values, 1)
+
+        po_wstd = model.estimate_population_outcome(data["X"], data["a"])
+
+        self.estimator.outcome_model.fit(data["X"], data["a"], data["y"])
+        po_std = self.estimator.outcome_model.estimate_population_outcome(data["X"], data["a"])
+        pd.testing.assert_series_equal(po_wstd, po_std)
+
     def test_effect_recovery(self):
         self.ensure_effect_recovery()
 
@@ -430,6 +474,9 @@ class TestPropensityFeatureStandardization(TestDoublyRobustBase):
 
     def test_data_is_separated_between_models(self):
         self.ensure_data_is_separated_between_models(self.estimator, 1 + 1)  # 1 ip-feature + 1 treatment assignment
+
+    def test_fit_with_no_outcome_covariates(self):
+        self.ensure_fit_with_no_outcome_covariates(self.estimator, 1 + 1)
 
     def test_weight_refitting_refits(self):
         self.ensure_weight_refitting_refits(self.estimator)

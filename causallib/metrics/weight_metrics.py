@@ -101,8 +101,7 @@ def calculate_distribution_distance_for_single_feature(
     return distribution_distance
 
 
-
-def covariate_balancing_error(X, a, sample_weight, agg=max):
+def covariate_balancing_error(X, a, sample_weight, agg=max, **kwargs):
     """Computes the weighted (i.e. balanced) absolute standardized mean difference
     of every covariate in X.
 
@@ -119,4 +118,16 @@ def covariate_balancing_error(X, a, sample_weight, agg=max):
     asmds = calculate_covariate_balance(X, a, sample_weight, metric="abs_smd")
     weighted_asmds = asmds["weighted"]
     score = agg(weighted_asmds)
+    return score
+
+
+def covariate_imbalance_count_error(
+    X, a, sample_weight, threshold=0.1, fraction=True, **kwargs
+) -> float:
+    asmds = calculate_covariate_balance(X, a, sample_weight, metric="abs_smd")
+    weighted_asmds = asmds["weighted"]
+    is_violating = weighted_asmds > threshold
+    score = sum(is_violating)
+    if fraction:
+        score /= is_violating.shape[0]
     return score
