@@ -300,7 +300,8 @@ class Standardization(IndividualOutcomeEstimator):
             a_transformed = a_transformed.toarray()
             a = pd.DataFrame(a_transformed, index=a.index, columns=self.treatment_encoder_.categories_[0])
         X, a = self._align_column_name_types_for_join(X, a, a_name)
-        cur_X = g_tools.safe_join(a, X, join="outer")
+        # cur_X = g_tools.safe_join(a, X, join="outer")
+        cur_X = pd.concat([a, X], axis="columns")
         return cur_X
 
     @staticmethod
@@ -319,35 +320,23 @@ class Standardization(IndividualOutcomeEstimator):
                 f"which sklearn>1.2 will raise for. "
                 f"Therefore `X.columns` were all converted to string."
             )
-            if hasattr(a, "columns"):  # a DataFrame
-                a = a.add_prefix(f"{a_name}_")
-            elif hasattr(a, "name"):  # a Series
-                if type(a_name) != str:
-                    warnings.warn("`a.name` converted to str type to match `X.columns`.")
-                a.name = str(a_name)
-            return X, a
-
         column_names_type = column_names_types.pop()
 
         if hasattr(a, "columns"):  # a DataFrame
-            a_name_type = {type(c) for c in a.columns}
+            a_name_type = {type(c) for c in a.columns}.pop()
         elif hasattr(a, "name"):  # a Series
-            a_name_type = type(a.name)
+            a_name_type = type(a_name)
 
-        if a_name_type == column_names_type:
-            return X, a
-
-        if column_names_type == str:  # `a` is int
-            if isinstance(a, pd.Series):
-                warnings.warn("Renamed `a.name` to 'a' to be of type string")
-                a.name = a_name
-            if isinstance(a, pd.DataFrame):
-                a = a.add_prefix(f"{a_name}_")
-        if column_names_type == int:  # `a` is str
-            # make sure
+        if a_name_type == str:
+            X.columns = X.columns.astype(str)
+            warnings.warn(
+                "Converting `X.columns` to strings to match `a.name` type."
+            )
             if hasattr(a, "columns"):  # a DataFrame
-                a.columns = X.columns.min() - pd.Series(range(a.shape[1])) - 1
+                a = a.add_prefix(f"{a_name}_")
             elif hasattr(a, "name"):  # a Series
-                a.name = X.columns.min() - 1
-                warnings.warn(f"Renamed `a.name` to {a.name} to have unique column name from X.columns.")
+                a.name = a_name
+        if a_name_type == int and column_names_type == str:
+            X.columns = list(range(X.shape[1]))
+
         return X, a
