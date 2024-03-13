@@ -27,6 +27,9 @@ from sklearn.svm import SVC
 
 from causallib.estimation import Standardization, StratifiedStandardization
 
+import sklearn
+SKLEARN_VERSION = sklearn.__version__
+
 
 class TestStandardizationCommon(unittest.TestCase):
     @classmethod
@@ -143,6 +146,7 @@ class TestStandardization(TestStandardizationCommon):
     def test_many_models(self):
         self.ensure_many_models()
 
+    @unittest.skipIf(SKLEARN_VERSION < "1.2", "Test assertsRaise, but sklearn only raises for >=1.2")
     def test_mix_of_column_names_types(self):
         """Test for compatibility with scikit-learn's v1.2.0
         for a single type of column names
