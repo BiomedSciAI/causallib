@@ -240,9 +240,9 @@ class CleverCovariateImportanceSamplingMatrix(BaseCleverCovariate):
         return A
 
     def clever_covariate_inference(self, X, a, treatment_value):
-        treatment_assignment = np.full(
-            shape=(a.shape[0], 1),
-            fill_value=treatment_value,
+        treatment_assignment = pd.DataFrame(
+            data=treatment_value,
+            index=a.index, columns=[a.name],
         )
         A = self.treatment_encoder_.transform(treatment_assignment)
         A = A.toarray()
