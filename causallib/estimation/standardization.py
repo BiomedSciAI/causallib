@@ -16,7 +16,7 @@ limitations under the License.
 Created on Apr 25, 2018
 
 """
-
+import warnings
 from typing import Mapping
 import inspect
 
@@ -294,11 +294,47 @@ class Standardization(IndividualOutcomeEstimator):
         Returns:
             pd.DataFrame: concatenation of treatment column/s to the provided covariate matrix (A | X).
         """
+        a_name = a.name
         if self.encode_treatment:
-            a_name = a.name
             a_transformed = self.treatment_encoder_.transform(a.to_frame())
             a_transformed = a_transformed.toarray()
             a = pd.DataFrame(a_transformed, index=a.index, columns=self.treatment_encoder_.categories_[0])
-            a = a.add_prefix(f"{a_name}_")
+        a = self._align_treatment_name_types_for_join(X, a, a_name)
         cur_X = g_tools.safe_join(a, X, join="outer")
         return cur_X
+
+    @staticmethod
+    def _align_treatment_name_types_for_join(X, a, a_name):
+        """Align `a`'s columns/name type to match `X` so that joining
+        them creates homogeneous column names type and sklearn>=1.2 don't break."""
+        column_names_types = {type(c) for c in X.columns}
+        if len(column_names_types) > 1:
+            warnings.warn(
+                f"Column names of `X` contain mixed types ({column_names_types}),"
+                f"which sklearn>1.2 will raise for. Make sure column names are of the same type."
+            )
+            return a
+        column_names_type = column_names_types.pop()
+
+        if hasattr(a, "columns"):  # a DataFrame
+            a_name_type = {type(c) for c in a.columns}
+        elif hasattr(a, "name"):  # a Series
+            a_name_type = type(a.name)
+
+        if a_name_type == column_names_type:
+            return a
+
+        if column_names_type == str:  # a is int
+            if isinstance(a, pd.Series):
+                warnings.warn("Renamed `a.name` to 'a' to be of type string")
+                a.name = "a"
+            if isinstance(a, pd.DataFrame):
+                a = a.add_prefix(f"{a_name}_")
+        if column_names_type == int:
+            # make sure
+            if hasattr(a, "columns"):  # a DataFrame
+                a.columns = X.columns.min() - pd.Series(range(a.shape[1])) - 1
+            elif hasattr(a, "name"):  # a Series
+                a.name = X.columns.min() - 1
+                warnings.warn(f"Renamed `a.name` to {a.name} to have unique column name from X.columns.")
+        return a
