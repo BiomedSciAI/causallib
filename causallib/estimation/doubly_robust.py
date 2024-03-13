@@ -346,7 +346,7 @@ class PropensityFeatureStandardization(BaseDoublyRobust):
                 * "weight_matrix": uses the entire weight matrix.
                    For example, if `weight_model` is IPW then: 1/Pr[A_i=a|X_i=x],
                                 for all treatment values `a` and for every sample `i`.
-                * "masked_weighted_matrix": uses the entire weight matrix, but masks it with a dummy-encoding
+                * "masked_weight_matrix": uses the entire weight matrix, but masks it with a dummy-encoding
                   of the treatment assignment.
                   For example, if weight_model` is IPW then: 1/Pr[A=a_i|X=x_i] and 0 for all other `a≠a_i` columns.
                   As described in Bang and Robins (2005).
@@ -459,6 +459,12 @@ class PropensityFeatureStandardization(BaseDoublyRobust):
             "logit_propensity_vector": logit_propensity_vector,
             "propensity_matrix": propensity_matrix,
         }
+        feature_function = feature_functions.get(function_name)
+        if feature_function is None:
+            raise ValueError(
+                f"The provided `feature_type` {function_name} is not supported."
+                f"Supported values are {list(feature_functions.keys())}."
+            )
         return feature_functions[function_name]
 
 

@@ -517,6 +517,11 @@ class TestPropensityFeatureStandardization(TestDoublyRobustBase):
                 n_coefs = self.estimator.outcome_model.learner.coef_.size
                 self.assertEqual(n_coefs, X_size + added_covariates + 1)  # 1 for treatment assignment
 
+        with self.subTest("Test non-existing feature type"):
+            with self.assertRaises(ValueError):
+                self.estimator._get_feature_function("nonexistent_feature")
+
+
         # with self.subTest("Test signed_weight_vector takes only binary", skip=True):
         #     a = data['a'].copy()
         #     a.iloc[-a.shape[0] // 4:] += 1
