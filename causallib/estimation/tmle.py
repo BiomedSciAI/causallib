@@ -232,9 +232,10 @@ class CleverCovariateImportanceSamplingMatrix(BaseCleverCovariate):
           https://doi.org/10.18637/jss.v051.i13
     """
     def clever_covariate_fit(self, X, a):
-        self.treatment_encoder_ = OneHotEncoder(sparse=False, categories="auto")
+        self.treatment_encoder_ = OneHotEncoder(categories="auto")
         self.treatment_encoder_.fit(a.to_frame())
         A = self.treatment_encoder_.transform(a.to_frame())
+        A = A.toarray()
         A = pd.DataFrame(A, index=a.index, columns=self.treatment_encoder_.categories_[0])
         return A
 
@@ -244,6 +245,7 @@ class CleverCovariateImportanceSamplingMatrix(BaseCleverCovariate):
             fill_value=treatment_value,
         )
         A = self.treatment_encoder_.transform(treatment_assignment)
+        A = A.toarray()
         A = pd.DataFrame(
             A, index=a.index, columns=self.treatment_encoder_.categories_[0]
         )

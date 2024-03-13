@@ -250,7 +250,7 @@ class Standardization(IndividualOutcomeEstimator):
     def fit(self, X, a, y, sample_weight=None):
         if self.encode_treatment:
             # setattr(self, "treatment_encoder_", OneHotEncoder(sparse=False))
-            self.treatment_encoder_ = OneHotEncoder(sparse=False, categories="auto")
+            self.treatment_encoder_ = OneHotEncoder(categories="auto")
             self.treatment_encoder_.fit(a.to_frame())
         X = self._prepare_data(X, a)
         fit_params = _add_sample_weight_fit_params(self.learner, sample_weight)
@@ -297,6 +297,7 @@ class Standardization(IndividualOutcomeEstimator):
         if self.encode_treatment:
             a_name = a.name
             a_transformed = self.treatment_encoder_.transform(a.to_frame())
+            a_transformed = a_transformed.toarray()
             a = pd.DataFrame(a_transformed, index=a.index, columns=self.treatment_encoder_.categories_[0])
             a = a.add_prefix(f"{a_name}_")
         cur_X = g_tools.safe_join(a, X, join="outer")
