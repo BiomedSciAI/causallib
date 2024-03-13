@@ -251,7 +251,7 @@ class Standardization(IndividualOutcomeEstimator):
         if self.encode_treatment:
             # setattr(self, "treatment_encoder_", OneHotEncoder(sparse=False))
             self.treatment_encoder_ = OneHotEncoder(sparse=False, categories="auto")
-            self.treatment_encoder_.fit(a.values.reshape(-1, 1))
+            self.treatment_encoder_.fit(a.to_frame())
         X = self._prepare_data(X, a)
         fit_params = _add_sample_weight_fit_params(self.learner, sample_weight)
         self.learner.fit(X, y, **fit_params)
@@ -295,8 +295,8 @@ class Standardization(IndividualOutcomeEstimator):
             pd.DataFrame: concatenation of treatment column/s to the provided covariate matrix (A | X).
         """
         if self.encode_treatment:
-            a_transformed = self.treatment_encoder_.transform(a.values.reshape(-1, 1))
             a_name = a.name
+            a_transformed = self.treatment_encoder_.transform(a.to_frame())
             a = pd.DataFrame(a_transformed, index=a.index, columns=self.treatment_encoder_.categories_[0])
             a = a.add_prefix(f"{a_name}_")
         cur_X = g_tools.safe_join(a, X, join="outer")
