@@ -357,6 +357,82 @@ class CS3TestCase(unittest.TestCase):
                          msg="discovered rank of matrix is {emp} instead of {des}."
                              "so the linear linking does not work properly".format(emp=rank, des=2))
 
+    def test_affine_linking(self):
+        topology = np.zeros((3, 3), dtype=bool)
+        topology[2, 0] = topology[2, 1] = True
+        var_types = ["covariate", "treatment", "outcome"]
+        snr = 1
+        prob_cat = [None, [0.5, 0.5], None]
+        treatment_importance = None
+        sim = CS3(topology=topology, var_types=var_types, prob_categories=prob_cat,
+                  link_types="affine", treatment_importances=treatment_importance,
+                  outcome_types=self.no_X.outcome_types, snr=snr, effect_sizes=self.no_X.effect_sizes)
+        X, prop, cf = sim.generate_data(num_samples=self.NUM_SAMPLES)
+
+        singular_values = np.linalg.svd(X.astype(float).values, compute_uv=False)
+        eps = 1e-10
+        rank = np.sum(singular_values > eps)
+        self.assertEqual(rank, 3,
+                         msg="discovered rank of matrix is {emp} instead of {des}."
+                             "so the affine linking does not work properly".format(emp=rank, des=3))
+
+    def test_poly_linking(self):
+        topology = np.zeros((3, 3), dtype=bool)
+        topology[2, 0] = topology[2, 1] = True
+        var_types = ["covariate", "treatment", "outcome"]
+        snr = 1
+        prob_cat = [None, [0.5, 0.5], None]
+        treatment_importance = None
+        sim = CS3(topology=topology, var_types=var_types, prob_categories=prob_cat,
+                  link_types="poly", treatment_importances=treatment_importance,
+                  outcome_types=self.no_X.outcome_types, snr=snr, effect_sizes=self.no_X.effect_sizes)
+        X, prop, cf = sim.generate_data(num_samples=self.NUM_SAMPLES)
+
+        singular_values = np.linalg.svd(X.astype(float).values, compute_uv=False)
+        eps = 1e-10
+        rank = np.sum(singular_values > eps)
+        self.assertEqual(rank, 3,
+                         msg="discovered rank of matrix is {emp} instead of {des}."
+                             "so the poly linking does not work properly".format(emp=rank, des=3))
+
+    def test_exp_linking(self):
+        topology = np.zeros((3, 3), dtype=bool)
+        topology[2, 0] = topology[2, 1] = True
+        var_types = ["covariate", "treatment", "outcome"]
+        snr = 1
+        prob_cat = [None, [0.5, 0.5], None]
+        treatment_importance = None
+        sim = CS3(topology=topology, var_types=var_types, prob_categories=prob_cat,
+                  link_types="exp", treatment_importances=treatment_importance,
+                  outcome_types=self.no_X.outcome_types, snr=snr, effect_sizes=self.no_X.effect_sizes)
+        X, prop, cf = sim.generate_data(num_samples=self.NUM_SAMPLES)
+
+        singular_values = np.linalg.svd(X.astype(float).values, compute_uv=False)
+        eps = 1e-10
+        rank = np.sum(singular_values > eps)
+        self.assertEqual(rank, 3,
+                         msg="discovered rank of matrix is {emp} instead of {des}."
+                             "so the exp linking does not work properly".format(emp=rank, des=3))
+
+    def test_log_linking(self):
+        topology = np.zeros((3, 3), dtype=bool)
+        topology[2, 0] = topology[2, 1] = True
+        var_types = ["covariate", "treatment", "outcome"]
+        snr = 1
+        prob_cat = [None, [0.5, 0.5], None]
+        treatment_importance = None
+        sim = CS3(topology=topology, var_types=var_types, prob_categories=prob_cat,
+                  link_types="log", treatment_importances=treatment_importance,
+                  outcome_types=self.no_X.outcome_types, snr=snr, effect_sizes=self.no_X.effect_sizes)
+        X, prop, cf = sim.generate_data(num_samples=self.NUM_SAMPLES)
+
+        singular_values = np.linalg.svd(X.astype(float).values, compute_uv=False)
+        eps = 1e-10
+        rank = np.sum(singular_values > eps)
+        self.assertEqual(rank, 3,
+                         msg="discovered rank of matrix is {emp} instead of {des}."
+                             "so the log linking does not work properly".format(emp=rank, des=3))
+
     def test_treatment_logistic(self):
         topology = np.zeros((6, 6), dtype=bool)
         topology[2, 0] = topology[3, 0] = topology[2, 1] = topology[3, 1] = topology[4, 2] = topology[5, 3] = True
@@ -533,6 +609,25 @@ class CS3TestCase(unittest.TestCase):
         # TODO: test different link types
         # TODO: test marginal structural model (both in continuous, dichotomous and probability settings)
 
+    def test_effect_modifier(self):
+        topology = np.zeros((4, 4), dtype=bool)
+        topology[2, 0] = topology[2, 1] = topology[2, 3] = True
+        var_types = ["effect_modifier", "treatment", "outcome", "covariate"]
+        snr = 1
+        prob_cat = [None, [0.5, 0.5], None, None]
+        treatment_importance = None
+        sim = CS3(topology=topology, var_types=var_types, prob_categories=prob_cat,
+                  link_types=["linear","linear","marginal_structural_model","linear"], treatment_importances=treatment_importance,
+                  outcome_types="continuous", snr=snr, effect_sizes=None)
+        X, prop, cf = sim.generate_data(num_samples=self.NUM_SAMPLES)
+        
+        beta = sim.linking_coefs
+        self.assertNotEqual(beta[2].loc[0,0], beta[2].loc[0,1],
+                         msg="coefficients for potential outcomes are the same: {beta_1} = {beta_0}."
+                             "so the effect modifier does not behave properly".format(beta_0=beta[2].loc[0,0], beta_1=beta[2].loc[0,1]))
+        self.assertEqual(beta[2].loc[3,0], beta[2].loc[3,1],
+                         msg="coefficients for potential outcomes are not the same: {beta_1} != {beta_0}."
+                             "so the covariate does not behave properly".format(beta_0=beta[2].loc[0,0], beta_1=beta[2].loc[0,1]))
 
 if __name__ == "__main__":
     unittest.main()
