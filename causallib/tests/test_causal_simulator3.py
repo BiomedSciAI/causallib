@@ -629,5 +629,6 @@ class CS3TestCase(unittest.TestCase):
                          msg="coefficients for potential outcomes are not the same: {beta_1} != {beta_0}."
                              "so the covariate does not behave properly".format(beta_0=beta[2].loc[0,0], beta_1=beta[2].loc[0,1]))
 
+
 if __name__ == "__main__":
     unittest.main()
