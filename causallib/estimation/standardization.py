@@ -27,6 +27,7 @@ from sklearn.preprocessing import OneHotEncoder
 
 from .base_estimator import IndividualOutcomeEstimator
 from ..utils import general_tools as g_tools
+from ..utils.exceptions import ColumnNameChangeWarning
 
 
 def _standardization_predict(estimator, X, predict_proba):
@@ -309,16 +310,18 @@ class Standardization(IndividualOutcomeEstimator):
         """Align columns/name types in `X` and `a` to match so that joining them
         creates homogeneous column names type and sklearn>=1.2 don't break."""
         if a_name is None:
-            warnings.warn("`a.name` is None. Renaming to 'a'.")
+            warnings.warn("`a.name` is None. Renaming to 'a'.", ColumnNameChangeWarning)
             a_name = "a"
 
         column_names_types = {type(c) for c in X.columns}
         if len(column_names_types) > 1:
             X.columns = X.columns.astype(str)
             warnings.warn(
-                f"Column names of `X` contain mixed types ({column_names_types}),"
+                f"Column names of `X` contain mixed types "
+                f"({ {t.__name__ for t in column_names_types} }), "
                 f"which sklearn>1.2 will raise for. "
-                f"Therefore `X.columns` were all converted to string."
+                f"Therefore `X.columns` were all converted to string.",
+                ColumnNameChangeWarning,
             )
         column_names_type = column_names_types.pop()
 
@@ -330,7 +333,8 @@ class Standardization(IndividualOutcomeEstimator):
         if a_name_type == str:
             X.columns = X.columns.astype(str)
             warnings.warn(
-                "Converting `X.columns` to strings to match `a.name` type."
+                "Converting `X.columns` to strings to match `a.name` type.",
+                ColumnNameChangeWarning,
             )
             if hasattr(a, "columns"):  # a DataFrame
                 a = a.add_prefix(f"{a_name}_")
