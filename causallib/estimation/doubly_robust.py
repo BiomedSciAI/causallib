@@ -384,7 +384,7 @@ class PropensityFeatureStandardization(BaseDoublyRobust):
         feature_func = self._get_feature_function(self.feature_type)
         weights_feature = feature_func(X_weight, a)
         # Let standardization deal with incorporating treatment assignment (a) into the data:
-        X_augmented = pd.concat([weights_feature, X_outcome], join="outer", axis="columns")
+        X_augmented = g_tools.column_name_type_safe_join(X_outcome, weights_feature, a_name="w")
         return X_augmented
 
     # def predict(self, X, a):
