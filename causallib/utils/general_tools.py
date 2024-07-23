@@ -19,6 +19,8 @@ General (i.e. non-scientific) utils used throughout the package.
 """
 import warnings
 
+from typing import Hashable
+
 import pandas as pd
 from numpy import isscalar as np_is_scalar
 from pandas import Series
@@ -148,28 +150,25 @@ def align_column_name_types_for_join(X, a, a_name=None):
     return X, a
 
 
-def column_name_type_safe_join(X, a, join="outer"):
+def column_name_type_safe_join(X, a, a_name=None, join="outer"):
     """Joins the columns of 2 pandas Dataframe/Series
     in a way that respects scikit-learn's  demand for a single-type
     column name (e.g., either all ints or all strings).
+    Joins `[a, X]`.
 
     Args:
         X (pd.DataFrame | pd.Series):
         a (pd.DataFrame | pd.Series):
+        a_name (Hashable): if `a` used to be a single column/Series,
+                            then this name will be a prefix if `a` is now a pd.DataFrame.
         join (str): {"outer", "inner", "left" right"}. Compatible with `pd.concat`
 
     Returns:
         pd.DataFrame
     """
-    if hasattr(u, "columns"):
-        columns = u.columns
-    elif hasattr(u, "name"):
-        columns = [u.name]
-    else:
-        columns = []
-
-    
-
-    res = pd.concat([u, w], join=join, axis="columns")
+    if a_name is None:
+        a_name = a.name if hasattr(a, "name") else ""
+    X, a = align_column_name_types_for_join(X, a, a_name=a_name)
+    res = pd.concat([a, X], join=join, axis="columns")
     return res
 

@@ -298,9 +298,7 @@ class Standardization(IndividualOutcomeEstimator):
             a_transformed = self.treatment_encoder_.transform(a.to_frame())
             a_transformed = a_transformed.toarray()
             a = pd.DataFrame(a_transformed, index=a.index, columns=self.treatment_encoder_.categories_[0])
-        X, a = g_tools.align_column_name_types_for_join(X, a, a_name)
-        # cur_X = g_tools.safe_join(a, X, join="outer")
-        cur_X = pd.concat([a, X], axis="columns")
+        cur_X = g_tools.column_name_type_safe_join(X, a, a_name=a_name)
         return cur_X
 
 
