@@ -17,9 +17,13 @@ Created on Jun 27, 2018
 
 General (i.e. non-scientific) utils used throughout the package.
 """
+import warnings
+
 import pandas as pd
 from numpy import isscalar as np_is_scalar
 from pandas import Series
+
+from .exceptions import ColumnNameChangeWarning
 
 
 def get_iterable_treatment_values(treatment_values, treatment_assignment, sort=True):
@@ -98,14 +102,60 @@ def check_learner_is_fitted(learner):
     return is_fitted
 
 
-def safe_join(u, w, join="outer"):
+def align_column_name_types_for_join(X, a, a_name=None):
+    """Align columns/name types in `X` and `a` to match so that joining them
+    creates homogeneous column names type and sklearn>=1.2 don't break."""
+    if a_name is None:
+        warnings.warn("`a.name` is None. Renaming to 'a'.", ColumnNameChangeWarning)
+        a_name = "a"
+
+    column_names_types = {type(c) for c in X.columns}
+    if len(column_names_types) > 1:
+        X.columns = X.columns.astype(str)
+        warnings.warn(
+            f"Column names of `X` contain mixed types "
+            f"({ {t.__name__ for t in column_names_types} }), "
+            f"which sklearn>1.2 will raise for. "
+            f"Therefore `X.columns` were all converted to string.",
+            ColumnNameChangeWarning,
+        )
+    column_names_type = column_names_types.pop()
+
+    if hasattr(a, "columns"):  # a DataFrame
+        a_name_type = {type(c) for c in a.columns}.pop()
+    elif hasattr(a, "name"):  # a Series
+        a_name_type = type(a_name)
+    else:
+        raise RuntimeError(
+            f"Variable `a` doesn't seem to be neither a `DataFrame` nor a `Series`, "
+            f"but rather a {type(a).__qualname__}.",
+        )
+
+    if a_name_type == str:
+        X.columns = X.columns.astype(str)
+        warnings.warn(
+            "Converting `X.columns` to strings to match `a.name` type.",
+            ColumnNameChangeWarning,
+        )
+        if hasattr(a, "columns"):  # a DataFrame
+            a = a.add_prefix(f"{a_name}_")
+        elif hasattr(a, "name"):  # a Series
+            a.name = a_name
+
+    if a_name_type == int and column_names_type == str:
+        X.columns = list(range(X.shape[1]))
+
+    return X, a
+
+
+def column_name_type_safe_join(X, a, join="outer"):
     """Joins the columns of 2 pandas Dataframe/Series
     in a way that respects scikit-learn's  demand for a single-type
     column name (e.g., either all ints or all strings).
 
     Args:
-        u (pd.DataFrame | pd.Series):
-        w (pd.DataFrame | pd.Series):
+        X (pd.DataFrame | pd.Series):
+        a (pd.DataFrame | pd.Series):
         join (str): {"outer", "inner", "left" right"}. Compatible with `pd.concat`
 
     Returns:

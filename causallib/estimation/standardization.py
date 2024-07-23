@@ -16,7 +16,6 @@ limitations under the License.
 Created on Apr 25, 2018
 
 """
-import warnings
 from typing import Mapping
 import inspect
 
@@ -27,7 +26,6 @@ from sklearn.preprocessing import OneHotEncoder
 
 from .base_estimator import IndividualOutcomeEstimator
 from ..utils import general_tools as g_tools
-from ..utils.exceptions import ColumnNameChangeWarning
 
 
 def _standardization_predict(estimator, X, predict_proba):
@@ -300,47 +298,9 @@ class Standardization(IndividualOutcomeEstimator):
             a_transformed = self.treatment_encoder_.transform(a.to_frame())
             a_transformed = a_transformed.toarray()
             a = pd.DataFrame(a_transformed, index=a.index, columns=self.treatment_encoder_.categories_[0])
-        X, a = self._align_column_name_types_for_join(X, a, a_name)
+        X, a = g_tools.align_column_name_types_for_join(X, a, a_name)
         # cur_X = g_tools.safe_join(a, X, join="outer")
         cur_X = pd.concat([a, X], axis="columns")
         return cur_X
 
-    @staticmethod
-    def _align_column_name_types_for_join(X, a, a_name):
-        """Align columns/name types in `X` and `a` to match so that joining them
-        creates homogeneous column names type and sklearn>=1.2 don't break."""
-        if a_name is None:
-            warnings.warn("`a.name` is None. Renaming to 'a'.", ColumnNameChangeWarning)
-            a_name = "a"
 
-        column_names_types = {type(c) for c in X.columns}
-        if len(column_names_types) > 1:
-            X.columns = X.columns.astype(str)
-            warnings.warn(
-                f"Column names of `X` contain mixed types "
-                f"({ {t.__name__ for t in column_names_types} }), "
-                f"which sklearn>1.2 will raise for. "
-                f"Therefore `X.columns` were all converted to string.",
-                ColumnNameChangeWarning,
-            )
-        column_names_type = column_names_types.pop()
-
-        if hasattr(a, "columns"):  # a DataFrame
-            a_name_type = {type(c) for c in a.columns}.pop()
-        elif hasattr(a, "name"):  # a Series
-            a_name_type = type(a_name)
-
-        if a_name_type == str:
-            X.columns = X.columns.astype(str)
-            warnings.warn(
-                "Converting `X.columns` to strings to match `a.name` type.",
-                ColumnNameChangeWarning,
-            )
-            if hasattr(a, "columns"):  # a DataFrame
-                a = a.add_prefix(f"{a_name}_")
-            elif hasattr(a, "name"):  # a Series
-                a.name = a_name
-        if a_name_type == int and column_names_type == str:
-            X.columns = list(range(X.shape[1]))
-
-        return X, a
