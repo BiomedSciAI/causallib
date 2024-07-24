@@ -107,6 +107,9 @@ def check_learner_is_fitted(learner):
 def align_column_name_types_for_join(X, a, a_name=None):
     """Align columns/name types in `X` and `a` to match so that joining them
     creates homogeneous column names type and sklearn>=1.2 don't break."""
+    if X.empty or a.empty:
+        return X, a
+
     if a_name is None:
         warnings.warn("`a.name` is None. Renaming to 'a'.", ColumnNameChangeWarning)
         a_name = "a"
