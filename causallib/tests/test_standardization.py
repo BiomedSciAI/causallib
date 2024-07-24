@@ -18,7 +18,7 @@ Created on Aug 08, 2018
 """
 
 import unittest
-import warnings
+# import warnings
 
 import numpy as np
 import pandas as pd
@@ -35,19 +35,16 @@ SKLEARN_VERSION = sklearn.__version__
 
 
 class TestStandardizationCommon(unittest.TestCase):
-    def setUp(self):
-        warnings.simplefilter("ignore", category=ColumnNameChangeWarning)
-    #     warnings.filterwarnings("ignore", message="`a.name` is None. Renaming to 'a'.")
-    #     warnings.filterwarnings("ignore", message="Converting `X.columns` to strings to match `a.name` type.")
-    #     # # warnings.filterwarnings("ignore", message="Column names of `X` contain mixed types ({'str', 'int'}), which sklearn>1.2 will raise for. Therefore `X.columns` were all converted to string.")
-    #     warnings.filterwarnings("ignore", message="Column names of `X` contain mixed types")
+    # def setUp(self):
+    #     warnings.simplefilter("ignore", category=ColumnNameChangeWarning)
 
     @classmethod
     def setUpClass(cls):
         alpha, beta = 5.0, 0.4
-        X = pd.Series(np.random.normal(2.0, 1.0, size=100))
-        a = pd.Series([0] * 50 + [1] * 50, dtype=np.dtype(int))
+        X = pd.Series(np.random.normal(2.0, 1.0, size=100), name="x")
+        a = pd.Series([0] * 50 + [1] * 50, dtype=np.dtype(int), name="a")
         y = X.mul(alpha) + a.mul(beta)
+        y = y.rename("y")
         cls.data_lin = {"X": X.to_frame(), "a": a, "y": y, "alpha": alpha, "beta": beta}
         cls.estimator = None
 
@@ -169,7 +166,9 @@ class TestStandardization(TestStandardizationCommon):
             estimator.fit(X, a, self.data_lin["y"])
 
             estimator = Standardization(LinearRegression(), encode_treatment=True)
-            estimator.fit(X, a, self.data_lin["y"])
+            with self.assertWarns(ColumnNameChangeWarning):
+                # Because encoding turns `a` to a Frame with treatment values (0, 1) as columns
+                estimator.fit(X, a, self.data_lin["y"])
 
         with self.subTest("Test both `X` and `a` int"):
             X = self.data_lin["X"]
@@ -188,10 +187,12 @@ class TestStandardization(TestStandardizationCommon):
             Xa = pd.concat([X, a], axis="columns")
 
             estimator = Standardization(LinearRegression(), encode_treatment=False)
-            estimator.fit(X, a, self.data_lin["y"])
+            with self.assertWarns(ColumnNameChangeWarning):
+                estimator.fit(X, a, self.data_lin["y"])
 
             estimator = Standardization(LinearRegression(), encode_treatment=True)
-            estimator.fit(X, a, self.data_lin["y"])
+            with self.assertWarns(ColumnNameChangeWarning):
+                estimator.fit(X, a, self.data_lin["y"])
 
         with self.subTest("Test no-name Series, Int `X`"):
             X = self.data_lin["X"]
@@ -200,10 +201,12 @@ class TestStandardization(TestStandardizationCommon):
             Xa = pd.concat([X, a], axis="columns")
 
             estimator = Standardization(LinearRegression(), encode_treatment=False)
-            estimator.fit(X, a, self.data_lin["y"])
+            with self.assertWarns(ColumnNameChangeWarning):
+                estimator.fit(X, a, self.data_lin["y"])
 
             estimator = Standardization(LinearRegression(), encode_treatment=True)
-            estimator.fit(X, a, self.data_lin["y"])
+            with self.assertWarns(ColumnNameChangeWarning):
+                estimator.fit(X, a, self.data_lin["y"])
 
 
 class TestStandardizationStratified(TestStandardizationCommon):
@@ -280,7 +283,11 @@ class TestStandardizationClassification(TestStandardizationCommon):
                                    n_clusters_per_class=1, flip_y=0.0, class_sep=10.0)
         X, a = X[:, :-1], X[:, -1]
         a = (a > np.median(a)).astype(int)
-        cls.data_3cls = {"X": pd.DataFrame(X), "a": pd.Series(a), "y": pd.Series(y)}
+        cls.data_3cls = {
+            "X": pd.DataFrame(X, columns=["x0", "x1"]),
+            "a": pd.Series(a, name="a"),
+            "y": pd.Series(y, name="y")
+        }
 
         # X, y = make_classification(n_features=2, n_informative=1, n_redundant=0, n_repeated=0, n_classes=2,
         #                            n_clusters_per_class=1, flip_y=0.0, class_sep=10.0)
