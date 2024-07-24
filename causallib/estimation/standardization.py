@@ -237,7 +237,9 @@ class Standardization(IndividualOutcomeEstimator):
         treatment_values = g_tools.get_iterable_treatment_values(treatment_values, a)
         res = {}
         for treatment_value in treatment_values:
-            treatment_assignment = pd.Series(treatment_value, index=X.index)  # a vector of treatment assignment
+            treatment_assignment = pd.Series(
+                treatment_value, index=X.index, name=a.name
+            )  # a vector of a single-valued treatment assignment
             prediction = self._predict(X, treatment_assignment, predict_proba=predict_proba)  # predict
             res[treatment_value] = prediction  # Save prediction
         res = pd.concat(res, axis="columns", names=[a.name or "a"])
