@@ -106,17 +106,30 @@ def check_learner_is_fitted(learner):
 
 def align_column_name_types_for_join(X, a, a_name=None):
     """Align columns/name types in `X` and `a` to match so that joining them
-    creates homogeneous column names type and sklearn>=1.2 don't break."""
+    creates homogeneous column names type and sklearn>=1.2 don't break.
+    Prefer to stringify columns, as integer columns seem to be an anti-pattern
+    https://github.com/rstudio/reticulate/issues/274#issuecomment-1679501053
+
+    if `a` is a pd.DataFrame, also pass `a_name` as a prefix to its columns
+    """
     if X.empty or a.empty:
         return X, a
 
+    # `a` doesn't have any name/prefix associated to it
     if a_name is None:
-        warnings.warn("`a.name` is None. Renaming to 'a'.", ColumnNameChangeWarning)
-        a_name = "a"
+        if hasattr(a, "name") and a.name is not None:
+            a_name = a.name
+        else:
+            warnings.warn(
+                "No name was defined for `a` in `a.name` or `a_name`, so setting it to 'a'.",
+                ColumnNameChangeWarning
+            )
+            a_name = "a"
 
     column_names_types = {type(c) for c in X.columns}
     if len(column_names_types) > 1:
         X.columns = X.columns.astype(str)
+        column_names_types = {str}
         warnings.warn(
             f"Column names of `X` contain mixed types "
             f"({ {t.__name__ for t in column_names_types} }), "
@@ -136,19 +149,27 @@ def align_column_name_types_for_join(X, a, a_name=None):
             f"but rather a {type(a).__qualname__}.",
         )
 
-    if a_name_type == str:
+    # if a_name_type == column_names_type:
+    #     return X, a
+
+    if a_name_type == str and column_names_type != str:
         X.columns = X.columns.astype(str)
         warnings.warn(
             "Converting `X.columns` to strings to match `a.name` type.",
             ColumnNameChangeWarning,
         )
-        if hasattr(a, "columns"):  # a DataFrame
-            a = a.add_prefix(f"{a_name}_")
-        elif hasattr(a, "name"):  # a Series
-            a.name = a_name
 
-    if a_name_type == int and column_names_type == str:
-        X.columns = list(range(X.shape[1]))
+    if a_name_type != str and column_names_type == str:
+        a_name = str(a_name)
+        warnings.warn(
+            "Converting `a.name` to string to match `X.columns` type.",
+            ColumnNameChangeWarning,
+        )
+
+    if hasattr(a, "columns"):  # a DataFrame
+        a = a.add_prefix(f"{a_name}_")
+    elif hasattr(a, "name"):  # a Series
+        a.name = a_name
 
     return X, a
 
@@ -172,6 +193,9 @@ def column_name_type_safe_join(X, a, a_name=None, join="outer"):
     if a_name is None:
         a_name = a.name if hasattr(a, "name") else ""
     X, a = align_column_name_types_for_join(X, a, a_name=a_name)
+    if a.empty:
+        # Empty Series somehow turns into column of NaNs, unlike empty DataFrame that disappears
+        a = None
     res = pd.concat([a, X], join=join, axis="columns")
     return res
 

@@ -157,39 +157,6 @@ class TestStandardization(TestStandardizationCommon):
     def test_many_models(self):
         self.ensure_many_models()
 
-    @unittest.skipIf(SKLEARN_VERSION < "1.2", "Test assertsRaise, but sklearn only raises for >=1.2")
-    def test_mix_of_column_names_types(self):
-        """Test for compatibility with scikit-learn's v1.2.0
-        for a single type of column names
-        """
-        with self.subTest("Test string `X` and numeric `a`"):
-            X = self.data_lin["X"].rename(columns={0: "x"})
-            a = self.data_lin["a"]
-
-            with self.subTest("Non-encoded"):
-                with self.assertRaises(TypeError):
-                    estimator = Standardization(LinearRegression(), encode_treatment=False)
-                    estimator.fit(X, a, self.data_lin["y"])
-
-            with self.subTest("Encoded"):
-                with self.assertRaises(TypeError):
-                    estimator = Standardization(LinearRegression(), encode_treatment=True)
-                    estimator.fit(X, a, self.data_lin["y"])
-
-        with self.subTest("Test for numeric `X` and string `a`"):
-            X = self.data_lin["X"]
-            a = self.data_lin["a"].rename("a")
-
-            with self.subTest("Non-encoded"):
-                with self.assertRaises(TypeError):
-                    estimator = Standardization(LinearRegression(), encode_treatment=False)
-                    estimator.fit(X, a, self.data_lin["y"])
-
-            with self.subTest("Encoded"):
-                with self.assertRaises(TypeError):
-                    estimator = Standardization(LinearRegression(), encode_treatment=True)
-                    estimator.fit(X, a, self.data_lin["y"])
-
     def test_column_names_types(self):
         """Test for compatibility with scikit-learn's v1.2.0
         for a single type of column names
