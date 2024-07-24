@@ -26,6 +26,9 @@ from causallib.estimation.rlearner import RLearner
 
 from causallib.utils.exceptions import ColumnNameChangeWarning
 
+import sklearn
+LR_NO_PENALTY = None if sklearn.__version__ >= "1.2" else "none"
+
 
 class TestRlearner(unittest.TestCase):
     def setUp(self):
@@ -344,7 +347,7 @@ class TestRLearnerLinear(TestRlearner):
     def setUpClass(cls):
         TestRlearner.setUpClass()
         # Avoids regularization of the model:
-        treatment_model = LogisticRegression(solver="sag", penalty="none")
+        treatment_model = LogisticRegression(solver="sag", penalty=LR_NO_PENALTY)
         outcome_model = LinearRegression()
         effect_model = LinearRegression(fit_intercept=False)
         cls.estimator = RLearner(
@@ -395,7 +398,7 @@ class TestRlearnerNonparam(TestRlearner):
     @classmethod
     def setUpClass(cls):
         TestRlearner.setUpClass()
-        treatment_model = LogisticRegression(solver="sag", penalty="none")
+        treatment_model = LogisticRegression(solver="sag", penalty=LR_NO_PENALTY)
         outcome_model = LinearRegression()
         effect_model = RandomForestRegressor()
         cls.estimator = RLearner(
