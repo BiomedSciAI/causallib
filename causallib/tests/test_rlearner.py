@@ -16,14 +16,22 @@ limitations under the License.
 Created on April 4, 2021
 """
 import unittest
+import warnings
+
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from causallib.estimation.rlearner import RLearner
 
+from causallib.utils.exceptions import ColumnNameChangeWarning
+
 
 class TestRlearner(unittest.TestCase):
+    def setUp(self):
+        # Avoid column concatination
+        warnings.simplefilter("ignore", category=ColumnNameChangeWarning)
+
     @staticmethod
     def create_uninformative_tx_dataset():
         n = 100

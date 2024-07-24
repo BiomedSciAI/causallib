@@ -31,8 +31,17 @@ from causallib.estimation import AIPW, PropensityFeatureStandardization, Weighte
 from causallib.estimation import IPW
 from causallib.estimation import Standardization, StratifiedStandardization
 
+from causallib.utils.exceptions import ColumnNameChangeWarning
+
 
 class TestDoublyRobustBase(unittest.TestCase):
+    def setUp(self):
+        warnings.simplefilter("ignore", category=ColumnNameChangeWarning)
+        # warnings.filterwarnings("ignore", message="`a.name` is None. Renaming to 'a'.")
+        # warnings.filterwarnings("ignore", message="Converting `X.columns` to strings to match `a.name` type.")
+        # # warnings.filterwarnings("ignore", message="Column names of `X` contain mixed types ({'str', 'int'}), which sklearn>1.2 will raise for. Therefore `X.columns` were all converted to string.")
+        # warnings.filterwarnings("ignore", message="Column names of `X` contain mixed types")
+
     @staticmethod
     def create_uninformative_tx_dataset():
         n = 100

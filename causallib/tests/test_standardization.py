@@ -18,6 +18,7 @@ Created on Aug 08, 2018
 """
 
 import unittest
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -27,11 +28,20 @@ from sklearn.svm import SVC
 
 from causallib.estimation import Standardization, StratifiedStandardization
 
+from causallib.utils.exceptions import ColumnNameChangeWarning
+
 import sklearn
 SKLEARN_VERSION = sklearn.__version__
 
 
 class TestStandardizationCommon(unittest.TestCase):
+    def setUp(self):
+        warnings.simplefilter("ignore", category=ColumnNameChangeWarning)
+    #     warnings.filterwarnings("ignore", message="`a.name` is None. Renaming to 'a'.")
+    #     warnings.filterwarnings("ignore", message="Converting `X.columns` to strings to match `a.name` type.")
+    #     # # warnings.filterwarnings("ignore", message="Column names of `X` contain mixed types ({'str', 'int'}), which sklearn>1.2 will raise for. Therefore `X.columns` were all converted to string.")
+    #     warnings.filterwarnings("ignore", message="Column names of `X` contain mixed types")
+
     @classmethod
     def setUpClass(cls):
         alpha, beta = 5.0, 0.4
@@ -113,6 +123,7 @@ class TestStandardization(TestStandardizationCommon):
         cls.estimator = Standardization(LinearRegression())
 
     def setUp(self):
+        super().setUp()
         self.estimator.fit(self.data_lin["X"], self.data_lin["a"], self.data_lin["y"])
 
     def test_is_fitted(self):
@@ -236,6 +247,7 @@ class TestStandardizationStratified(TestStandardizationCommon):
         cls.estimator = StratifiedStandardization(LinearRegression(), [0, 1])
 
     def setUp(self):
+        super().setUp()
         self.estimator.fit(self.data_lin["X"], self.data_lin["a"], self.data_lin["y"])
 
     def test_is_fitted(self):

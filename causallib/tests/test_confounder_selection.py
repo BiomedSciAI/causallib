@@ -16,7 +16,7 @@ limitations under the License.
 Created on Jul 22, 2018
 
 """
-
+import warnings
 import unittest
 import random
 import pandas as pd
@@ -27,6 +27,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.utils.validation import check_is_fitted
 
 from causallib.preprocessing.confounder_selection import DoubleLASSO, RecursiveConfounderElimination
+from causallib.utils.exceptions import ColumnNameChangeWarning
 
 
 class _TestConfounderSelection(unittest.TestCase):
@@ -274,6 +275,8 @@ class TestDoubleLasso(_TestConfounderSelection):
 class TestRecursiveConfounderElimination(_TestConfounderSelection):
 
     def setUp(self):
+        warnings.simplefilter("ignore", category=ColumnNameChangeWarning)
+
         self.max_x_cols = 10
         self.min_accuracy = 0.95
 
