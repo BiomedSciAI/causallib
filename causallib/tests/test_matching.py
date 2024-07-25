@@ -417,7 +417,7 @@ class TestMatching(unittest.TestCase):
         self.matching.fit(X, a, y)
         self.matching.match(X, a)
         weights = self.matching.matches_to_weights()
-        self.assertEqual(weights.iloc[-1][0], self.n - self.k + 1)
+        self.assertEqual(weights.iloc[-1, 0], self.n - self.k + 1)
         self.assertEqual(
             weights["treatment_to_control"]
             .iloc[self.k + (self.matching.n_neighbors + 1) // 2: self.n]
