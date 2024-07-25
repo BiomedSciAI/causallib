@@ -11,6 +11,9 @@ from causallib.metrics import covariate_balancing_error
 from causallib.metrics import covariate_imbalance_count_error
 from causallib.metrics import balanced_residuals_error
 
+import sklearn
+LR_NO_PENALTY = None if sklearn.__version__ >= "1.2" else "none"
+
 
 class TestPropensityMetrics(unittest.TestCase):
     @classmethod
@@ -45,7 +48,7 @@ class TestPropensityMetrics(unittest.TestCase):
         }
 
         # # Avoids regularization of the model:
-        cls.estimator = LogisticRegression(penalty='none', solver='sag', max_iter=2000)
+        cls.estimator = LogisticRegression(penalty=LR_NO_PENALTY, solver='sag', max_iter=2000)
 
     def test_weighted_roc_auc(self):
         with self.subTest("Chance predictions"):
@@ -261,7 +264,7 @@ class TestWeightMetrics(unittest.TestCase):
         cls.data = {"X": X, "a": a, "w": w}
 
         # # Avoids regularization of the model:
-        cls.estimator = LogisticRegression(penalty='none', solver='sag', max_iter=2000)
+        cls.estimator = LogisticRegression(penalty=LR_NO_PENALTY, solver='sag', max_iter=2000)
 
     def test_covariate_balancing(self):
         score = covariate_balancing_error(self.data["X"], self.data["a"], self.data["w"])

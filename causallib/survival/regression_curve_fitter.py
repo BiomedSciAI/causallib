@@ -51,6 +51,7 @@ class RegressionCurveFitter:
         weights = df[weights_col] if weights_col is not None else None
 
         self.timeline_ = np.sort(np.unique(durations))
+        self.duration_col_ = duration_col  # For consistent naming in fit and predict time
 
         # Get covariates only (exclude durations, observed events and weights columns)
         X = df.drop(columns=[duration_col, event_col, weights_col], errors='ignore')
@@ -91,12 +92,13 @@ class RegressionCurveFitter:
             times = self.timeline_
         if not isinstance(times, pd.Series):
             times = pd.Series(times)
+        times.name = self.duration_col_
 
         if X is None:
             # Predict using times only (without covariates)
-            pred_data_X = pd.DataFrame({'times': times})
-            pred_data_X.index = [0] * len(pred_data_X)  # fake single subject ID
-            t_name = 'times'
+            t_name = times.name
+            pred_data_X = times.to_frame()
+            pred_data_X.index = [0] * pred_data_X.shape[0]  # fake single subject ID
         else:
             # Concatenate time column to covariates
             pred_data_X, t_name = get_regression_predict_data(X, times)

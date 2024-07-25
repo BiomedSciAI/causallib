@@ -16,7 +16,6 @@ limitations under the License.
 Created on Apr 25, 2018
 
 """
-
 from typing import Mapping
 import inspect
 
@@ -238,7 +237,9 @@ class Standardization(IndividualOutcomeEstimator):
         treatment_values = g_tools.get_iterable_treatment_values(treatment_values, a)
         res = {}
         for treatment_value in treatment_values:
-            treatment_assignment = pd.Series(treatment_value, index=X.index)  # a vector of treatment assignment
+            treatment_assignment = pd.Series(
+                treatment_value, index=X.index, name=a.name
+            )  # a vector of a single-valued treatment assignment
             prediction = self._predict(X, treatment_assignment, predict_proba=predict_proba)  # predict
             res[treatment_value] = prediction  # Save prediction
         res = pd.concat(res, axis="columns", names=[a.name or "a"])
@@ -250,8 +251,8 @@ class Standardization(IndividualOutcomeEstimator):
     def fit(self, X, a, y, sample_weight=None):
         if self.encode_treatment:
             # setattr(self, "treatment_encoder_", OneHotEncoder(sparse=False))
-            self.treatment_encoder_ = OneHotEncoder(sparse=False, categories="auto")
-            self.treatment_encoder_.fit(a.values.reshape(-1, 1))
+            self.treatment_encoder_ = OneHotEncoder(categories="auto")
+            self.treatment_encoder_.fit(a.to_frame())
         X = self._prepare_data(X, a)
         fit_params = _add_sample_weight_fit_params(self.learner, sample_weight)
         self.learner.fit(X, y, **fit_params)
@@ -294,10 +295,12 @@ class Standardization(IndividualOutcomeEstimator):
         Returns:
             pd.DataFrame: concatenation of treatment column/s to the provided covariate matrix (A | X).
         """
+        a_name = a.name
         if self.encode_treatment:
-            a_transformed = self.treatment_encoder_.transform(a.values.reshape(-1, 1))
-            a_name = a.name or "a"
-            a = pd.DataFrame(a_transformed, index=a.index, columns=self.treatment_encoder_.categories_)
-            a = a.add_prefix(a_name + "_")
-        cur_X = pd.concat([a, X], join="outer", axis="columns")
+            a_transformed = self.treatment_encoder_.transform(a.to_frame())
+            a_transformed = a_transformed.toarray()
+            a = pd.DataFrame(a_transformed, index=a.index, columns=self.treatment_encoder_.categories_[0])
+        cur_X = g_tools.column_name_type_safe_join(X, a, a_name=a_name)
         return cur_X
+
+

@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import unittest
 import pandas as pd
@@ -294,12 +296,12 @@ class TestNHEFS(unittest.TestCase):
             'observed_non_parametric': MarginalSurvival(),
             'observed_parametric': MarginalSurvival(survival_model=LogisticRegression(max_iter=2000)),
             'ipw_non_parametric': WeightedSurvival(
-                weight_model=IPW(LogisticRegression(max_iter=4000), use_stabilized=True),
+                weight_model=IPW(LogisticRegression(solver="saga", max_iter=6000), use_stabilized=True),
                 survival_model=None),
-            'ipw_parametric': WeightedSurvival(weight_model=IPW(LogisticRegression(max_iter=4000), use_stabilized=True),
+            'ipw_parametric': WeightedSurvival(weight_model=IPW(LogisticRegression(solver="saga", max_iter=6000), use_stabilized=True),
                                                survival_model=LogisticRegression(max_iter=4000)),
             'ipw_parametric_pipeline': WeightedSurvival(
-                weight_model=IPW(LogisticRegression(max_iter=4000), use_stabilized=True),
+                weight_model=IPW(LogisticRegression(solver="saga", max_iter=6000), use_stabilized=True),
                 survival_model=Pipeline(
                     [('transform', PolynomialFeatures(degree=2)), ('LR', LogisticRegression(max_iter=1000, C=2))])),
             'matching_non_parametric': WeightedSurvival(

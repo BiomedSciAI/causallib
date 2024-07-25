@@ -137,7 +137,7 @@ class AdversarialBalancing(WeightEstimator, PopulationOutcomeEstimator):
             if not np.all(unique_treatments == np.arange(n_treatments)):
                 raise AssertionError("Treatment values in `a` must be indexed 0, 1, 2, ...")
             self.iterative_models_ = np.empty((n_treatments, self.iterations), dtype=object)
-            self.iterative_normalizing_consts_ = np.full((n_treatments, self.iterations), np.NaN)
+            self.iterative_normalizing_consts_ = np.full((n_treatments, self.iterations), np.nan)
 
             self.discriminator_loss_ = np.zeros((n_treatments, self.iterations))
             self.treatments_frequency_ = _compute_treatments_frequency(A)
@@ -147,7 +147,7 @@ class AdversarialBalancing(WeightEstimator, PopulationOutcomeEstimator):
             # population ("source population"),
             # and the samples with label -1 are the population under treatment a ("target population").
             # Labels 1 and -1 (rather than 0) are used because of the later exponential loss function
-            X_augm = np.row_stack((X, X[A == a]))  # create the augmented dataset
+            X_augm = np.vstack((X, X[A == a]))  # create the augmented dataset
             y = np.ones((X_augm.shape[0]))
             y[X.shape[0]:] *= -1  # subpopulation of current treatment (a) has y== -1
             target_pop_mask = y == -1

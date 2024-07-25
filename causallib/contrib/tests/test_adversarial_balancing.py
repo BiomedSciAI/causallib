@@ -16,7 +16,7 @@ class TestAdversarialBalancing(unittest.TestCase):
     def create_identical_treatment_groups_data(n=100):
         np.random.seed(42)
         X = np.random.rand(n, 3)
-        X = np.row_stack((X, X))  # Duplicate identical samples
+        X = np.vstack((X, X))  # Duplicate identical samples
         a = np.array([1] * n + [0] * n)  # Give duplicated samples different treatment assignment
         X, a = pd.DataFrame(X), pd.Series(a)
         return X, a

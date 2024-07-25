@@ -160,7 +160,7 @@ class TestIPW(unittest.TestCase):
             # Extract subjects with mismatching X-a values:
             mis_assigned = np.logical_xor(self.data_cat_r_80["X"].iloc[:, 0], self.data_cat_r_80["a"])
             # See they have the same rate:
-            self.assertAlmostEqual(p.mean(), 1.0 - mis_assigned.mean(), 4)
+            # self.assertAlmostEqual(p.mean(), 1.0 - mis_assigned.mean(), 4)
             np.testing.assert_almost_equal(p.mean(), 1.0 - mis_assigned.mean(), decimal=4)
 
     def test_forcing_probability_learner(self):

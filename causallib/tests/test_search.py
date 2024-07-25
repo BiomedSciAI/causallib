@@ -13,6 +13,9 @@ from causallib.metrics import get_scorer
 
 from causallib.model_selection import causalize_searcher
 
+import sklearn
+LR_NO_PENALTY = None if sklearn.__version__ >= "1.2" else "none"
+
 
 class TestGridSearch(unittest.TestCase):
     @classmethod
@@ -58,7 +61,7 @@ class TestGridSearch(unittest.TestCase):
 
     def test_single_propensity_scorer(self):
         data = self.data
-        model = IPW(LogisticRegression(penalty="none", solver="saga", max_iter=10000))
+        model = IPW(LogisticRegression(penalty=LR_NO_PENALTY, solver="saga", max_iter=10000))
         scorer = get_scorer("weighted_roc_auc_error")
         grid_model = self._fit_search_model(model, scorer, dict(clip_min=[0.2, 0.3]))
 
@@ -111,7 +114,7 @@ class TestGridSearch(unittest.TestCase):
 
     def test_single_propensity_scorer_name(self):
         data = self.data
-        model = IPW(LogisticRegression(penalty="none", solver="saga", max_iter=10000))
+        model = IPW(LogisticRegression(penalty=LR_NO_PENALTY, solver="saga", max_iter=10000))
         grid_model = self._fit_search_model(model, "weighted_roc_auc_error", dict(clip_min=[0.2, 0.3]))
 
         self.assertIsInstance(grid_model.best_estimator_, model.__class__)
@@ -123,7 +126,7 @@ class TestGridSearch(unittest.TestCase):
 
     def test_multiple_scorers(self):
         data = self.data
-        model = IPW(LogisticRegression(penalty="none", solver="saga", max_iter=10000, random_state=0))
+        model = IPW(LogisticRegression(penalty=LR_NO_PENALTY, solver="saga", max_iter=10000, random_state=0))
         scorers_dict = {
             "weighted_roc_auc_error": get_scorer("weighted_roc_auc_error"),
             "covariate_balancing_error": get_scorer("covariate_balancing_error"),
@@ -196,7 +199,7 @@ class TestGridSearch(unittest.TestCase):
         )
 
     def test_bad_scorer(self):
-        model = IPW(LogisticRegression(penalty="none", solver="saga", max_iter=10000))
+        model = IPW(LogisticRegression(penalty=LR_NO_PENALTY, solver="saga", max_iter=10000))
         CausalGridSearchCV = causalize_searcher(GridSearchCV)
         with self.assertRaises(ValueError):
             grid_model = CausalGridSearchCV(
@@ -209,7 +212,7 @@ class TestGridSearch(unittest.TestCase):
         data = self.data
         CausalGridSearchCV = causalize_searcher(GridSearchCV)
 
-        ipw = IPW(LogisticRegression(penalty="none", solver="saga", max_iter=10000))
+        ipw = IPW(LogisticRegression(penalty=LR_NO_PENALTY, solver="saga", max_iter=10000))
         ipw_grid_model = CausalGridSearchCV(
             ipw,
             param_grid=dict(clip_min=[0.2, 0.3]), cv=2,
@@ -249,7 +252,7 @@ class TestGridSearch(unittest.TestCase):
         X, a, t, y = data.X.loc[idx], data.a.loc[idx], data.t.loc[idx], data.y.loc[idx]
         CausalGridSearchCV = causalize_searcher(GridSearchCV)
 
-        ipw = IPW(LogisticRegression(penalty="none", solver="saga", max_iter=10000))
+        ipw = IPW(LogisticRegression(penalty=LR_NO_PENALTY, solver="saga", max_iter=10000))
         ipw_grid_model = CausalGridSearchCV(
             ipw,
             param_grid=dict(clip_min=[0.2, 0.3]), cv=2,
@@ -278,7 +281,7 @@ class TestGridSearch(unittest.TestCase):
         scorer = get_scorer("weighted_roc_auc_error")
         param_grid = dict(
             learner=[
-                LogisticRegression(penalty="none", solver="saga", max_iter=10000, random_state=0),
+                LogisticRegression(penalty=LR_NO_PENALTY, solver="saga", max_iter=10000, random_state=0),
                 LogisticRegression(penalty="l1", solver="saga", max_iter=10000, random_state=0),
                 LogisticRegression(penalty="l2", solver="saga", max_iter=10000, random_state=0),
                 GradientBoostingClassifier(random_state=0),
@@ -301,7 +304,7 @@ class TestGridSearch(unittest.TestCase):
         from scipy.stats import uniform
 
         data = self.data
-        ipw = IPW(LogisticRegression(penalty="none", solver="saga", max_iter=10000))
+        ipw = IPW(LogisticRegression(penalty=LR_NO_PENALTY, solver="saga", max_iter=10000))
         model = RandomizedSearchCV(
             ipw,
             param_distributions=dict(clip_min=uniform(loc=0, scale=0.5)), cv=2,
@@ -322,7 +325,7 @@ class TestGridSearch(unittest.TestCase):
         data = self.data
         y = np.random.binomial(2, 0.5, size=data['y'].shape[0])  # binary y, for doubly stratification
         y = pd.Series(y, index=data['y'].index)
-        model = IPW(LogisticRegression(penalty="none", solver="saga", max_iter=10000))
+        model = IPW(LogisticRegression(penalty=LR_NO_PENALTY, solver="saga", max_iter=10000))
         scorer = get_scorer("weighted_roc_auc_error")
 
         with self.subTest("Doubly Stratified K-fold"):
