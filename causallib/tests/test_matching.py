@@ -542,11 +542,11 @@ class TestMatching(unittest.TestCase):
         ypred = self.matching.estimate_individual_outcome(
             X, a, predict_proba=False)
         # if not all integers will raise errors
-        ypred.applymap(str).applymap(int)
+        ypred.map(str).map(int)
         with self.assertRaises(ValueError):
             self.matching.estimate_individual_outcome(
                 X, a, predict_proba=True
-            ).applymap(str).applymap(int)
+            ).map(str).map(int)
 
     def test_classify_task_with_wrong_inputs_warning_check(self):
         X, a, y = self.data_3feature_linear_effect
