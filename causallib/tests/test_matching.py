@@ -542,11 +542,20 @@ class TestMatching(unittest.TestCase):
         ypred = self.matching.estimate_individual_outcome(
             X, a, predict_proba=False)
         # if not all integers will raise errors
-        ypred.map(str).map(int)
-        with self.assertRaises(ValueError):
-            self.matching.estimate_individual_outcome(
-                X, a, predict_proba=True
-            ).map(str).map(int)
+        if pd.__version__ > "2.1":
+            # TODO: at time of writing pandas 2.1.0 is <1 year old.
+            #       Once matured, you may erase the deprecated `applymap` and just use `map`.
+            ypred.map(str).map(int)
+            with self.assertRaises(ValueError):
+                self.matching.estimate_individual_outcome(
+                    X, a, predict_proba=True
+                ).map(str).map(int)
+        else:
+            ypred.applymap(str).applymap(int)
+            with self.assertRaises(ValueError):
+                self.matching.estimate_individual_outcome(
+                    X, a, predict_proba=True
+                ).applymap(str).applymap(int)
 
     def test_classify_task_with_wrong_inputs_warning_check(self):
         X, a, y = self.data_3feature_linear_effect
