@@ -314,7 +314,8 @@ class TestStandardizationClassification(TestStandardizationCommon):
         self.estimator = Standardization(LogisticRegression(C=1e6, solver='lbfgs'), predict_proba=True)
         ind_outcome = self.verify_individual_multiclass_output()
         with self.subTest("Test results are probabilities - sum to 1:"):
-            for treatment_value, y_pred in ind_outcome.groupby(level="a", axis="columns"):
+            for treatment_value, y_pred in ind_outcome.T.groupby(level="a"):
+                y_pred = y_pred.T
                 pd.testing.assert_series_equal(pd.Series(1.0, index=y_pred.index), y_pred.sum(axis="columns"))
 
     def test_decision_function(self):
