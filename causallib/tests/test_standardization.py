@@ -18,6 +18,7 @@ Created on Aug 08, 2018
 """
 
 import unittest
+# import warnings
 
 import numpy as np
 import pandas as pd
@@ -27,14 +28,23 @@ from sklearn.svm import SVC
 
 from causallib.estimation import Standardization, StratifiedStandardization
 
+from causallib.utils.exceptions import ColumnNameChangeWarning
+
+import sklearn
+SKLEARN_VERSION = sklearn.__version__
+
 
 class TestStandardizationCommon(unittest.TestCase):
+    # def setUp(self):
+    #     warnings.simplefilter("ignore", category=ColumnNameChangeWarning)
+
     @classmethod
     def setUpClass(cls):
         alpha, beta = 5.0, 0.4
-        X = pd.Series(np.random.normal(2.0, 1.0, size=100))
-        a = pd.Series([0] * 50 + [1] * 50, dtype=np.dtype(int))
+        X = pd.Series(np.random.normal(2.0, 1.0, size=100), name="x")
+        a = pd.Series([0] * 50 + [1] * 50, dtype=np.dtype(int), name="a")
         y = X.mul(alpha) + a.mul(beta)
+        y = y.rename("y")
         cls.data_lin = {"X": X.to_frame(), "a": a, "y": y, "alpha": alpha, "beta": beta}
         cls.estimator = None
 
@@ -107,9 +117,10 @@ class TestStandardization(TestStandardizationCommon):
     def setUpClass(cls):
         TestStandardizationCommon.setUpClass()
         # Avoids regularization of the model:
-        cls.estimator = Standardization(LinearRegression(normalize=True))
+        cls.estimator = Standardization(LinearRegression())
 
     def setUp(self):
+        super().setUp()
         self.estimator.fit(self.data_lin["X"], self.data_lin["a"], self.data_lin["y"])
 
     def test_is_fitted(self):
@@ -143,6 +154,60 @@ class TestStandardization(TestStandardizationCommon):
     def test_many_models(self):
         self.ensure_many_models()
 
+    def test_column_names_types(self):
+        """Test for compatibility with scikit-learn's v1.2.0
+        for a single type of column names
+        """
+        with self.subTest("Test both `X` and `a` strings"):
+            X = self.data_lin["X"].rename(columns={0: "x"})
+            a = self.data_lin["a"].rename("a")
+
+            estimator = Standardization(LinearRegression(), encode_treatment=False)
+            estimator.fit(X, a, self.data_lin["y"])
+
+            estimator = Standardization(LinearRegression(), encode_treatment=True)
+            with self.assertWarns(ColumnNameChangeWarning):
+                # Because encoding turns `a` to a Frame with treatment values (0, 1) as columns
+                estimator.fit(X, a, self.data_lin["y"])
+
+        with self.subTest("Test both `X` and `a` int"):
+            X = self.data_lin["X"]
+            a = self.data_lin["a"]
+
+            estimator = Standardization(LinearRegression(), encode_treatment=False)
+            estimator.fit(X, a, self.data_lin["y"])
+
+            # estimator = Standardization(LinearRegression(), encode_treatment=True)
+            # estimator.fit(X, a, self.data_lin["y"])
+
+        with self.subTest("Test no-name Series, string `X`"):
+            X = self.data_lin["X"].rename(columns={0: "x"})
+            a = self.data_lin["a"].rename(None)
+
+            Xa = pd.concat([X, a], axis="columns")
+
+            estimator = Standardization(LinearRegression(), encode_treatment=False)
+            with self.assertWarns(ColumnNameChangeWarning):
+                estimator.fit(X, a, self.data_lin["y"])
+
+            estimator = Standardization(LinearRegression(), encode_treatment=True)
+            with self.assertWarns(ColumnNameChangeWarning):
+                estimator.fit(X, a, self.data_lin["y"])
+
+        with self.subTest("Test no-name Series, Int `X`"):
+            X = self.data_lin["X"]
+            a = self.data_lin["a"].rename(None)
+
+            Xa = pd.concat([X, a], axis="columns")
+
+            estimator = Standardization(LinearRegression(), encode_treatment=False)
+            with self.assertWarns(ColumnNameChangeWarning):
+                estimator.fit(X, a, self.data_lin["y"])
+
+            estimator = Standardization(LinearRegression(), encode_treatment=True)
+            with self.assertWarns(ColumnNameChangeWarning):
+                estimator.fit(X, a, self.data_lin["y"])
+
 
 class TestStandardizationStratified(TestStandardizationCommon):
     @classmethod
@@ -152,6 +217,7 @@ class TestStandardizationStratified(TestStandardizationCommon):
         cls.estimator = StratifiedStandardization(LinearRegression(), [0, 1])
 
     def setUp(self):
+        super().setUp()
         self.estimator.fit(self.data_lin["X"], self.data_lin["a"], self.data_lin["y"])
 
     def test_is_fitted(self):
@@ -185,7 +251,7 @@ class TestStandardizationStratified(TestStandardizationCommon):
             self.assertListEqual([0, 1], estimator.treatment_values_)  # Treatment values added after fit
 
     def test_initialization_with_dict_of_learners(self):
-        learners = {0: LinearRegression(normalize=False),
+        learners = {0: LinearRegression(),
                     1: Ridge(alpha=5.0)}
         estimator = StratifiedStandardization(learners)
         with self.subTest("Test dictionary-learners initialization before fit"):
@@ -217,7 +283,11 @@ class TestStandardizationClassification(TestStandardizationCommon):
                                    n_clusters_per_class=1, flip_y=0.0, class_sep=10.0)
         X, a = X[:, :-1], X[:, -1]
         a = (a > np.median(a)).astype(int)
-        cls.data_3cls = {"X": pd.DataFrame(X), "a": pd.Series(a), "y": pd.Series(y)}
+        cls.data_3cls = {
+            "X": pd.DataFrame(X, columns=["x0", "x1"]),
+            "a": pd.Series(a, name="a"),
+            "y": pd.Series(y, name="y")
+        }
 
         # X, y = make_classification(n_features=2, n_informative=1, n_redundant=0, n_repeated=0, n_classes=2,
         #                            n_clusters_per_class=1, flip_y=0.0, class_sep=10.0)
@@ -244,7 +314,8 @@ class TestStandardizationClassification(TestStandardizationCommon):
         self.estimator = Standardization(LogisticRegression(C=1e6, solver='lbfgs'), predict_proba=True)
         ind_outcome = self.verify_individual_multiclass_output()
         with self.subTest("Test results are probabilities - sum to 1:"):
-            for treatment_value, y_pred in ind_outcome.groupby(level="a", axis="columns"):
+            for treatment_value, y_pred in ind_outcome.T.groupby(level="a"):
+                y_pred = y_pred.T
                 pd.testing.assert_series_equal(pd.Series(1.0, index=y_pred.index), y_pred.sum(axis="columns"))
 
     def test_decision_function(self):

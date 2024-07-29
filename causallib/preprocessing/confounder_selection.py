@@ -2,6 +2,7 @@ import numpy as np
 from sklearn.base import BaseEstimator, MetaEstimatorMixin, clone
 from sklearn.utils.multiclass import type_of_target
 from sklearn.linear_model import LassoCV, LogisticRegressionCV
+from ..utils.general_tools import column_name_type_safe_join
 # Find internal implementations
 try:  # Version 0.20 - 0.21
     from sklearn.feature_selection.base import SelectorMixin
@@ -199,7 +200,8 @@ class RecursiveConfounderElimination(_BaseConfounderSelection):
         while np.sum(support_) > self.n_features_to_select:
             features = np.arange(n_features)[support_]
             estimator = clone(self.estimator)
-            estimator.fit(a.to_frame().join(X.iloc[:, features]), y)
+            cur_Xa = column_name_type_safe_join(X.iloc[:, features], a)
+            estimator.fit(cur_Xa, y)
             importances = _get_feature_importances(
                 estimator, self.importance_getter, transform_func="square",
             )
@@ -210,7 +212,8 @@ class RecursiveConfounderElimination(_BaseConfounderSelection):
             support_[features[ranks][:threshold]] = False
             ranking_[np.logical_not(support_)] += 1
         features = np.arange(n_features)[support_]
-        self.estimator.fit(a.to_frame().join(X.iloc[:, features]), y)
+        cur_Xa = column_name_type_safe_join(X.iloc[:, features], a)
+        self.estimator.fit(cur_Xa, y)
         self.n_features_ = support_.sum()
         self.support_ = support_
         self.ranking_ = ranking_

@@ -162,9 +162,7 @@ class StandardizedSurvival(SurvivalBase):
             timeline_start=timeline_start,
             timeline_end=timeline_end,
         )
-        res = individual_survival_curves.groupby(
-            level=0, axis="columns",
-        ).mean()
+        res = individual_survival_curves.T.groupby(level=0).mean().T
 
         # Setting index/column names
         res.index.name = t.name

@@ -1552,7 +1552,10 @@ def generate_random_topology(n_covariates, p, n_treatments=1, n_outcomes=1, n_ce
     generated_vars = covariates + treatments + outcomes + censoring
     generated_vars = pd.Series(data=generated_vars, index=generated_vars)
 
-    total_vars = pd.concat([given_vars, generated_vars])
+    total_vars = pd.concat([
+        given_vars if not given_vars.empty else None,
+        generated_vars if not generated_vars.empty else None,
+    ])
     topology = pd.DataFrame(data=0, index=total_vars, columns=total_vars, dtype=bool)
 
     # generate between the independent given set to generated set:
@@ -1588,12 +1591,18 @@ def generate_random_topology(n_covariates, p, n_treatments=1, n_outcomes=1, n_ce
     generated_types[treatments] = TREATMENT
     generated_types[outcomes] = OUTCOME
     generated_types[censoring] = CENSOR
-    var_types = pd.concat(
-        [pd.Series(data=COVARIATE, index=given_vars), generated_types]
-    )
+    given_types = pd.Series(data=COVARIATE, index=given_vars)
+    # Nullify empty Frames/Series before concat to satisfy pandas FutureWarning:
+    given_types = None if given_types.empty else given_types
+    generated_types = None if generated_types.empty else generated_types
+    var_types = pd.concat([given_types, generated_types])
 
     # create a hidden variables mask:
-    hidden_vars = pd.concat([given_vars, pd.Series(covariates)]).sample(frac=p_hidden)
+    covariates = pd.Series(covariates)
+    # Nullify empty Frames/Series before concat to satisfy pandas FutureWarning:
+    given_vars = None if given_vars.empty else given_vars
+    covariates = None if covariates.empty else covariates
+    hidden_vars = pd.concat([given_vars, covariates]).sample(frac=p_hidden)
     var_types[hidden_vars] = HIDDEN
 
     return topology, var_types

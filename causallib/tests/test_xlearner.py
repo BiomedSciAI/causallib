@@ -60,8 +60,8 @@ class TestXLearner(unittest.TestCase):
 
     def setUp(self):
         self.estimator = XLearner(
-            outcome_model=StratifiedStandardization(LinearRegression(normalize=True)),
-            effect_model=StratifiedStandardization(LinearRegression(normalize=True))
+            outcome_model=StratifiedStandardization(LinearRegression()),
+            effect_model=StratifiedStandardization(LinearRegression())
         )
 
     def default_fit(self):
@@ -76,8 +76,8 @@ class TestXLearner(unittest.TestCase):
 
     def fit_logistic_treatment_model(self, effect_types='diff'):
         estimator = XLearner(
-            outcome_model=StratifiedStandardization(LinearRegression(normalize=True)),
-            effect_model=StratifiedStandardization(LinearRegression(normalize=True)),
+            outcome_model=StratifiedStandardization(LinearRegression()),
+            effect_model=StratifiedStandardization(LinearRegression()),
             treatment_model=LogisticRegression(),
             effect_types=effect_types
         )
@@ -86,8 +86,8 @@ class TestXLearner(unittest.TestCase):
 
     def obtain_dummy_treat_model(self, effect_types='diff'):
         return XLearner(
-            outcome_model=StratifiedStandardization(LinearRegression(normalize=True)),
-            effect_model=StratifiedStandardization(LinearRegression(normalize=True)),
+            outcome_model=StratifiedStandardization(LinearRegression()),
+            effect_model=StratifiedStandardization(LinearRegression()),
             effect_types=effect_types
         )
 
@@ -287,13 +287,13 @@ class TestXLearner(unittest.TestCase):
 
     def _obtain_dual_indivdual_estimation(self, effect_types_first='diff', effect_types_second='diff'):
         estimator_first = XLearner(
-            outcome_model=StratifiedStandardization(LinearRegression(normalize=True)),
-            effect_model=StratifiedStandardization(LinearRegression(normalize=True)),
+            outcome_model=StratifiedStandardization(LinearRegression()),
+            effect_model=StratifiedStandardization(LinearRegression()),
             effect_types=effect_types_first
         )
         estimator_second = XLearner(
-            outcome_model=StratifiedStandardization(LinearRegression(normalize=True)),
-            effect_model=StratifiedStandardization(LinearRegression(normalize=True)),
+            outcome_model=StratifiedStandardization(LinearRegression()),
+            effect_model=StratifiedStandardization(LinearRegression()),
             effect_types=effect_types_second
         )
         mod_y = self.data_2cls['y'] + 2 # the plus two is for the ratio so we will divide by zero

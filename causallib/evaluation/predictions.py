@@ -90,16 +90,15 @@ class PropensityPredictions(WeightPredictions):
         )
         # Convert single-dtype Series to a row in a DataFrame:
         evaluated_metrics_df = pd.DataFrame(evaluated_metrics).T
-        # change dtype of each column to numerical if possible:
-        evaluated_metrics_df = evaluated_metrics_df.apply(
-            pd.to_numeric, errors="ignore"
-        )
+        # Try to change dtype of each column to numerical if possible and fill back in those that could not:
+        evaluated_metrics_df_numercized = evaluated_metrics_df.apply(pd.to_numeric, errors="coerce")
+        evaluated_metrics_df_numercized = evaluated_metrics_df_numercized.fillna(evaluated_metrics_df)
 
         covariate_balance = calculate_covariate_balance(
             X, a_true, self.weight_by_treatment_assignment
         )
 
-        results = PropensityEvaluatorScores(evaluated_metrics_df, covariate_balance)
+        results = PropensityEvaluatorScores(evaluated_metrics_df_numercized, covariate_balance)
         # TODO: rename to PropensityEvaluatorScorers ?
         return results
 
@@ -171,8 +170,10 @@ class OutcomePredictions:
         )
 
         scores = pd.concat(scores, names=["model_strata"], axis="columns").T
-        scores = scores.apply(pd.to_numeric, errors="ignore")
-        return scores
+        # Try to make whatever columns possible numeric, and fill back in those that could not:
+        scores_numercized = scores.apply(pd.to_numeric, errors="coerce")
+        scores_numercized = scores_numercized.fillna(scores)
+        return scores_numercized
 
     def _evaluate_metrics_on_treatment_value(
         self, a_true, y_true, metrics_to_evaluate, treatment_value

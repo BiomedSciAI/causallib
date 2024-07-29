@@ -153,7 +153,7 @@ class RLearner(IndividualOutcomeEstimator):
         X_effect = pd.Series(data=1, index=X.index, name="intercept_").to_frame()
         if not isinstance(self.effect_covariates, list) or self.effect_covariates:
             effect_covariates = self.effect_covariates or X.columns
-            X_effect = pd.concat([X_effect, X[effect_covariates]], axis="columns")
+            X_effect = g_tools.column_name_type_safe_join(X[effect_covariates], X_effect.squeeze())
         return X_effect
 
     def _prepare_data(self, X):

@@ -9,6 +9,9 @@ from causallib.estimation import IPW, StratifiedStandardization
 
 from causallib.metrics import get_scorer, get_scorer_names
 
+import sklearn
+LR_NO_PENALTY = None if sklearn.__version__ >= "1.2" else "none"
+
 
 class BaseTestScorer(unittest.TestCase):
     @classmethod
@@ -48,7 +51,7 @@ class BaseTestScorer(unittest.TestCase):
         }
 
         # # Avoids regularization of the model:
-        cls.estimator = IPW(LogisticRegression(penalty='none', solver='sag', max_iter=2000))
+        cls.estimator = IPW(LogisticRegression(penalty=LR_NO_PENALTY, solver='sag', max_iter=2000))
 
     def ensure_single_scoring_does_not_fail(self, scoring_name, data):
         scorer = get_scorer(scoring_name)

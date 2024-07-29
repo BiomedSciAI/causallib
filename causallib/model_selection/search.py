@@ -127,10 +127,10 @@ def causalize_searcher(searcher_type: Type[BaseSearchCV]):
 
     """
     class CausalSearcher(searcher_type):
-        def __init__(self, estimator, *args, **kwargs):
+        def __init__(self, estimator, **kwargs):
             estimator = _adapt_causal_estimator_to_sklearn(estimator)
             kwargs["scoring"] = _adapt_causal_scorers_to_sklearn(kwargs["scoring"])
-            super().__init__(estimator, *args, **kwargs)
+            super().__init__(estimator, **kwargs)
 
         def _set_methods_from_estimator(self):
             """Exposes all the methods from the internal `best_estimator_`,

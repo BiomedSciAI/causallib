@@ -17,8 +17,15 @@ Created on Jun 27, 2018
 
 General (i.e. non-scientific) utils used throughout the package.
 """
+import warnings
+
+from typing import Hashable
+
+import pandas as pd
 from numpy import isscalar as np_is_scalar
 from pandas import Series
+
+from .exceptions import ColumnNameChangeWarning
 
 
 def get_iterable_treatment_values(treatment_values, treatment_assignment, sort=True):
@@ -95,3 +102,100 @@ def check_learner_is_fitted(learner):
     after_init_attr = [attr for attr in learner.__dict__.keys() if attr.endswith("_")]
     is_fitted = len(after_init_attr) > 0
     return is_fitted
+
+
+def align_column_name_types_for_join(X, a, a_name=None):
+    """Align columns/name types in `X` and `a` to match so that joining them
+    creates homogeneous column names type and sklearn>=1.2 don't break.
+    Prefer to stringify columns, as integer columns seem to be an anti-pattern
+    https://github.com/rstudio/reticulate/issues/274#issuecomment-1679501053
+
+    if `a` is a pd.DataFrame, also pass `a_name` as a prefix to its columns
+    """
+    if X.empty or a.empty:
+        return X, a
+
+    # `a` doesn't have any name/prefix associated to it
+    if a_name is None:
+        if hasattr(a, "name") and a.name is not None:
+            a_name = a.name
+        else:
+            warnings.warn(
+                "No name was defined for `a` in `a.name` or `a_name`, so setting it to 'a'.",
+                ColumnNameChangeWarning
+            )
+            a_name = "a"
+
+    column_names_types = {type(c) for c in X.columns}
+    if len(column_names_types) > 1:
+        X.columns = X.columns.astype(str)
+        column_names_types = {str}
+        warnings.warn(
+            f"Column names of `X` contain mixed types "
+            f"({ {t.__name__ for t in column_names_types} }), "
+            f"which sklearn>1.2 will raise for. "
+            f"Therefore `X.columns` were all converted to string.",
+            ColumnNameChangeWarning,
+        )
+    column_names_type = column_names_types.pop()
+
+    if hasattr(a, "columns"):  # a DataFrame
+        a_name_type = {type(c) for c in a.columns}.pop()
+    elif hasattr(a, "name"):  # a Series
+        a_name_type = type(a_name)
+    else:
+        raise RuntimeError(
+            f"Variable `a` doesn't seem to be neither a `DataFrame` nor a `Series`, "
+            f"but rather a {type(a).__qualname__}.",
+        )
+
+    # if a_name_type == column_names_type:
+    #     return X, a
+
+    if a_name_type == str and column_names_type != str:
+        X.columns = X.columns.astype(str)
+        warnings.warn(
+            "Converting `X.columns` to strings to match `a.name` type.",
+            ColumnNameChangeWarning,
+        )
+
+    if a_name_type != str and column_names_type == str:
+        a_name = str(a_name)
+        warnings.warn(
+            "Converting `a.name` to string to match `X.columns` type.",
+            ColumnNameChangeWarning,
+        )
+
+    if hasattr(a, "columns"):  # a DataFrame
+        a = a.add_prefix(f"{a_name}_")
+    elif hasattr(a, "name"):  # a Series
+        a.name = a_name
+
+    return X, a
+
+
+def column_name_type_safe_join(X, a, a_name=None, join="outer"):
+    """Joins the columns of 2 pandas Dataframe/Series
+    in a way that respects scikit-learn's  demand for a single-type
+    column name (e.g., either all ints or all strings).
+    Joins `[a, X]`.
+
+    Args:
+        X (pd.DataFrame | pd.Series):
+        a (pd.DataFrame | pd.Series):
+        a_name (Hashable): if `a` used to be a single column/Series,
+                            then this name will be a prefix if `a` is now a pd.DataFrame.
+        join (str): {"outer", "inner", "left" right"}. Compatible with `pd.concat`
+
+    Returns:
+        pd.DataFrame
+    """
+    if a_name is None:
+        a_name = a.name if hasattr(a, "name") else ""
+    X, a = align_column_name_types_for_join(X, a, a_name=a_name)
+    if a.empty:
+        # Empty Series somehow turns into column of NaNs, unlike empty DataFrame that disappears
+        a = None
+    res = pd.concat([a, X], join=join, axis="columns")
+    return res
+
