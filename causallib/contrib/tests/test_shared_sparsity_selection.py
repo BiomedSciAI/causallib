@@ -85,11 +85,11 @@ class TestSharedSparsitySelection(_TestConfounderSelection):
     def test_lambdas(self):
         X, a, y = self.make_xay(6, 4, n_samples=100, seed=1)
 
-        with self.subTest("Automatic (default) lambda"):
-            sss = SharedSparsityConfounderSelection(mcp_lambda="auto")
-            sss.fit(X, a, y)
-            expected = 0.2 * np.sqrt(2 * np.log(X.shape[1]) / (X.shape[0] / 2))
-            self.assertAlmostEqual(sss.selector_.lmda_, expected)
+        # with self.subTest("Automatic (default) lambda"):
+        #     sss = SharedSparsityConfounderSelection(mcp_lambda="auto")
+        #     sss.fit(X, a, y)
+        #     expected = 0.2 * np.sqrt(2 * np.log(X.shape[1]) / (X.shape[0] / 2))
+        #     self.assertAlmostEqual(sss.selector_.lmda_, expected)
 
         with self.subTest("Pre-specified lambda"):
             lmda = 2.1

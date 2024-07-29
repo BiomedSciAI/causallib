@@ -16,7 +16,7 @@ class MCPSelector:
         sparsity matrix using proximal gradient descent applied with
         MCP regularizer.
         Args:
-            lmda (str|float): Parameter (>= 0) to control shape of MCP regularizer.
+            lmda (float): Parameter (>= 0) to control shape of MCP regularizer.
                 The bigger the value the stronger the regularization.
             alpha (float): Associated lambda parameter (>= 0) to control shape of MCP regularizer.
                 The smaller the value the stronger the regularization.
