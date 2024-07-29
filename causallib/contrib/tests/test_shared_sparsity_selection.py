@@ -93,7 +93,8 @@ class TestSharedSparsitySelection(_TestConfounderSelection):
 
         with self.subTest("Pre-specified lambda"):
             lmda = 2.1
-            sss = SharedSparsityConfounderSelection(mcp_lambda=lmda)
+            # `proportional_lambda=False` should take lambda as is without changing it
+            sss = SharedSparsityConfounderSelection(mcp_lambda=lmda, proportional_lambda=False)
             sss.fit(X, a, y)
             self.assertEqual(sss.selector_.lmda_, lmda)
 

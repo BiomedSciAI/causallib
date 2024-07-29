@@ -192,7 +192,7 @@ class SharedSparsityConfounderSelection(_BaseConfounderSelection):
         self.max_iter = max_iter
         self.tol = tol
         self.threshold = threshold
-        self.selector_ = MCPSelector(lmda=mcp_lambda, alpha=mcp_alpha, max_norm = max_norm, step=step, max_iter=max_iter, tol=tol, proportional_lambda=True,include_bias=include_bias)
+        self.selector_ = MCPSelector(lmda=mcp_lambda, alpha=mcp_alpha, max_norm = max_norm, step=step, max_iter=max_iter, tol=tol, proportional_lambda=proportional_lambda,include_bias=include_bias)
 
         self.importance_getter = lambda e: e.selector_.theta_.transpose()  # Shape to behave like sklearn linear_model
         # self.importance_getter = "selector_.theta_"
