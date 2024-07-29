@@ -11,10 +11,10 @@ jobs:
         python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
     name: Build and test on Python ${{ matrix.python-version }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           # cache: 'pip'
@@ -41,7 +41,7 @@ jobs:
           # pytest tests.py --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html
       
       - name: Publish to CodeClimate
-        uses: paambaati/codeclimate-action@v5.0.0
+        uses: paambaati/codeclimate-action@v8.0.0
         env:
           CC_TEST_REPORTER_ID: ${{ secrets.CODECLIMATE_REPORTER_ID }}
         # Forked PRs have no access to secrets, so uploading a coverage report to Code Climate fails.
