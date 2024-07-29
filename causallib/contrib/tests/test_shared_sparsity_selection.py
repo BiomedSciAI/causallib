@@ -108,6 +108,13 @@ class TestSharedSparsitySelection(_TestConfounderSelection):
             strong = SharedSparsityConfounderSelection(mcp_lambda=1).fit(X, a, y).selector_.theta_
             self.assertLess(np.linalg.norm(strong), np.linalg.norm(weak))
 
+        with self.subTest("Shrinkage under n>p binary treatment setting with proportional lambda"):
+            lmda = 1
+            # `proportional_lambda=True` should reduce lambda
+            sss = SharedSparsityConfounderSelection(mcp_lambda=lmda, proportional_lambda=True)
+            sss.fit(X, a, y)
+            self.assertLess(sss.selector_.lmda_, lmda)
+
     def test_max_iter(self):
         X, a, y = self.make_xay(6, 4, n_samples=100, seed=1)
 
