@@ -8,7 +8,11 @@ from causallib.metrics import weighted_roc_auc_error, expected_roc_auc_error
 from causallib.metrics import weighted_roc_curve_error, expected_roc_curve_error
 from causallib.metrics import ici_error
 from causallib.metrics import covariate_balancing_error
+from causallib.metrics import covariate_imbalance_count_error
 from causallib.metrics import balanced_residuals_error
+
+import sklearn
+LR_NO_PENALTY = None if sklearn.__version__ >= "1.2" else "none"
 
 
 class TestPropensityMetrics(unittest.TestCase):
@@ -44,7 +48,7 @@ class TestPropensityMetrics(unittest.TestCase):
         }
 
         # # Avoids regularization of the model:
-        cls.estimator = LogisticRegression(penalty='none', solver='sag', max_iter=2000)
+        cls.estimator = LogisticRegression(penalty=LR_NO_PENALTY, solver='sag', max_iter=2000)
 
     def test_weighted_roc_auc(self):
         with self.subTest("Chance predictions"):
@@ -260,7 +264,7 @@ class TestWeightMetrics(unittest.TestCase):
         cls.data = {"X": X, "a": a, "w": w}
 
         # # Avoids regularization of the model:
-        cls.estimator = LogisticRegression(penalty='none', solver='sag', max_iter=2000)
+        cls.estimator = LogisticRegression(penalty=LR_NO_PENALTY, solver='sag', max_iter=2000)
 
     def test_covariate_balancing(self):
         score = covariate_balancing_error(self.data["X"], self.data["a"], self.data["w"])
@@ -274,6 +278,35 @@ class TestWeightMetrics(unittest.TestCase):
             )
             expected /= 2  # Two features, the second has 0 ASMD
             self.assertAlmostEqual(score, expected, places=4)
+
+    def test_covariate_imbalance_count(self):
+        with self.subTest("High violation threshold"):
+            score = covariate_imbalance_count_error(
+                self.data["X"], self.data["a"], self.data["w"],
+                threshold=10,
+            )
+            self.assertEqual(score, 0)
+
+        with self.subTest("Low violation threshold"):
+            score = covariate_imbalance_count_error(
+                self.data["X"], self.data["a"], self.data["w"],
+                threshold=-0.1, fraction=False,
+            )
+            self.assertEqual(score, self.data["X"].shape[1])
+
+        with self.subTest("Fraction violation threshold"):
+            score = covariate_imbalance_count_error(
+                self.data["X"], self.data["a"], self.data["w"],
+                threshold=0.1, fraction=True,
+            )
+            self.assertEqual(score, 1/2)
+
+        with self.subTest("Doesn't fail on unrelated kwargs"):
+            covariate_imbalance_count_error(
+                self.data["X"], self.data["a"], self.data["w"],
+                nonexistingkwarg=1,
+            )
+            self.assertTrue(True)
 
 
 class TestOutcomeMetrics(unittest.TestCase):

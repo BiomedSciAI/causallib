@@ -128,6 +128,7 @@ def load_nhefs_survival(augment=True, onehot=True):
     nhefs_all = load_nhefs(raw=True)[0]
     t = (nhefs_all["yrdth"] - 83) * 12 + nhefs_all["modth"]
     t = t.fillna(120)
+    t = t.rename("longevity")
     y = nhefs_all["death"]
 
     nhefs = load_nhefs(augment=augment, onehot=onehot, restrict=False)

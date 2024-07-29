@@ -14,7 +14,7 @@ from sklearn.metrics import roc_auc_score, roc_curve
 import statsmodels.api as sm
 
 
-def weighted_roc_auc_error(y_true, y_pred, sample_weight):
+def weighted_roc_auc_error(y_true, y_pred, sample_weight, **kwargs):
     """
     Compute the squared error between the balanced (e.g. IP-weighted) ROC AUC
     to the diagonal, i.e. AUC=0.5.
@@ -64,7 +64,7 @@ def expected_roc_auc_error(y_true, y_pred, **kwargs):
     return score
 
 
-def weighted_roc_curve_error(y_true, y_pred, sample_weight, agg=np.max):
+def weighted_roc_curve_error(y_true, y_pred, sample_weight, agg=np.max, **kwargs):
     """Compute the absolute differences between the balanced (e.g. IP-weighted) ROC curve
     and the diagonal x=y curve.
     Since difference in curves results in a multiple values (each point along the curve),

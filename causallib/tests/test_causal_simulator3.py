@@ -308,7 +308,7 @@ class CS3TestCase(unittest.TestCase):
         np.testing.assert_array_equal(T.loc[X.columns, :].sum(axis="columns"), np.zeros(5))
 
         # Test for DAGness:
-        from networkx import DiGraph, from_numpy_matrix, is_directed_acyclic_graph
+        from networkx import DiGraph, from_numpy_array, is_directed_acyclic_graph
         NUM_TESTS = 50
         for test in range(NUM_TESTS):
             n_cov = np.random.randint(low=10, high=100)
@@ -317,7 +317,7 @@ class CS3TestCase(unittest.TestCase):
             n_cen = np.random.randint(low=0, high=n_tre_out)
             T, _ = CS3m.generate_random_topology(n_covariates=n_cov, p=p, n_treatments=n_tre_out, n_outcomes=n_tre_out,
                                                  n_censoring=n_cen, given_vars=[], p_hidden=0)
-            G = from_numpy_matrix(T.values.transpose(), create_using=DiGraph())
+            G = from_numpy_array(T.values.transpose(), create_using=DiGraph())
             res = is_directed_acyclic_graph(G)
             self.assertTrue(res)
 
@@ -350,7 +350,7 @@ class CS3TestCase(unittest.TestCase):
                   outcome_types=self.no_X.outcome_types, snr=snr, effect_sizes=self.no_X.effect_sizes)
         X, prop, cf = sim.generate_data(num_samples=self.NUM_SAMPLES)
 
-        singular_values = np.linalg.svd(X.values, compute_uv=False)
+        singular_values = np.linalg.svd(X.astype(float).values, compute_uv=False)
         eps = 1e-10
         rank = np.sum(singular_values > eps)
         self.assertEqual(rank, 2,

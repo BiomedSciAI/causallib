@@ -16,7 +16,6 @@ limitations under the License.
 Created on Jul 22, 2018
 
 """
-
 import unittest
 import random
 import pandas as pd
@@ -287,8 +286,8 @@ class TestRecursiveConfounderElimination(_TestConfounderSelection):
         xa = StandardScaler().fit_transform(xa)
         a, x = xa[:, -1], xa[:, :-1]
         xdf = pd.DataFrame(x, columns=["x_" + str(i) for i in range(x.shape[1])])
-        adf = pd.Series(a)
-        ydf = pd.Series(y)
+        adf = pd.Series(a, name="a")
+        ydf = pd.Series(y, name="y")
         return xdf, adf, ydf
 
     @staticmethod

@@ -679,7 +679,7 @@ class Matching(IndividualOutcomeEstimator, WeightEstimator):
         name = {0: "control", 1: "treatment"}
         weights.name = "{s}_to_{t}".format(s=name[s], t=name[t])
         s_to_t_matches = match_df.loc[t][self.treatments_ == s].matches
-        for source_idx, matches_list in s_to_t_matches.iteritems():
+        for source_idx, matches_list in s_to_t_matches.items():
             if matches_list:
                 weights.loc[source_idx] += 1
             for match in matches_list:

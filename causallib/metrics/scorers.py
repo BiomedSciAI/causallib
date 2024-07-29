@@ -92,8 +92,13 @@ covariate_balancing_error_scorer = WeightScorerBase(
     weight_metrics.covariate_balancing_error, -1,
 )
 
+covariate_imbalance_count_error_scorer = WeightScorerBase(
+    weight_metrics.covariate_imbalance_count_error, -1,
+)
+
 _WEIGHT_SCORERS = dict(
     covariate_balancing_error=covariate_balancing_error_scorer,
+    covariate_imbalance_count_error=covariate_imbalance_count_error_scorer,
 )
 
 
