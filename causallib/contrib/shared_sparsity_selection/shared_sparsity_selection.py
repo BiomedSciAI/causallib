@@ -51,7 +51,7 @@ class MCPSelector:
             lmda = self.lmda
 
         if self.alpha == "auto":
-            min_var = np.Inf
+            min_var = np.inf
             for i,t in enumerate(treatments):
                 u = X.loc[a == t].values.T
                 
