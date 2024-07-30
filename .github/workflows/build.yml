@@ -43,5 +43,8 @@ jobs:
       - name: Publish to CodeClimate
         uses: paambaati/codeclimate-action@v5.0.0
         env:
-          CC_TEST_REPORTER_ID: ${{ secrets.CODECLIMATE_REPORTER_ID }} 
+          CC_TEST_REPORTER_ID: ${{ secrets.CODECLIMATE_REPORTER_ID }}
+        # Forked PRs have no access to secrets, so uploading a coverage report to Code Climate fails.
+        # To avoid that failing the entire workflow, continue on error:
+        continue-on-error: true
           
