@@ -11,15 +11,13 @@ __all__ = ["SharedSparsityConfounderSelection"]
 
 class MCPSelector:
     # TODO: transpose `theta` and rename it `coef_` to align with sklearn models
-    def __init__(self, lmda="auto", alpha=1, step=0.1, max_iter=1000, tol=1e-3):
+    def __init__(self, lmda=0.01, alpha="auto", max_norm = "auto", step=0.1, max_iter=1000, tol=1e-3, proportional_lambda=True, include_bias=True):
         """Constructor for MCPSelector. This class computes shared
         sparsity matrix using proximal gradient descent applied with
         MCP regularizer.
-
         Args:
-            lmda (str|float): Parameter (>= 0) to control shape of MCP regularizer.
+            lmda (float): Parameter (>= 0) to control shape of MCP regularizer.
                 The bigger the value the stronger the regularization.
-                "auto" will auto-select good regularization value.
             alpha (float): Associated lambda parameter (>= 0) to control shape of MCP regularizer.
                 The smaller the value the stronger the regularization.
             step (float): Step size for proximal gradient, equivalent of learning rate.
@@ -27,32 +25,62 @@ class MCPSelector:
             tol (float): Stopping criterion for MCP. If the normalized value of
                 proximal gradient is less than tol then the algorithm is assumed
                 to have converged.
+            proportional_lambda (Bool): Interpret mcp_lambda parameter as a constant of proportionality for the theory-driven optimal lambda rate. Makes tuning simpler across changing 
+                numbers of samples, covariates, actions, etc.
+            include_bias (Bool): If true, include bias terms in the regression that are not regularized.
         """
         super().__init__()
         self.alpha = alpha
+        self.R = max_norm
         self.lmda = lmda
+        self.lmda_proportional = proportional_lambda
         self.step = step
         self.max_iter = max_iter
         self.tol = tol
         self.epsilon_safe_division = 1e-6
+        self.include_bias = True
 
     def _initialize_internal_params(self, X, a, y):
         treatments = list(a.unique())
         n_treatments = len(treatments)
         n_confounders = X.shape[1]
-        if self.lmda == "auto":
-            avg_num_samples = len(y) / n_treatments
-            lmda = 0.2 * np.sqrt(n_treatments * np.log(n_confounders) / avg_num_samples)
+        avg_num_samples = len(y) / n_treatments
+        if self.lmda_proportional:
+            lmda = self.lmda * np.sqrt(n_treatments * np.log(n_confounders) / avg_num_samples)
         else:
             lmda = self.lmda
 
-        assert self.alpha >= 0
+        if self.alpha == "auto":
+            min_var = np.inf
+            for i,t in enumerate(treatments):
+                u = X.loc[a == t].values.T
+                
+                tmp = np.min(np.std(u,axis=1))
+                if tmp > 0:
+                    min_var = min(min_var, tmp)
+            alpha = 1 / (.25 * min_var)
+        else:
+            alpha = self.alpha
+        
+        if self.alpha == 0 or self.R == "none":
+            R = np.inf
+        else:
+            if self.R == "auto":
+                R = 1 * np.sqrt(n_treatments) / (8 * lmda)
+            else:
+                R = self.R
+
+        assert alpha >= 0
+        assert R > 0
         assert lmda >= 0
 
         corr_xx = np.zeros((n_confounders, n_confounders, n_treatments))
         corr_xa = np.zeros((n_confounders, n_treatments))
         for i, t in enumerate(treatments):
             u, v = X.loc[a == t].values.T, y.loc[a == t].values
+            if self.include_bias:
+                u = u - np.mean(u,axis=1,keepdims=True) @ np.ones((1,u.shape[1]))
+                v = v - np.mean(v)
             corr_xx[:, :, i] = (u @ u.T) / len(v)
             corr_xa[:, i] = (u @ v) / len(v)
         self.theta_ = np.zeros((n_confounders, n_treatments))
@@ -60,13 +88,17 @@ class MCPSelector:
         self.n_confounders_ = n_confounders
         self.n_treatments_ = n_treatments
         self.lmda_ = lmda
+        self.R_ = R
+        self.alpha_ = alpha
 
-    def _mcp_q_grad(self, t):
+        
+    #Minimax Convex Penalty (MCP) regularizer
+    def _mcp_q_grad(self, t): 
         if self.alpha == 0:
             return np.sign(t) * self.lmda_ * (-1)
         else:
             return (np.sign(t) * self.lmda_
-                    * np.maximum(-1, - np.abs(t) / (self.lmda_ * self.alpha)))
+                    * np.maximum(-1, - np.abs(t) / (self.lmda_ * self.alpha_)))
 
     def _update_grad_op(self, theta):
         theta_new = np.zeros_like(theta)
@@ -83,9 +115,19 @@ class MCPSelector:
 
     def _update_proximal_op(self, theta):
         norm_theta = np.linalg.norm(theta, axis=1, keepdims=True)
+        # Do Proximal operator, bearing in mind max_norm constraint
         shrink = np.maximum(0, norm_theta - self.lmda_)
+        if np.sum(shrink) > self.R_:
+            #first take a large safe step
+            shrink = np.maximum(0, shrink - (np.sum(shrink) - self.R_)/len(shrink) )
+        #Then iteratively step until constraint is satisfied
+        while np.sum(shrink) > self.R_:
+            shrink = np.maximum(0, shrink - .05 * self.lmda_)
+        
         theta_proximal_op = theta * ((shrink / norm_theta)
                                      @ np.ones((1, self.n_treatments_)))
+        
+    
         return theta_proximal_op
 
     def compute_shared_sparsity_matrix(self, X, a, y):
@@ -114,16 +156,16 @@ class SharedSparsityConfounderSelection(_BaseConfounderSelection):
     Method by Greenewald, Katz-Rogozhnikov, and Shanmugam: https://arxiv.org/abs/2011.01979
     """
 
-    def __init__(self, mcp_lambda="auto", mcp_alpha=1, step=0.1, max_iter=1000, tol=1e-3, threshold=1e-6,
+    def __init__(self, mcp_lambda=0.01, mcp_alpha="auto", max_norm = "auto", step=0.1, max_iter=1000, tol=1e-3, threshold=1e-6,proportional_lambda=True,include_bias = True,
                  importance_getter=None, covariates=None):
         """Constructor for SharedSparsityConfounderSelection
-
         Args:
-            mcp_lambda (str|float): Parameter (>= 0) to control shape of MCP regularizer.
+            mcp_lambda (str|float): Parameter (>= 0) to control shape of Minimax Convex Penalty (MCP) regularizer.
                 The bigger the value the stronger the regularization.
-                "auto" will auto-select good regularization value.
             mcp_alpha (float): Associated lambda parameter (>= 0) to control shape of MCP regularizer.
                 The smaller the value the stronger the regularization.
+            max_norm (float): Maximum (1,2)-norm allowed for coefficient vector, used if alpha \neq 0. Decrease if the optimization does not converge.
+                "auto" will auto-select a value. "none" means do not use.
             step (float): Step size for proximal gradient, equivalent of learning rate.
             max_iter (int): Maximum number of iterations of MCP proximal gradient.
             tol (float): Stopping criterion for MCP. If the normalized value of
@@ -132,6 +174,9 @@ class SharedSparsityConfounderSelection(_BaseConfounderSelection):
             threshold (float): Only if the importance of a confounder exceeds
                 threshold for all values of treatments, then the confounder
                 is retained by transform() call.
+            proportional_lambda (Bool): Interpret mcp_lambda parameter as a constant of proportionality for the theory-driven optimal lambda rate. Makes tuning simpler across changing 
+                numbers of samples, covariates, actions, etc.
+            include_bias (Bool): If True, include bias terms in the regressions that are not regularized.
             importance_getter: IGNORED.
             covariates (list | np.ndarray): Specifying a subset of columns to perform selection on.
                 Columns in `X` but not in `covariates` will be included after `transform`
@@ -140,13 +185,14 @@ class SharedSparsityConfounderSelection(_BaseConfounderSelection):
                 or anything compatible with pandas `loc` function for columns.
                 if `None` then all columns are participating in the selection process.
                 This is similar to using sklearn's `ColumnTransformer` or `make_column_selector`.
+            
         """
         super().__init__(importance_getter=importance_getter, covariates=covariates)
         self.step = step
         self.max_iter = max_iter
         self.tol = tol
         self.threshold = threshold
-        self.selector_ = MCPSelector(lmda=mcp_lambda, alpha=mcp_alpha, step=step, max_iter=max_iter, tol=tol)
+        self.selector_ = MCPSelector(lmda=mcp_lambda, alpha=mcp_alpha, max_norm = max_norm, step=step, max_iter=max_iter, tol=tol, proportional_lambda=proportional_lambda,include_bias=include_bias)
 
         self.importance_getter = lambda e: e.selector_.theta_.transpose()  # Shape to behave like sklearn linear_model
         # self.importance_getter = "selector_.theta_"
@@ -174,3 +220,5 @@ class SharedSparsityConfounderSelection(_BaseConfounderSelection):
 
     def _get_support_mask(self):
         return self.support_
+
+
