@@ -1,5 +1,5 @@
 import unittest
-from causallib.positivity.datasets.test_data_simulator import make_1d_overlap_data
+from causallib.positivity.datasets.positivity_data_simulator import make_1d_overlap_data
 
 
 class TestBase(unittest.TestCase):

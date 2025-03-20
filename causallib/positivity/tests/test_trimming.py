@@ -1,6 +1,6 @@
 import unittest
 from causallib.positivity import Trimming
-from causallib.positivity.datasets.test_data_simulator import make_1d_normal_distribution_overlap_data
+from causallib.positivity.datasets.positivity_data_simulator import make_1d_normal_distribution_overlap_data
 from sklearn.linear_model import LogisticRegression
 
 
