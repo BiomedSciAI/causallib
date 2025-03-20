@@ -250,7 +250,11 @@ class TestUnivariateBBox(unittest.TestCase):
             sorted(["control", "joint", "treatment", ]))
         self.assertListEqual(sorted(list(self.bbox.supports_table_.index)),
                              sorted(Xn.columns))
-        self.bbox.supports_table_.map(lambda x: isinstance(x, Support))
+        if pd.__version__ > "2.1":
+            # TODO: keep some support for pandas <2.1.0 and python 3.8. remove in the future.
+            self.bbox.supports_table_.map(lambda x: isinstance(x, Support))
+        else:
+            self.bbox.supports_table_.applymap(lambda x: isinstance(x, Support))
 
     def test_subtract_continuous_support_when_equal(self):
         csupport1 = ContinuousSupport(support=[1, 2])
