@@ -17,21 +17,21 @@ class TestPositivityDataSim(unittest.TestCase):
 
 
 class TestPositivityPizzaData(unittest.TestCase):
-    def test_pizz_data(self):
+    def test_pizza_data(self):
         X, a = pizza(seed=0, n_samples=10000)
-        self.assertAlmostEquals(
+        self.assertAlmostEqual(
             X.loc[a == 0, 0].values.min(), X.loc[a == 1, 0].values.min(),
             delta=0.1,  # depends on the density of the points
         )
-        self.assertAlmostEquals(
+        self.assertAlmostEqual(
             X.loc[a == 0, 1].values.min(), X.loc[a == 1, 1].values.min(),
             delta=0.1,  # depends on the density of the points
         )
-        self.assertAlmostEquals(
+        self.assertAlmostEqual(
             X.loc[a == 0, 0].values.max(), X.loc[a == 1, 0].values.max(),
             delta=0.1,  # depends on the density of the points
         )
-        self.assertAlmostEquals(
+        self.assertAlmostEqual(
             X.loc[a == 0, 1].values.max(), X.loc[a == 1, 1].values.max(),
             delta=0.1,  # depends on the density of the points
         )
