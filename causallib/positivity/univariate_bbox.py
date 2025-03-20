@@ -225,7 +225,7 @@ class UnivariateBoundingBox(BasePositivity):
         self.assert_is_fitted()
         in_overlap_for_column = {c: s.predict for c,
                                  s in self.joint_support_.items()}
-        return X.agg(in_overlap_for_column).apply(all, axis=1)
+        return X.transform(in_overlap_for_column).apply(all, axis=1)
 
     @property
     def supports_table_(self):

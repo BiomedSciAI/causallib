@@ -168,7 +168,7 @@ class TestUnivariateBBox(unittest.TestCase):
             sorted(["control", "joint", "treatment", ]))
         self.assertListEqual(sorted(list(self.bbox.supports_table_.index)),
                              sorted(Xn.columns))
-        self.bbox.supports_table_.applymap(lambda x: isinstance(x, Support))
+        self.bbox.supports_table_.map(lambda x: isinstance(x, Support))
 
     def test_subtract_continuous_support_when_equal(self):
         csupport1 = ContinuousSupport(support=[1, 2])
