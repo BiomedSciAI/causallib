@@ -19,7 +19,6 @@ from itertools import combinations
 from abc import ABC, abstractmethod
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 from positivity import BasePositivity
 
 
@@ -205,7 +204,7 @@ class OneVersusRestPositivity(MultipleTreatmentPositivity):
         clf = self.base_positivity_estimator
         if self.verbose:
             print("Fitting {} treatment".format(len(a.unique())))
-        for treatment in tqdm(a.unique(), disable=~self.verbose):
+        for treatment in a.unique():
             clf = copy.deepcopy(clf)
             clf.fit(X, a == treatment)
             self.positivity_estimators_[treatment] = clf
@@ -344,7 +343,7 @@ class OneVersusAnotherPositivity(MultipleTreatmentPositivity):
         clf = self.base_positivity_estimator
         if self.verbose:
             print("Fitting treatment {}".format(len(self.treatment_pairs_list)))
-        for a1, a2 in tqdm(self.treatment_pairs_list, disable=(not self.verbose)):
+        for a1, a2 in self.treatment_pairs_list:
             clf = copy.deepcopy(clf)
             clf.fit(X.loc[a.isin([a1, a2])], a[a.isin([a1, a2])] == a1)
             self.positivity_estimators_[(a1, a2)] = clf
