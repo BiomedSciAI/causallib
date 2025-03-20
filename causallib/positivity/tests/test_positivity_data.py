@@ -4,10 +4,6 @@ from causallib.positivity.datasets.positivity_data_simulator import make_1d_over
 
 class TestBase(unittest.TestCase):
 
-    @classmethod
-    def setUpClass(cls):
-        pass
-
     def test_get_1d_data(self):
         treatment_bounds = (0, 75)
         control_bounds = (25, 100)
