@@ -1,7 +1,7 @@
 import unittest
-from positivity import Trimming
-from positivity.scorers import cross_covariance, cross_covariance_score
-from positivity.tests.testdata import make_multivariate_normal_data
+from causallib.positivity import Trimming
+from causallib.positivity.scorers import cross_covariance, cross_covariance_score
+from causallib.positivity.tests.testdata import make_multivariate_normal_data
 from sklearn.linear_model import LogisticRegression
 import pandas as pd
 import numpy as np

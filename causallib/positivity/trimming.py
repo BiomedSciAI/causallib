@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from positivity import BasePositivity
+from causallib.positivity import BasePositivity
 from sklearn.linear_model import LogisticRegression
 
 OPTIMAL_THRESHOLD_ACCURACY = 5e-6

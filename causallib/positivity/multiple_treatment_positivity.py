@@ -19,7 +19,7 @@ from itertools import combinations
 from abc import ABC, abstractmethod
 import numpy as np
 import pandas as pd
-from positivity import BasePositivity
+from causallib.positivity import BasePositivity
 
 
 class MultipleTreatmentPositivity(BasePositivity, ABC):

@@ -1,7 +1,7 @@
 import unittest
 import pandas as pd
-from positivity import UnivariateBoundingBox
-from positivity.univariate_bbox import QuantileContinuousSupport, Support, ContinuousSupport, CategoricalSupport
+from causallib.positivity import UnivariateBoundingBox
+from causallib.positivity.univariate_bbox import QuantileContinuousSupport, Support, ContinuousSupport, CategoricalSupport
 from sklearn.exceptions import NotFittedError
 
 from .testdata import (make_1d_overlap_data,

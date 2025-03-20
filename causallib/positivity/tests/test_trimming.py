@@ -1,5 +1,5 @@
 import unittest
-from positivity import Trimming
+from causallib.positivity import Trimming
 from .testdata import make_1d_normal_distribution_overlap_data
 from sklearn.linear_model import LogisticRegression
 

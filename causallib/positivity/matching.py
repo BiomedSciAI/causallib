@@ -1,7 +1,7 @@
 from __future__ import annotations
 import pandas as pd
 from causallib.preprocessing.transformers import MatchingTransformer
-from positivity import BasePositivity
+from causallib.positivity import BasePositivity
 from typing import Union, Optional
 import sklearn.neighbors
 import sklearn.base

@@ -1,7 +1,7 @@
 import unittest
-from positivity import Matching
+from causallib.positivity import Matching
 from .testdata import make_1d_overlap_data, make_random_y_like 
-import numpy as np
+
 
 class TestMatching(unittest.TestCase):
 

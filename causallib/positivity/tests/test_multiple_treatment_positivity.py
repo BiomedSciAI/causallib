@@ -23,12 +23,12 @@ import numpy as np
 import pandas as pd
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression
-from positivity.multiple_treatment_positivity import (
+from causallib.positivity.multiple_treatment_positivity import (
     OneVersusRestPositivity,
     OneVersusAnotherPositivity,
     )
 
-from positivity import Trimming, UnivariateBoundingBox
+from causallib.positivity import Trimming, UnivariateBoundingBox
 
 
 class MultipleTreatmentPositivityTest(unittest.TestCase):

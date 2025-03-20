@@ -1,6 +1,6 @@
 import unittest
-from positivity import base_positivity
-from .testdata import make_1d_overlap_data
+from causallib.positivity import base_positivity
+from causallib.positivity.tests.testdata import make_1d_overlap_data
 
 
 class TestBase(unittest.TestCase):
