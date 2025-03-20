@@ -4,9 +4,9 @@ from causallib.positivity import UnivariateBoundingBox
 from causallib.positivity.univariate_bbox import QuantileContinuousSupport, Support, ContinuousSupport, CategoricalSupport
 from sklearn.exceptions import NotFittedError
 
-from .testdata import (make_1d_overlap_data,
-                       make_1d_normal_distribution_overlap_data)
-from sklearn.linear_model import LogisticRegression
+from causallib.positivity.datasets.test_data_simulator import (
+    make_1d_overlap_data, make_1d_normal_distribution_overlap_data
+)
 
 
 def inbounds(bounds):

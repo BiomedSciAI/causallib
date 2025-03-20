@@ -1,6 +1,6 @@
 import unittest
 from causallib.positivity import Matching
-from .testdata import make_1d_overlap_data, make_random_y_like 
+from causallib.positivity.datasets.test_data_simulator import make_1d_overlap_data, make_random_y_like
 
 
 class TestMatching(unittest.TestCase):
