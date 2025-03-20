@@ -96,7 +96,8 @@ class MultipleTreatmentPositivity(BasePositivity, ABC):
 
         """
         positivity_profile = pd.DataFrame(
-            columns=self._create_positivity_profile_columns(), index=X.index
+            columns=self._create_positivity_profile_columns(), index=X.index,
+            dtype="boolean",
         )
         for treatment in positivity_profile.columns:
             rows = self._get_treated_rows_indicator(X, a, estimation_population, treatment=treatment)
@@ -261,8 +262,12 @@ class OneVersusRestPositivity(MultipleTreatmentPositivity):
         treats = treatment_profile.columns.sort_values().values
         contingency_frame = pd.DataFrame(index=treats, columns=treats)
         for a1, a2 in combinations(treats, 2):
-            contingency_frame.loc[a1, a2] = np.mean(np.logical_and(treatment_profile[a1].fillna(0),
-                                                                   treatment_profile[a2].fillna(0)))
+            contingency_frame.loc[a1, a2] = np.mean(
+                np.logical_and(
+                    treatment_profile[a1].fillna(False),
+                    treatment_profile[a2].fillna(False)
+                )
+            )
         return contingency_frame.astype(float)
 
     def _get_treated_rows_indicator(self, X, a, estimation_population='Both', treatment=None):
