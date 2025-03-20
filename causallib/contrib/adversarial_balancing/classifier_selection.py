@@ -14,6 +14,7 @@
 #
 # Created on Oct 30, 2019
 
+import sklearn
 from sklearn.base import clone
 from sklearn.model_selection import KFold, cross_val_predict, ParameterGrid
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
@@ -90,12 +91,28 @@ def _select_classifier_from_list(candidates, X, A, n_splits=5, seed=None, loss_t
     if n_splits >= 2:
         cv = KFold(n_splits=n_splits, shuffle=True, random_state=seed)
         for model_idx, m in enumerate(candidates):
-            if loss_type == '01':
-                pred = cross_val_predict(m, X=X, y=A, cv=cv, params={'sample_weight': class_weight}).reshape(-1)
+            if sklearn.__version__ >= "1.4":
+                # TODO: at time of writing scikit-learn 1.4.0 is <1 year old.
+                #       Once matured, you may erase the deprecated `fit_params` and just use `params`.
+                if loss_type == '01':
+                    pred = cross_val_predict(
+                        m, X=X, y=A,
+                        cv=cv, params={'sample_weight': class_weight}
+                    ).reshape(-1)
+                else:
+                    ps = cross_val_predict(
+                        m, X=X, y=A,
+                        cv=cv, params={'sample_weight': class_weight},
+                        method='predict_proba'
+                    )
+                    pred = ps[:, 1]
             else:
-                ps = cross_val_predict(m, X=X, y=A, cv=cv, params={'sample_weight': class_weight},
-                                       method='predict_proba')
-                pred = ps[:, 1]
+                if loss_type == '01':
+                    pred = cross_val_predict(m, X=X, y=A, cv=cv, fit_params={'sample_weight': class_weight}).reshape(-1)
+                else:
+                    ps = cross_val_predict(m, X=X, y=A, cv=cv, fit_params={'sample_weight': class_weight},
+                                           method='predict_proba')
+                    pred = ps[:, 1]
     else:
         for model_idx, m in enumerate(candidates):
             m.fit(X, A, sample_weight=class_weight)
