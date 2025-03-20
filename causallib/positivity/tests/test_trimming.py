@@ -13,7 +13,7 @@ class TestTrimming(unittest.TestCase):
     def setUpClass(cls):
         # Propensity model without regularization
         cls.trimming = Trimming(
-            learner=LogisticRegression(solver="sag", penalty="none"),
+            learner=LogisticRegression(solver="sag", penalty=None),
             threshold="auto"
         )
 

@@ -13,7 +13,7 @@ class TestScoring(unittest.TestCase):
     def setUpClass(cls):
         # Propensity model without regularization
         cls.trimming = Trimming(
-            learner=LogisticRegression(solver="sag", penalty="none"),
+            learner=LogisticRegression(solver="sag", penalty=None),
             threshold="crump"
         )
         # set mean and covariance params
