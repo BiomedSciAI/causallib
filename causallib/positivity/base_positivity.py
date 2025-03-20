@@ -119,7 +119,7 @@ class BasePositivity(ABC, BaseEstimator):
             float: a non-negative score that quantifies the violation
             of positivity
         """
-        from .scorers.metrics import cross_covariance_score
+        from .metrics.metrics import cross_covariance_score
         X_trans, a_trans = self.transform(X, a)
         return cross_covariance_score(X_trans, a_trans, **kwargs)
 
