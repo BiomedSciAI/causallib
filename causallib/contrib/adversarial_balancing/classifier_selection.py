@@ -91,9 +91,9 @@ def _select_classifier_from_list(candidates, X, A, n_splits=5, seed=None, loss_t
         cv = KFold(n_splits=n_splits, shuffle=True, random_state=seed)
         for model_idx, m in enumerate(candidates):
             if loss_type == '01':
-                pred = cross_val_predict(m, X=X, y=A, cv=cv, fit_params={'sample_weight': class_weight}).reshape(-1)
+                pred = cross_val_predict(m, X=X, y=A, cv=cv, params={'sample_weight': class_weight}).reshape(-1)
             else:
-                ps = cross_val_predict(m, X=X, y=A, cv=cv, fit_params={'sample_weight': class_weight},
+                ps = cross_val_predict(m, X=X, y=A, cv=cv, params={'sample_weight': class_weight},
                                        method='predict_proba')
                 pred = ps[:, 1]
     else:
