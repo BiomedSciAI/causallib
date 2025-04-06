@@ -37,7 +37,7 @@ def prevalence_symmetric(tree, alpha=0.1):
     Returns the list of non violating nodes for these cutoffs
 
     Args:
-        tree (PropensityImbalanceStratification): the splitting tree
+        tree (BalancingTree): the splitting tree
         alpha (float): the fixed cutoff to be transformed
 
     Checks for the default stopping criterion, which is:
@@ -48,15 +48,15 @@ def prevalence_symmetric(tree, alpha=0.1):
     Returns: (list) The node indices of non-violating leaves
     """
     leaf_summary = tree.generate_leaf_summary()
-    ps_singles_list = leaf_summary['pscore'].values
+    ps_singles_list = leaf_summary['treatment_prevalence'].values
     repetition_numbers = leaf_summary['sample_size'].values.tolist()
     ps_list = ps_singles_list.repeat(repetition_numbers)
     ps_vect = pd.DataFrame(np.column_stack((1 - ps_list, ps_list)))
-    mu = tree.node_prevalence_  # Overall prevalence of treatment
+    mu = tree.treatment_prevalence_  # Overall prevalence of treatment
     cutoffs = prevalence_symmetric_cutoff(ps_vect, mu, alpha)
     lower_cutoff, upper_cutoff = cutoffs[0], cutoffs[1]
     non_violating_nodes = leaf_summary.loc[
-        leaf_summary['pscore'].between(lower_cutoff, upper_cutoff),
+        leaf_summary['treatment_prevalence'].between(lower_cutoff, upper_cutoff),
         'node_index'
     ].tolist()
     return non_violating_nodes
@@ -106,14 +106,14 @@ def crump(tree, segments=10000):
     # TODO: add data to signature once we remove the saved data attributes from leaves.
 
     leaf_summary = tree.generate_leaf_summary()
-    ps_singles_list = leaf_summary['pscore'].values
+    ps_singles_list = leaf_summary['treatment_prevalence'].values
     repetition_numbers = leaf_summary['sample_size'].values.tolist()
     ps_list = ps_singles_list.repeat(repetition_numbers)
     ps_vect = pd.DataFrame(np.column_stack((1 - ps_list, ps_list)))
     lower_cutoff, upper_cutoff = crump_cutoff(ps_vect, segments)
     if lower_cutoff is not None:
         non_violating_nodes = leaf_summary.loc[
-            leaf_summary['pscore'].between(lower_cutoff, upper_cutoff),
+            leaf_summary['treatment_prevalence'].between(lower_cutoff, upper_cutoff),
             'node_index'
         ].tolist()
         return non_violating_nodes

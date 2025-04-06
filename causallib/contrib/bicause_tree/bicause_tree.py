@@ -18,10 +18,13 @@ Created on Oct 26, 2021
 """
 from collections import deque
 from copy import deepcopy
+from typing import Union
+
 import numpy as np
 import pandas as pd
 from statsmodels.stats.multitest import multipletests
 from scipy.stats import fisher_exact, chi2_contingency
+from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.dummy import DummyClassifier
 
 from causallib.contrib.bicause_tree.overlap_utils import prevalence_symmetric, OverlapViolationEstimator
@@ -34,6 +37,7 @@ from causallib.metrics.weight_metrics import calculate_covariate_balance
 def default_stopping_criterion(tree, X: pd.DataFrame, a: pd.Series):
     """
     Args:
+        tree (BalancingTree): the current node (tree) being considered
         X (pd.DataFrame): The feature matrix
         a (pd.Series): the treatment assignment vector
     Returns:
@@ -41,9 +45,9 @@ def default_stopping_criterion(tree, X: pd.DataFrame, a: pd.Series):
     """
     # returns True if we must stop
 
-    asmds = tree._calculate_asmds(X, a)
-    no_exploitable_asmds=asmds.isna().all()
-    #asmds can be NaN if the standard deviation is null
+    asmds = calculate_asmds(X, a)
+    no_exploitable_asmds = asmds.isna().all()
+    # asmds can be NaN if the standard deviation is null
     if no_exploitable_asmds:
         return True
     _is_asmd_threshold_reached = asmds.max() <= tree.asmd_violation_threshold
@@ -51,36 +55,51 @@ def default_stopping_criterion(tree, X: pd.DataFrame, a: pd.Series):
     _is_min_split_size_reached = X.shape[0] <= tree.min_split_size
     _is_max_depth_tree_reached = tree.max_depth <= 1
 
-    criteria = any(
-        [_is_asmd_threshold_reached, _is_min_treat_group_size_reached, _is_min_split_size_reached,
-         _is_max_depth_tree_reached])
+    criteria = any([
+        _is_asmd_threshold_reached,
+        _is_min_treat_group_size_reached,
+        _is_min_split_size_reached,
+        _is_max_depth_tree_reached
+    ])
 
     return criteria
 
 
-class PropensityBICauseTree():
+def calculate_asmds(X: pd.DataFrame, a: pd.Series):
+    epsilon = np.finfo(float).resolution
+    treatment_values = get_iterable_treatment_values(None, a)
+    if len(treatment_values) < 2:
+        return pd.Series(np.nan, index=X.columns)
+    X0 = X.loc[a == treatment_values[0]]
+    X1 = X.loc[a != treatment_values[0]]
+    asmds = (X0.mean() - X1.mean()) / ((np.sqrt(X0.var() + X1.var())) + epsilon)
+    asmds = asmds.abs()
+    return asmds
+
+
+class PropensityBICauseTree:
 
     def __init__(
         self,
-        learner = DummyClassifier(strategy='prior'),
-            **kwargs
+        learner=DummyClassifier(strategy='prior'),
+        **kwargs
     ) -> None:
         """
         A propensity model based on a BICause Tree,
         scikit-learn compatible
 
-
         Args:
-            learner: The propensity model
-            **kwargs: The propensity model hyperparameters
+            learner (BaseEstimator, ClassifierMixin): The propensity model
+            **kwargs: arguments for `BalancingTree`. See its docstring for details.
         """
-
-        self.tree = PropensityImbalanceStratification(**kwargs)
         self.learner = learner
+        self.tree = BalancingTree(**kwargs)
 
-    def fit(self,X,a):
+    def fit(self, X, a):
         """Fits a PropensityBICauseTree propensity model.
-        Compatible with scikit-learn classifiers, which can be combined with causallib's models
+
+        Compatible with scikit-learn classifiers,
+        which can be combined with causallib's models
         - e.g., IPW(PropensityBICauseTree())
 
         Args:
@@ -88,106 +107,125 @@ class PropensityBICauseTree():
             a (pd.Series): The treatment assignment vector
 
         Returns:
-            (class) PropensityBICauseTree
+            PropensityBICauseTree
         """
         self.tree.fit(X, a)
-        self.fit_treatment_models(X,a)
+        self.fit_treatment_models(X, a)
         return self
 
     def fit_treatment_models(self, X, a):
-        '''Fits the propensity models in the leaf nodes.
+        """Fits the probability estimator in the leaf nodes.
 
         Args:
             X (pd.DataFrame): The feature matrix
             a (pd.Series): The treatment assignment vector
 
         Returns:
-            (class) PropensityBICauseTree
-        '''
-
-        assignment = self.tree.apply(X)
-        total_nodes = assignment.unique()
-        positivity_violating_leaves = self.tree.get_positivity_violation_status()
+            dict[int, BaseEstimator]: a mapping between leaf index and
+                the corresponding probability estimator
+        """
         self.treatment_values_ = np.unique(a)
 
+        assignment = self.tree.apply(X)
+        all_leaves = assignment.unique()
         node_models = {}
-        for node in total_nodes:
+        for node in all_leaves:
+            cur_node_mask = assignment == node
+            current_node_X = X.loc[cur_node_mask]
+            current_node_a = a.loc[cur_node_mask]
 
-            id = assignment[assignment==node].index
-            # create subset of subjects in current node
-
-            current_node_X = X.loc[id]
-            current_node_a = a.loc[id]
-            has_positivity_violation = positivity_violating_leaves[node]
-
-            # if not has_positivity_violation:
-            # fit model to subset of samples
             model = self.learner.fit(current_node_X, current_node_a)
-
-
-            # dictionary : key - node index , value - fitted model
-            # this dictionary will be a atribute of BecauseTree class
             node_models[node] = deepcopy(model)
 
-        self.node_models_ =  node_models
-        return self
+        self.node_models_ = node_models
+        return node_models
 
     def predict_proba(self, X):
-        ''' Predict the individual treatment probabilities.
-        Sends the data down the fitted tree and evaluates the leaf propensity score models.
+        """ Predict the individual treatment probabilities.
 
         Args:
             X (pd.DataFrame): The feature matrix
 
         Returns:
-            (pd.DataFrame) A vector of individual treatment probabilities
-        '''
+            np.array: A matrix of individual treatment probabilities,
+                (n_samples, n_treatment_values)
+        """
         node_assignment = self.tree.apply(X)
-        all_df = np.zeros((X.shape[0], len(self.treatment_values_.astype('int'))))
+        res = []
         for node in np.unique(node_assignment.values):
-
-            curr_node_index = node_assignment==node
+            curr_node_index = node_assignment == node
             curr_X = X.loc[curr_node_index]
             curr_model = self.node_models_[node]
 
-            # TODO : make df and sort by index and only at the end covert to np array
             probability = curr_model.predict_proba(curr_X)
-            if probability.shape[1] == len(self.treatment_values_):
-                all_df[curr_node_index, :] = probability
-            else:
-                existing_classes = curr_model.classes_ == np.arange(all_df.shape[1])
-                shape_all_df = all_df[curr_node_index, existing_classes].shape
-                all_df[curr_node_index, existing_classes] = probability.reshape(shape_all_df)
-            # adding a column with in index for later sorting
-            # id = np.atleast_2d(np.array(curr_X.index)).T
-            # probability = np.append(probability, id, axis=1)
-            # all_df.append(probability)
+            probability = pd.DataFrame(
+                probability,
+                columns=curr_model.classes_,
+                index=curr_X.index,
+            )
+            res.append(probability)
 
-        # total_propensity = np.vstack(all_df)
-        # sorted_array = total_propensity[np.argsort(total_propensity[:, -1])]
-        # sorted_array = np.delete(sorted_array, -1, 1)
+        res = pd.concat(res)
+        res = res.fillna(0.0)  # If classes don't fully overlap across leaves
+        res = res.loc[X.index]
+        res = res.to_numpy()
 
-        return all_df
+        return res
+
 
 class BICauseTree(IndividualOutcomeEstimator):
 
     def __init__(
         self,
-        outcome_model: PopulationOutcomeEstimator = None,
+        outcome_model: Union[IndividualOutcomeEstimator, PopulationOutcomeEstimator] = None,
         individual=False,
-        min_leaf_size=0,
-        min_split_size=0,
-        min_treat_group_size=0,
         asmd_violation_threshold=0.1,
+        min_leaf_size=0,
+        min_treat_group_size=0,
+        min_split_size=0,
         max_depth=10,
-        n_values=50,
-        multiple_hypothesis_test_alpha=0.1,
-        multiple_hypothesis_test_method='holm',
-        positivity_filtering_kwargs=None,
         stopping_criterion=default_stopping_criterion,
+        max_splitting_values=50,
+        multiple_hypothesis_test_method='holm',
+        multiple_hypothesis_test_alpha=0.1,
         positivity_filtering_method=prevalence_symmetric,
-        _parent_=None
+        positivity_filtering_kwargs=None,
     ) -> None:
+        """A causal model effect estimator built on top of a tree recursively stratifying the covariate space to
+        balance between treated and untreated.
+
+        Args:
+            outcome_model (Union[IndividualOutcomeEstimator, PopulationOutcomeEstimator]):
+                An outcome model for generating counterfactual predictions at each leaf node of the tree.
+                Defaults to a simple `MarginalOutcomeEstimator` that just takes the average outcome for each treatment
+                group in each leaf. However, it may also be any arbitrary outcome model to further adjust for the
+                covariates (that the tree might leave some residual bias in the stratification).
+            individual (bool): If True (and if `outcome_model` has `estimate_individual_outcomes`)
+                will generate individual-level predictions for observations within each leaf.
+                Otherwise, each observation takes the value of the average outcome in that leaf
+                (using the `estimate_population_outcomes` method).
+            asmd_violation_threshold (float): The value of Absolute Standardized Mean Difference below which a subgroup
+                is considered balanced.
+            min_leaf_size (int): The minimum number of samples required to split an internal node
+            min_treat_group_size (int): The minimum number of samples in all treatment groups
+                required to split an internal node.
+            min_split_size (int): The minimum number of samples required to split an internal node.
+            max_depth (int): The maximum depth of the tree.
+                Will be updated for each level of nodes as the tree grows.
+            stopping_criterion (callable): A function that takes the node/subtree as well as the data (`X`, `a`)
+                and returns a boolean `True` if to stop splitting the tree and `False` if to continue splitting.
+            max_splitting_values (int): The maximal number of unique values to consider when splitting a single feature
+            multiple_hypothesis_test_method: The method for correcting p-values in multiple hypotheses testing.
+                Should be compatible with statsmodels' `multipletests`.
+            multiple_hypothesis_test_alpha (float): The alpha value for correcting p-values in
+                multiple hypotheses testing.
+                Should be compatible with statsmodels' `multipletests`.
+            positivity_filtering_method (callable):
+                A function that takes the current node (or subtree) as well as
+                the arbitrary kwargs from `positivity_filtering_kwargs` and
+                returns a list of the leaves/nodes' indices that do *not* violate positivity.
+            positivity_filtering_kwargs: Keyword arguments to call the `positivity_filtering_method` with.
+        """
         super().__init__(learner=None)
 
         if outcome_model is None:
@@ -198,23 +236,22 @@ class BICauseTree(IndividualOutcomeEstimator):
         if positivity_filtering_kwargs is None:
             positivity_filtering_kwargs = {'alpha': 0.1}
 
-        self.tree = PropensityImbalanceStratification(
-            stopping_criterion=stopping_criterion,
-            min_split_size=min_split_size,
-            max_depth=max_depth,
+        self.individual = individual
+        self.tree = BalancingTree(
+            asmd_violation_threshold=asmd_violation_threshold,
             min_leaf_size=min_leaf_size,
             min_treat_group_size=min_treat_group_size,
-            asmd_violation_threshold=asmd_violation_threshold,
-            positivity_filtering_method=positivity_filtering_method,
-            positivity_filtering_kwargs=positivity_filtering_kwargs,
-            n_values=n_values,
-            multiple_hypothesis_test_alpha=multiple_hypothesis_test_alpha,
+            min_split_size=min_split_size, max_depth=max_depth,
+            stopping_criterion=stopping_criterion,
+            max_splitting_values=max_splitting_values,
             multiple_hypothesis_test_method=multiple_hypothesis_test_method,
+            multiple_hypothesis_test_alpha=multiple_hypothesis_test_alpha,
+            positivity_filtering_method=positivity_filtering_method,
+            positivity_filtering_kwargs=positivity_filtering_kwargs
         )
-        self.individual = individual
 
     def fit(self, X, a, y, sample_weight=None):
-        ''' Build the BICauseTree partition
+        """ Build the BICauseTree partition
 
         Args:
             X (pd.DataFrame): The feature matrix of all samples
@@ -224,26 +261,30 @@ class BICauseTree(IndividualOutcomeEstimator):
 
         Returns:
             (class) BICauseTree
-        '''
-        self.tree.fit(X,a)
-        self.fit_outcome_models(X,a,y)
+        """
+        self.tree.fit(X, a)
+        self.fit_outcome_models(X, a, y)
         return self
 
     def apply(self, X):
-        ''' Get node assignments based on BICauseTree partition
+        """ Get node assignments based on BICauseTree partition
 
         Args:
             X (pd.DataFrame): The feature matrix of all samples
 
         Returns:
             (pd.Series) A vector of node indices indexed according to X
-        '''
+        """
         assignment = self.tree.apply(X)
         return assignment
 
-    def estimate_population_outcome(self, X, a, y=None, discard_violating_samples = True, agg_func="mean"):
-
-        ''' Estimates outcomes at a population-level and assigns them to individuals in X
+    def estimate_population_outcome(
+        self,
+        X, a, y=None,
+        discard_violating_samples=True,
+        agg_func="mean",
+    ):
+        """ Estimates outcomes at a population-level and assigns them to individuals in X
 
         Args:
             X (pd.DataFrame): The feature matrix of all samples
@@ -254,60 +295,61 @@ class BICauseTree(IndividualOutcomeEstimator):
 
         Returns:
             A vector of potential outcomes indexed according to X
-        '''
+        """
         individual_cf = self.estimate_individual_outcome(X, a, y)
         if discard_violating_samples:
             individual_cf = individual_cf.dropna()
         if individual_cf.isnull().any().any():
             treatment_values = len(individual_cf.columns)
-            pop_outcome = pd.Series(np.nan, index=range(0,treatment_values))
+            pop_outcome = pd.Series(np.nan, index=range(0, treatment_values))
         else:
             pop_outcome = individual_cf.apply(self._aggregate_population_outcome, args=(agg_func,))
         return pop_outcome
 
-
     def estimate_individual_outcome(self, X, a, y=None, same_dim_as_input=True):
-        '''
+        """estimate individual-level counterfactual predictions.
+
+        if `self.individual is True` and `self.outcome_model` has `estimate_individual_outcome()`
+        then each observation will get a unique counterfactual value.
+        otherwise, each individual gets the average prediction of its node,
+        and this function is a way to transform it to a shape of predictions-per-observation.
 
         Args:
             X (pd.DataFrame): The feature matrix of all samples
             a (pd.Series): The treatment assignments
             y (pd.Series): The outcome values
-            same_dim_as_input (boolean): whether or not to return Nan individual outcomes or trim them
+            same_dim_as_input (boolean): whether to return nan values for
+                positivity-violating observations or exclude them
 
         Returns:
-            (pd.DataFrame) A vector of individual outcomes indexed according to X
-        '''
+            pd.DataFrame: A matrix of individual outcomes indexed according to X
+        """
         node_assignment = self.apply(X)
         all_df = []
         for node in np.unique(node_assignment.values):
 
-            curr_node_index = node_assignment==node
-            node_index_list = curr_node_index[curr_node_index == True].index
+            curr_node_index = node_assignment == node
             curr_X = X.loc[curr_node_index]
             curr_a = a[curr_node_index]
-            curr_y = y[node_index_list] if y is not None else None
+            curr_y = y[curr_node_index] if y is not None else None
             curr_model = self.node_models_[node]
 
-            if not self.individual and hasattr(curr_model,'estimate_population_outcome'):
-                # no individual estimation from the model but we aggregate the pop outcomes
-                if y is None:
-                    raise AttributeError('You must enter an outcome vector for estimating population-level outcomes\
-                                                                        ...or use an individual-level outcome estimation model')
+            if self.individual:
+                if hasattr(curr_model, "estimate_individual_outcome"):
+                    outcomes = curr_model.estimate_individual_outcome(curr_X, curr_a)
                 else:
-                    outcomes = curr_model.estimate_population_outcome(curr_X,curr_a,curr_y)
-                    # we duplicate the outcome values as the len of the vector to concat to the df
-                    outcomes = pd.DataFrame(outcomes).transpose()
-                    outcomes = pd.concat([outcomes]*len(curr_a), ignore_index=True)
-                    outcomes = outcomes.set_index(curr_X.index)
-
-            elif self.individual and hasattr(curr_model,'estimate_individual_outcome'):
-                outcomes = curr_model.estimate_individual_outcome(curr_X, curr_a)
+                    raise AttributeError(
+                        "The `outcome_model` provided can't estimate individual outcomes, "
+                        "even though `self.individual` is set to True."
+                        "Please change the `outcome_model` or set `self.individual` to False."
+                    )
             else:
-                raise AttributeError('The model you have chosen for estimation doesnt have the functionality to estimate\
-                                                        ...individual outcomes. Please change the bool -> population=True')
+                outcomes = curr_model.estimate_population_outcome(curr_X, curr_a, curr_y)
+                # we duplicate the outcome values as the len of the vector to concat to the df
+                outcomes = pd.DataFrame(outcomes).transpose()
+                outcomes = pd.concat([outcomes] * len(curr_a), ignore_index=True)
+                outcomes = outcomes.set_index(curr_X.index)
 
-            # outcomes['node'] = node
             all_df.append(outcomes)
 
         # concat all df together
@@ -319,17 +361,17 @@ class BICauseTree(IndividualOutcomeEstimator):
 
         return df
 
-
     def fit_outcome_models(self, X, a, y):
-        '''
+        """ Fits causal models to the nodes of a fitted (already grown) tree.
+
         Args:
             X (pd.DataFrame): The feature matrix of all samples
             a (pd.Series): The treatment assignments
             y (pd.Series): The outcome values
 
         Returns:
-            (class) BICauseTree
-        '''
+            dict[int, Union[IndividualOutcomeEstimator, PopulationOutcomeEstimator]
+        """
         positivity_violating_leaves = self.tree.get_positivity_violation_status()
         assignment = self.tree.apply(X)
         total_nodes = assignment.unique()
@@ -338,24 +380,19 @@ class BICauseTree(IndividualOutcomeEstimator):
         for node in total_nodes:
 
             has_positivity_violation = positivity_violating_leaves[node]
-            id = assignment[assignment==node].index
-            current_node_X = X.loc[id]
-            current_node_a = a.loc[id]
-            current_node_y = y.loc[id]
-            if has_positivity_violation:
-                model = OverlapViolationEstimator().fit(X, a, y)
-            else:
-            # fit model to subset of samples
-                model = self.outcome_model.fit(current_node_X, current_node_a, current_node_y)
+            idx = assignment[assignment == node].index
+            current_node_X = X.loc[idx]
+            current_node_a = a.loc[idx]
+            current_node_y = y.loc[idx]
 
-            # dictionary : key - node index , value - fitted model
-            # this dictionary will be a atribute of BecauseTree class
+            model = OverlapViolationEstimator() if has_positivity_violation else deepcopy(self.outcome_model)
+            model.fit(current_node_X, current_node_a, current_node_y)
             node_models[node] = deepcopy(model)
 
-        self.node_models_ =  node_models
-        return self
+        self.node_models_ = node_models
+        return node_models
 
-    def explain(self, X, a, split_condition: str = None, df_explanation: pd.DataFrame = None):
+    def explain(self, X, a, split_condition: str = None):
         """Create a list of data frames summarizing the decision tree and the marginal effect.
             Each data-frame represents a leaf in the tree, and the list represents the tree itself.
             Each data frame exhibits several summary statistics about the path from the root to the
@@ -365,155 +402,171 @@ class BICauseTree(IndividualOutcomeEstimator):
             X (pd.DataFrame): The feature data. Assumed to be of the same column
             structure as the training data
             a (pd.Series): The treatment assignment vector
-            y (pd.Series): The outcome vector
             split_condition (str): The string representing the first condition. Default to 'All'
-            df_explanation (pd.DataFrame): Mostly used for recursion. The inital data-frame,
             to which the split explanations are added
 
         Returns:
             List[pd.DataFrame]: The list representing the tree, holding a data-frame for every leaf.
         """
-        return self.tree.explain(X, a, split_condition, df_explanation)
+        return self.tree.explain(X, a, split_condition)
 
 
-
-class PropensityImbalanceStratification():
+class BalancingTree:
     def __init__(
         self,
-        min_leaf_size=0,
-        min_split_size=0,
-        min_treat_group_size=0,
         asmd_violation_threshold=0.1,
+        min_leaf_size=0,
+        min_treat_group_size=0,
+        min_split_size=0,
         max_depth=10,
-        n_values=50,
-        multiple_hypothesis_test_alpha=0.1,
-        multiple_hypothesis_test_method='holm',
-        positivity_filtering_kwargs=None,
         stopping_criterion=default_stopping_criterion,
+        max_splitting_values=50,
+        multiple_hypothesis_test_method='holm',
+        multiple_hypothesis_test_alpha=0.1,
         positivity_filtering_method=None,
-        _parent_=None,
-    ) -> None:
-        '''
+        positivity_filtering_kwargs=None,
+        _parent_=None
+    ):
+        """A tree node that recursively stratifies the covariate space based on ASMD value and other constraints.
 
         Args:
-            min_leaf_size:
-            min_split_size:
-            min_treat_group_size:
-            asmd_violation_threshold:
-            max_depth:
-            n_values:
-            multiple_hypothesis_test_alpha:
-            multiple_hypothesis_test_method:
-            positivity_filtering_kwargs:
-            stopping_criterion:
-            positivity_filtering_method:
-            _parent_:
-        '''
-        super().__init__()
-
-        self.n_values = n_values
-        # values that are determined during training
-        self.positivity_filtering_kwargs=positivity_filtering_kwargs
-        self.positivity_filtering_method = positivity_filtering_method
-        self.multiple_hypothesis_test_alpha = multiple_hypothesis_test_alpha
-        self.multiple_hypothesis_test_method = multiple_hypothesis_test_method
-        if self.multiple_hypothesis_test_method is not None and self.multiple_hypothesis_test_alpha is None:
-            raise ValueError("multiple_hypothesis_test_alpha is None, must be set to a value if multiple_hypothesis_test_method is not None")
-        self.node_sample_size_=None
-        self.positivity_violation_ = None
-        self.propensity_score_ = None
-        self.node_prevalence_ = None
-        self.pval_ = None
-        self.n_asmd_violating_features_ = None
-        self.node_index_ = None
-        self.split_feature_ = None
-        self.split_value_ = np.NaN
-        self.max_feature_asmd_ = np.NaN
-        self.subtree_ = None
-        self.asmd_violation_threshold=asmd_violation_threshold
-        self.min_leaf_size=min_leaf_size
-        self.min_split_size=min_split_size
-        self.min_treat_group_size=min_treat_group_size
-        self.stopping_criterion=stopping_criterion
+            asmd_violation_threshold (float): The value of Absolute Standardized Mean Difference below which a subgroup
+                is considered balanced.
+            min_leaf_size (int): The minimum number of samples required to split an internal node
+            min_treat_group_size (int): The minimum number of samples in all treatment groups
+                required to split an internal node.
+            min_split_size (int): The minimum number of samples required to split an internal node.
+            max_depth (int): The maximum depth of the tree.
+                Will be updated for each level of nodes as the tree grows.
+            stopping_criterion (callable): A function that takes the node/subtree as well as the data (`X`, `a`)
+                and returns a boolean `True` if to stop splitting the tree and `False` if to continue splitting.
+            max_splitting_values (int): The maximal number of unique values to consider when splitting a single feature
+            multiple_hypothesis_test_method: The method for correcting p-values in multiple hypotheses testing.
+                Should be compatible with statsmodels' `multipletests`.
+            multiple_hypothesis_test_alpha (float): The alpha value for correcting p-values in
+                multiple hypotheses testing.
+                Should be compatible with statsmodels' `multipletests`.
+            positivity_filtering_method (callable):
+                A function that takes the current node (or subtree) as well as
+                the arbitrary kwargs from `positivity_filtering_kwargs` and
+                returns a list of the leaves/nodes' indices that do *not* violate positivity.
+            positivity_filtering_kwargs: Keyword arguments to call the `positivity_filtering_method` with.
+            _parent_ (BalancingTree): The parent of the current node/subtree.
+        """
+        self.asmd_violation_threshold = asmd_violation_threshold
+        self.min_leaf_size = min_leaf_size
+        self.min_treat_group_size = min_treat_group_size
+        self.min_split_size = min_split_size
         self.max_depth = max_depth
-        self.corrected_pval_ = None
-        self._total_pruned_nodes_=0
-        self.is_split_significant_corrected_ = None
+        self.stopping_criterion = stopping_criterion
+        self.max_splitting_values = max_splitting_values
+        self.multiple_hypothesis_test_method = multiple_hypothesis_test_method
+        self.multiple_hypothesis_test_alpha = multiple_hypothesis_test_alpha
+        self.positivity_filtering_method = positivity_filtering_method
+        self.positivity_filtering_kwargs = positivity_filtering_kwargs
         self._parent_ = _parent_
-        self.keep_=False
-        self.potential_outcomes_ = None
-        self.is_violating_ = None
 
+        if self.multiple_hypothesis_test_method is not None and self.multiple_hypothesis_test_alpha is None:
+            raise ValueError(
+                "Must be set `multiple_hypothesis_test_alpha` to a non-None value if "
+                f"`multiple_hypothesis_test_method` (={multiple_hypothesis_test_method}) is provided."
+            )
+
+        # Add values that will be later initialized.from
+        self.subtree_ = None
+        self.node_index_ = None
+        self.is_violating_positivity_ = None
+        self.keep_ = False
+        # TODO: I don't like the logic makes the default value of a newly generated node to "discard",
+        #       Can I re-write the pruning logic that makes it possible to start with `keep_=True`?
+
+    @property
+    def _is_leaf(self):
+        return self.subtree_ is None
 
     def fit(self, X: pd.DataFrame, a: pd.Series):
-        """
+        """Builds a tree that stratifies the covariate space.
 
         Finds a stratification of the data space according to treatment allocation disparity by covariates in X
         The tree goes down until some stopping criteria is met, then prunes back according to the
         multiple hypothesis test results. Resulting leaf nodes are marked if their subpopulation violates positivity
 
-        When the tree is pruned nodes are kept if they have either or both:
+        When the tree is pruned, nodes are kept if they have either or both:
             i) a descendant with a significant p-value
             ii) a direct parent with a significant p-value
-        Outcome models are fitted in the leaf nodes of the resulting tree, and the average potential outcomes estimated.
-        In case there is no overlap in the leaf, the average potential outcomes will be NaNs.
-
-
 
         Args:
             X (pd.DataFrame): The feature matrix of all samples
             a (pd.Series): The treatment assignments
 
         Returns:
-            (class) PropensityImbalanceStratification
+            BalancingTree:
 
         """
         self._build_tree(X, a)
         self._enumerate_nodes()
         if self.multiple_hypothesis_test_method is not None:
-            self._prune(alpha=self.multiple_hypothesis_test_alpha, method=self.multiple_hypothesis_test_method)
+            self._prune(method=self.multiple_hypothesis_test_method, alpha=self.multiple_hypothesis_test_alpha)
         if self.positivity_filtering_method is not None:
-            self._find_non_positivity_violating_leaves(positivity_filtering_method=self.positivity_filtering_method,
-                                                       positivity_filtering_kwargs=self.positivity_filtering_kwargs)
+            self._find_non_positivity_violating_leaves(
+                positivity_filtering_method=self.positivity_filtering_method,
+                positivity_filtering_kwargs=self.positivity_filtering_kwargs,
+            )
 
         return self
 
     def _build_tree(self, X: pd.DataFrame, a: pd.Series):
-        asmds = self._calculate_asmds(X, a)
+        asmds = calculate_asmds(X, a)
         self.max_feature_asmd_ = asmds.max()
-        # TODO: avoid saving explicit summary statistics on the training data by fitting models instead.
-        self.node_prevalence_ = a.mean(axis=0)
-        self.propensity_score_ = a.mean(axis=0) # this redundancy is only temporary
-        # in the future the propensity_score_ will be computed from a model
-        self.node_sample_size_=len(a)
+        self.treatment_prevalence_ = a.mean(axis=0)
+        self.node_sample_size_ = len(a)
         if not self.stopping_criterion(self, X, a):
             self.split_feature_ = asmds.idxmax()
             self.split_value_ = self._find_split_value(X[self.split_feature_], a)
-            # TODO: This method can be plugged-in to use other heuristics
             if np.isnan(self.split_value_):
                 self.split_feature_ = None
                 return self
-            self.n_asmd_violating_features_= (asmds > self.asmd_violation_threshold).sum()
+            self.n_asmd_violating_features_ = (asmds > self.asmd_violation_threshold).sum()
             self._recurse_over_build(X, a)
+
+        # TODO: this building functionalities can be generalized, by generalizing the 3 main parts of this function:
+        #       1. Feature selection: what feature is selected for splitting.
+        #                             Inputs data (X, a, possibly y) and outputs a score per feature
+        #                             (say, lower is better).
+        #                             Currently ASMD, but with `y` may be Oui-ASMD, too, or something else.
+        #                                   (However, will require `BalancingTree` to get optional `y`, too.)
+        #       2. Feature splitting: Given a feature vector, how exactly to split it (to left and right children).
+        #                             Inputs feature and `a`, and outputs a threshold.
+        #                             Given how much of the pruning relies on p-values, it should also output a p-value
+        #                             (or any other measure where score -> 0 is more confident and score -> 1 is less).
+        #       3. Stopping criteria: Currently already implemented generically.
+        #                             Inputs tree (node) and data (X, a, possibly y), and returns True if node should
+        #                             not be further split.
         return self
 
+    def _recurse_over_build(self, X, a):
+        X_left, X_right, a_left, a_right = self._split_data(X, a)
+        self_params = {v: getattr(self, v) for v in vars(self) if not v.endswith("_")}
+        child_params = {
+            **self_params,
+            "max_depth": self_params["max_depth"] - 1,
+            "_parent_": self,
+        }
+        self.subtree_ = (
+            BalancingTree(**child_params)._build_tree(X_left, a_left),
+            BalancingTree(**child_params)._build_tree(X_right, a_right),
+        )
 
-    @staticmethod
-    def _calculate_asmds(X: pd.DataFrame, a: pd.Series):
-        epsilon = np.finfo(float).resolution
-        treatment_values = get_iterable_treatment_values(None, a)
-        if len(treatment_values) < 2:
-            return pd.Series(np.nan, index=X.columns)
-        X0 = X.loc[a == treatment_values[0]]
-        X1 = X.loc[a != treatment_values[0]]
-        # The epsilon ensures that if the means are the same the asmd will be zero
-        asmds = (X0.mean() - X1.mean()) / ((np.sqrt(X0.var() + X1.var())) + epsilon)
-        asmds = asmds.abs()
-        # asmds = calculate_covariate_balance(X, a, w=pd.Series(1, index=a.index))
-        # asmds = asmds["unweighted"]
-        # TODO: causallib's implementation return nan for two constant array
-        #       where this returns a very high value.
-        return asmds
+    def _split_data(self, X: pd.DataFrame, a: pd.Series = None):
+        left = X[self.split_feature_] <= self.split_value_
+        right = ~left  # note that this keeps NaNs on the right always
+        res = []
+        for data in [X, a]:
+            if data is None:
+                res.extend((None, None))
+            else:
+                res.extend((data[left], data[right]))
+        return tuple(res)
 
     def _find_split_value(self, x: pd.Series, a: pd.Series):
         """Find a single split that should reduce imbalance
@@ -529,59 +582,29 @@ class PropensityImbalanceStratification():
             The split value (normally a float, but could be anything that supports < comparison),
         """
         x_uniq = self._get_uniq_values(x)
-        pvals = [self._fisher_test_pval(x, a, x_val) for x_val in x_uniq]
-        pvals = pd.Series(pvals, index=x_uniq).dropna()
-        if len(pvals) == 0:
+        p_values = [self._fisher_test_p_value(x, a, x_val) for x_val in x_uniq]
+        p_values = pd.Series(p_values, index=x_uniq).dropna()
+        if len(p_values) == 0:
             return np.nan
-        self.pval_ = pvals.min()
-        return pvals.idxmin()
+        self.p_value_ = p_values.min()
+        return p_values.idxmin()
 
+    def _get_uniq_values(self, x):
+        n = np.min([self.max_splitting_values, len(x)])
+        x_uniq = x.quantile(q=np.arange(n + 1) / n, interpolation="lower").unique()
+        x_uniq = x_uniq[x_uniq != x.max()]
+        return x_uniq
 
-
-    def _build_split_condition_string(self, condition: str):
-        """Create the condition string `feature <condition> value`"""
-        explanation = f"{self.split_feature_} "
-        explanation += condition
-        explanation += f" {self.split_value_:.4g}"
-        return explanation
-
-    def _recurse_over_build(self, X, a):
-        X_left, X_right, a_left, a_right= self._split_data(X, a)
-        self_params = {v: getattr(self, v) for v in vars(self) if not v.endswith("_")}
-        self_params.pop("max_depth")
-        next_max_depth=self.max_depth-1
-        self.subtree_ = (
-            PropensityImbalanceStratification(**self_params, max_depth=next_max_depth, _parent_=self)._build_tree(X_left, a_left),
-            PropensityImbalanceStratification(**self_params, max_depth=next_max_depth, _parent_=self)._build_tree(X_right, a_right),
-        )
-
-    def _split_data(self, X: pd.DataFrame, a: pd.Series = None):
-        left = X[self.split_feature_] <= self.split_value_
-        right = ~left  # note that this keeps NaNs on the right always
-        res = []
-        for data in [X, a]:
-            if data is None:
-                res.extend((None, None))
-            else:
-                res.extend((data[left], data[right]))
-        return tuple(res)
-
-    def _fisher_test_pval(self, x, a, x_val):
+    def _fisher_test_p_value(self, x, a, x_val):
         I = pd.cut(x, [-np.inf, x_val, np.inf], labels=[0, 1])
         if (sum(I == 0) <= self.min_leaf_size) | (sum(I == 1) <= self.min_leaf_size):
             return np.nan
         crosstab = pd.crosstab(I, a)
         if crosstab.min().min() < 20:
-            _, pval = fisher_exact(crosstab)
+            _, p_value = fisher_exact(crosstab)
         else:
-            _, pval, _, _ = chi2_contingency(crosstab)
-        return pval
-
-    def _get_uniq_values(self, x):
-        n = np.min([self.n_values, len(x)])
-        x_uniq = x.quantile(q=list(range(n + 1) / n), interpolation="lower").unique()
-        x_uniq = x_uniq[x_uniq != x.max()]
-        return x_uniq
+            _, p_value, _, _ = chi2_contingency(crosstab)
+        return p_value
 
     def _enumerate_nodes(self):
         index = 0
@@ -593,8 +616,10 @@ class PropensityImbalanceStratification():
             if not node._is_leaf:
                 queue.extend(node.subtree_)
 
-    def _prune(self, alpha:float, method:str):
-        """
+    def _prune(self, method: str, alpha: float):
+        """Remove redundant nodes from tree.
+
+        Redundant being their p-value does not pass multiple hypothesis correction
 
         1) implements the multiple hypothesis correction on all node p-values in the tree
         according to the user-defined method
@@ -603,56 +628,41 @@ class PropensityImbalanceStratification():
             i) a descendant with a significant p-value
             ii) a direct parent with a significant p-value
 
-        Args:
-            alpha (float): significance level for the hypothesis test
-            (before correction). Corresponds to a Type I error in a statistical test
-            method (str): method for multiple hypothesis correction from statsmodels.stats.multitest
         """
-        # TODO: Make alpha and multiple hypothesis test method be provided in the constructor
-        corrected_non_leaf_summary=self._multiple_hypothesis_correction(alpha, method)
-        self._mark_nodes_post_multiple_hyp(corrected_non_leaf_summary)
+        # Consider using `alpha` and `method` from `self` rather than from parameters
+        corrected_non_leaf_summary = self._multiple_hypothesis_correction(alpha, method)
+        self._set_corrected_p_value_to_nodes(corrected_non_leaf_summary)
         self._recurse_over_prune()
-        self._total_pruned_nodes_=self._count_pruned_nodes()
+        self._total_pruned_nodes_ = self._count_pruned_nodes()
         self._delete_post_pruning()
 
-
-    def _multiple_hypothesis_correction(self, alpha:float, method:str):
+    def _multiple_hypothesis_correction(self, alpha: float, method: str):
         # take all non-leaf nodes p-values and conduct a multiple hypothesis correction
-        non_leaf_summary=self._generate_non_leaf_nodes_summary().dropna(subset=["p_value"])
-        if not non_leaf_summary.empty: # accounts for edge case of single node tree
-            test=multipletests(non_leaf_summary['p_value'], alpha=alpha, method=method)
-        else:
+        non_leaf_summary = self._generate_non_leaf_nodes_summary().dropna(subset=["p_value"])
+        if non_leaf_summary.empty:
+            # Accounts for the edge case of a single-node tree
             test = (None, None)
-        # record the corrected p-value and boolean result of the multiple hypothesis test
+        else:
+            test = multipletests(non_leaf_summary['p_value'], alpha=alpha, method=method)
+
+        # Record the corrected p-value and boolean result of the multiple hypothesis test:
         non_leaf_summary['corrected_pval'] = test[1]
         non_leaf_summary['multiple_test_result'] = test[0]
         return non_leaf_summary
 
-    def _mark_nodes_post_multiple_hyp(self, summary_df):
-        if self.subtree_ is not None:
-            self.corrected_pval_ = summary_df.loc[summary_df['node_index'] == self.node_index_, 'corrected_pval']
-            self.corrected_pval_ = self.corrected_pval_.iloc[0] # converting single line series into a float
-            self.is_split_significant_corrected_ = (
-                summary_df['multiple_test_result'].loc[summary_df['node_index'] == self.node_index_]
-            )
-            self.is_split_significant_corrected_ = self.is_split_significant_corrected_.iloc[0]
-            self.subtree_[0]._mark_nodes_post_multiple_hyp(summary_df)
-            self.subtree_[1]._mark_nodes_post_multiple_hyp(summary_df)
+    def _set_corrected_p_value_to_nodes(self, summary_df):
+        if self._is_leaf:
+            self.corrected_p_value_ = None
+            self.corrected_p_value_is_significant_ = None
         else:
-            self.corrected_pval_=None
-            self.is_split_significant_corrected_=None
-
-
-    def _mark_all_ancestors_and_two_children_as_keep(self):
-        self.keep_ = True
-        self._mark_two_children_as_keep()
-        is_root = self._parent_ is None
-        if not is_root:
-            self._parent_._mark_all_ancestors_and_two_children_as_keep()
-    @property
-    def _is_leaf(self):
-        return self.subtree_ is None
-
+            self.corrected_p_value_ = summary_df['corrected_pval'].loc[
+                summary_df['node_index'] == self.node_index_
+            ].iloc[0]  # converting a single line Series into a float
+            self.corrected_p_value_is_significant_ = (
+                summary_df['multiple_test_result'].loc[summary_df['node_index'] == self.node_index_]
+            ).iloc[0]
+            self.subtree_[0]._set_corrected_p_value_to_nodes(summary_df)
+            self.subtree_[1]._set_corrected_p_value_to_nodes(summary_df)
 
     def _recurse_over_prune(self):
         is_root = self._parent_ is None
@@ -660,12 +670,19 @@ class PropensityImbalanceStratification():
             self.keep_ = True
             pass
         if not self._is_leaf:
-            if self.is_split_significant_corrected_:
+            if self.corrected_p_value_is_significant_:
                 # the split is significant so we mark two children as keep
                 # the ancestors should be marked as keep to eventually save this split
                 self._mark_all_ancestors_and_two_children_as_keep()
             self.subtree_[0]._recurse_over_prune()
             self.subtree_[1]._recurse_over_prune()
+
+    def _mark_all_ancestors_and_two_children_as_keep(self):
+        self.keep_ = True
+        self._mark_two_children_as_keep()
+        is_root = self._parent_ is None
+        if not is_root:
+            self._parent_._mark_all_ancestors_and_two_children_as_keep()
 
     def _mark_two_children_as_keep(self):
         self.subtree_[0].keep_ = True
@@ -673,10 +690,10 @@ class PropensityImbalanceStratification():
 
     def _delete_post_pruning(self):
         if not self._is_leaf:
-            #two children will always have the same keep_ value
+            # Two children will always have the same keep_ value
             assert self.subtree_[0].keep_ == self.subtree_[1].keep_
             if not self.subtree_[0].keep_:
-                self.subtree_=None
+                self.subtree_ = None
             else:
                 self.subtree_[0]._delete_post_pruning()
                 self.subtree_[1]._delete_post_pruning()
@@ -691,47 +708,28 @@ class PropensityImbalanceStratification():
                 queue.extend(node.subtree_)
         return count
 
-    def _generate_non_leaf_nodes_summary(self, X=None, a=None, y=None):
-        all_node_summary=self._generate_node_summary(X, a, y)
-        return all_node_summary.loc[~all_node_summary["is_leaf"]]
-
-    def _mark_nodes_post_multiple_hyp(self, summary_df):
-        # if not self._is_leaf:
-        #     correct_pval = None
-        #     sig_split = None
-        # else:
-        #     correct_pval = summary_df['corrected_pval'].loc[summary_df['node_index'] == self.node_index_]
-        #     sig_split = self.corrected_pval_.iloc[0] # converting single line series into a float
-        #     self.subtree_[0]._mark_nodes_post_multiple_hyp(summary_df)
-        #     self.subtree_[1]._mark_nodes_post_multiple_hyp(summary_df)
-        # self.correct_pval_ = correct_pval
-        # self.sig_split_ = sig_split
-        if not self._is_leaf:
-            self.corrected_pval_ = summary_df['corrected_pval'].loc[summary_df['node_index'] == self.node_index_]
-            self.corrected_pval_ = self.corrected_pval_.iloc[0] # converting single line series into a float
-            self.is_split_significant_corrected_ = (
-                summary_df['multiple_test_result'].loc[summary_df['node_index'] == self.node_index_]
-            )
-            self.is_split_significant_corrected_ = self.is_split_significant_corrected_.iloc[0]
-            self.subtree_[0]._mark_nodes_post_multiple_hyp(summary_df)
-            self.subtree_[1]._mark_nodes_post_multiple_hyp(summary_df)
-        else:
-            self.corrected_pval_=None
-            self.is_split_significant_corrected_=None
-
-    #TODO Change this function so its mainly for p-vals, list of attrubutes and returns the vlaue of those atributes
     def _generate_node_summary(self, X=None, a=None, y=None):
+        # TODO: This function should be decomposed into two:
+        #       1. `get_attributes(self)`, which gets the value of inherent node values:
+        #          node_index, is_leaf, depth, positivity_violation, but also p_value (and corrected_p_value).
+        #       2. `calculate_attributes(self, X, a)`, which gets data-dependent node values:
+        #          treatment_prevalence, sample_size, max_asmd, and n_asmd_violating_features.
+        #          These could be then calculated on new unseen data, rather than stored values seen during `fit`.
         node_summary = pd.DataFrame({
-                "pscore": self.propensity_score_,
-                "sample_size": self.node_sample_size_,
-                "node_index": self.node_index_,
-                "p_value": self.pval_,
-                "is_leaf": self._is_leaf,
-                "positivity_violation": self.positivity_violation_,
-                "max_depth": self.max_depth,
-                "n_asmd_violating_features": self.n_asmd_violating_features_,
-                "max_asmd": self.max_feature_asmd_
-            }, index=[0])
+            "node_index": self.node_index_,
+            "is_leaf": self._is_leaf,
+            "max_depth": self.max_depth,  # Current node's depth is root.max_depth - node.max_depth
+            "positivity_violation": self.is_violating_positivity_,
+            # `getattr` allows to ask for a value before this post-fit attribute is set.
+            # Ideally, this node summary function will work on an attribute-to-attribute requested basis,
+            # and not return all possible attributes at once, avoiding the current requirement for
+            # accessing attributes not yet set. but in the meantime:
+            "p_value": getattr(self, "p_value_", None),
+            "treatment_prevalence": getattr(self, "treatment_prevalence_", None),
+            "sample_size": getattr(self, "node_sample_size_", None),
+            "n_asmd_violating_features": getattr(self, "n_asmd_violating_features_", None),
+            "max_asmd": getattr(self, "max_feature_asmd_", None),
+        }, index=[0])
         if self._is_leaf:
             return node_summary
         else:
@@ -739,13 +737,11 @@ class PropensityImbalanceStratification():
             right_child_summary = self.subtree_[1]._generate_node_summary()
             return pd.concat([node_summary, left_child_summary, right_child_summary], axis=0, ignore_index=True)
 
-
-
-    def generate_leaf_summary(self, X= None, a= None, y= None):
-         """
-         Recursively building a dataframe describing the leaf nodes with pscore, sample_size,
-         node_prevalence, node_index, average_outcome_treated/untreated, p_value, is_leaf, positivity_violation,
-         max_depth, n_asmd_violating_features, max_asmd
+    def generate_leaf_summary(self, X=None, a=None, y=None):
+        """
+        Recursively building a dataframe describing the leaf nodes with treatment_prevalence, sample_size,
+        node_prevalence, node_index, average_outcome_treated/untreated, p_value, is_leaf, positivity_violation,
+        max_depth, n_asmd_violating_features, max_asmd
 
         Args:
             X (pd.DataFrame): The feature data. Assumed to be of the same column
@@ -753,39 +749,45 @@ class PropensityImbalanceStratification():
             a (pd.Series): The treatment assignment vector
             y (pd.Series): The outcome vector
 
-         Returns: (DataFrame) a frame describing the leaf nodes in the fitted tree, with pscore, sample_size,
-         node_prevalence, node_index, average_outcome_treated/untreated, p_value, is_leaf, positivity_violation,
-         max_depth, n_asmd_violating_features, max_asmd
+        Returns: (DataFrame) a frame describing the leaf nodes in the fitted tree, with treatment_prevalence,
+            sample_size, node_prevalence, node_index, average_outcome_treated/untreated, p_value, is_leaf,
+            positivity_violation, max_depth, n_asmd_violating_features, max_asmd
 
-         """
+        """
+        all_node_summary = self._generate_node_summary(X, a, y)
+        return all_node_summary.loc[all_node_summary["is_leaf"]]
 
-         all_node_summary=self._generate_node_summary(X, a, y)
-         return all_node_summary.loc[all_node_summary["is_leaf"]]
+    def _generate_non_leaf_nodes_summary(self, X=None, a=None, y=None):
+        all_node_summary = self._generate_node_summary(X, a, y)
+        return all_node_summary.loc[~all_node_summary["is_leaf"]]
 
-    def _find_non_positivity_violating_leaves(self, positivity_filtering_method, positivity_filtering_kwargs: dict=None):
+    def _find_non_positivity_violating_leaves(
+        self,
+        positivity_filtering_method,
+        positivity_filtering_kwargs: dict = None,
+    ):
         """
 
-        Finding the non positivity violating leaf nodes according to a user-defined criterion,
+        Finding the non-positivity-violating leaf nodes according to a user-defined criterion,
         marks the corresponding nodes, and outputs a list of non-violating node indices
 
         Args:
             positivity_filtering_method (function): user-defined function for determining positivity violations
             positivity_filtering_kwargs (dict): parameters for positivity criterion
 
-        Returns:(list) node indices of leaves that do not violate positivity
+        Returns: (list) node indices of leaves that do not violate positivity
 
         """
         non_violating_nodes_idx = positivity_filtering_method(self, **positivity_filtering_kwargs)  # returns the non-violating leaves
         self._mark_positivity_nodes(non_violating_nodes_idx)
         return non_violating_nodes_idx
 
-
     def _mark_positivity_nodes(self, non_positivity_violating_nodes):
         if not self._is_leaf:
             self.subtree_[0]._mark_positivity_nodes(non_positivity_violating_nodes)
             self.subtree_[1]._mark_positivity_nodes(non_positivity_violating_nodes)
         else:
-            self.positivity_violation_ = self.node_index_ not in non_positivity_violating_nodes
+            self.is_violating_positivity_ = self.node_index_ not in non_positivity_violating_nodes
 
     def get_positivity_violation_status(self) -> dict:
         """For each leaf node get whether it is violating positivity or not.
@@ -794,7 +796,7 @@ class PropensityImbalanceStratification():
             dict: keys are node's index and value is boolean whether the leaf is violating.
         """
         if self._is_leaf:
-            result = {self.node_index_: self.positivity_violation_}
+            result = {self.node_index_: self.is_violating_positivity_}
         else:
             left = self.subtree_[0].get_positivity_violation_status()
             right = self.subtree_[1].get_positivity_violation_status()
@@ -818,10 +820,9 @@ class PropensityImbalanceStratification():
             X_left, X_right, *_ = self._split_data(X)
             left_child_assignment = self.subtree_[0].apply(X_left)
             right_child_assignment = self.subtree_[1].apply(X_right)
-            node_assignment=pd.concat([left_child_assignment, right_child_assignment], axis="index")
-            node_assignment=node_assignment.loc[X.index] #keeping order of X input
+            node_assignment = pd.concat([left_child_assignment, right_child_assignment], axis="index")
+            node_assignment = node_assignment.loc[X.index]  # Keeping order of X input
             return node_assignment
-
 
     def explain(
             self, X, a, split_condition: str = None, df_explanation: pd.DataFrame = None
@@ -834,9 +835,8 @@ class PropensityImbalanceStratification():
             X (pd.DataFrame): The feature data. Assumed to be of the same column
             structure as the training data
             a (pd.Series): The treatment assignment vector
-            y (pd.Series): The outcome vector
             split_condition (str): The string representing the first condition. Default to 'All'
-            df_explanation (pd.DataFrame): Mostly used for recursion. The inital data-frame,
+            df_explanation (pd.DataFrame): Mostly used for recursion. The initial data-frame,
             to which the split explanations are added
         Returns:
             List[pd.DataFrame]: The list representing the tree, holding a data-frame for every leaf.
@@ -856,6 +856,13 @@ class PropensityImbalanceStratification():
                 self.subtree_[1].explain(X_right, a_right, explanation_right, df_explanation),
             ]
 
+    def _build_split_condition_string(self, condition: str):
+        """Create the condition string `feature <condition> value`"""
+        explanation = f"{self.split_feature_} "
+        explanation += condition
+        explanation += f" {self.split_value_:.4g}"
+        return explanation
+
     def _convert_dtypes(self, df_explanation: pd.DataFrame):
         df_explanation = df_explanation.astype(
             {
@@ -872,7 +879,7 @@ class PropensityImbalanceStratification():
         split_condition = split_condition or "All"
         # marginal = self.outcome_learner.estimate_population_outcome(X, a, y)
         # effect = marginal.diff().values[-1]
-        asmds = self._calculate_asmds(X, a)
+        asmds = calculate_asmds(X, a)
         line = pd.Series(
             {
                 "N": len(X.index),

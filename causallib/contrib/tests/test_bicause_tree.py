@@ -30,22 +30,22 @@ from sklearn.linear_model import LinearRegression, LogisticRegression
 
 from causallib.contrib.bicause_tree import BICauseTree
 from causallib.contrib.bicause_tree import PropensityBICauseTree
-from causallib.contrib.bicause_tree.bicause_tree import PropensityImbalanceStratification
+from causallib.contrib.bicause_tree.bicause_tree import BalancingTree
 from causallib.contrib.bicause_tree.overlap_utils import prevalence_symmetric
 
 
 class _BaseTestBICauseTree(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.a = pd.Series([0, 0, 0, 0, 0, 1, 1, 1, 1, 1] * 60)
+        cls.a = pd.Series([0, 0, 0, 0, 0, 1, 1, 1, 1, 1] * 60, name="a")
         # constant feature - should never induce a split
-        cls.feature0 = pd.Series([0, 0, 0, 0, 0, 0, 0, 0, 0, 0] * 60)
+        cls.feature0 = pd.Series([0, 0, 0, 0, 0, 0, 0, 0, 0, 0] * 60, name="x0")
         # biased features - should induce independent splits
-        cls.feature1 = pd.Series([0, 0, 0, 0, 1, 1, 1, 1, 1, 0] * 60)
-        cls.feature2 = pd.Series([0, 0, 1, 1, 1, 1, 1, 1, 1, 0] * 60)
+        cls.feature1 = pd.Series([0, 0, 0, 0, 1, 1, 1, 1, 1, 0] * 60, name="x1")
+        cls.feature2 = pd.Series([0, 0, 1, 1, 1, 1, 1, 1, 1, 0] * 60, name="x2")
         # outcomes with effect of 1
-        cls.y = pd.Series([0, 0, 0, 0, 0, 1, 1, 1, 1, 1] * 60)
-        cls.y_diverse = pd.Series([0, 0, 0, 0, 1, 2, 2, 2, 2, 1] * 60)
+        cls.y = pd.Series([0, 0, 0, 0, 0, 1, 1, 1, 1, 1] * 60, name="y")
+        cls.y_diverse = pd.Series([0, 0, 0, 0, 1, 2, 2, 2, 2, 1] * 60, name="yy")
 
     @staticmethod
     def load_nhefs_sample(n=50):
@@ -60,51 +60,47 @@ class TestBICauseTreeDataStructure(_BaseTestBICauseTree):
 
     def test_large_two_level_input_splits(self):
         X = pd.DataFrame({"feature1": self.feature1})
-        tree = PropensityImbalanceStratification(
-            min_split_size=599
-        ).fit(X, self.a)
+        tree = BalancingTree(min_split_size=599).fit(X, self.a)
         self.assertEqual(tree.split_feature_, "feature1")
         self.assertEqual(tree.split_value_, 0)
 
     def test_two_splits(self):
         X = pd.DataFrame({"feature1": self.feature1, "feature2": self.feature2})
-        tree = PropensityImbalanceStratification().fit(X, self.a)
+        tree = BalancingTree().fit(X, self.a)
         self.assertIsNotNone(tree.subtree_)
         self.assertIsInstance(tree.subtree_, tuple)
         self.assertEqual(len(tree.subtree_), 2)
         self.assertEqual(tree.subtree_[0].split_feature_, "feature2")
-        self.assertIsNone(tree.subtree_[1].split_feature_)
+        self.assertFalse(hasattr(tree.subtree_[1], "split_feature_"))
 
     def test_split_size(self):
         X = pd.DataFrame({"feature1": self.feature1})
-        tree = PropensityImbalanceStratification(
-            min_split_size=600
-        ).fit(X, self.a)
-        self.assertIsNone(tree.split_feature_)
+        tree = BalancingTree(min_split_size=600).fit(X, self.a)
+        self.assertFalse(hasattr(tree, "split_feature_"))
 
     def test_stopping_max_depth(self):
         X = pd.DataFrame({"feature1": self.feature1, "feature2": self.feature2})
-        tree = PropensityImbalanceStratification(max_depth=1).fit(X, self.a)
+        tree = BalancingTree(max_depth=1).fit(X, self.a)
         self.assertIsNone(tree.subtree_)
 
     def test_stopping_min_split_size(self):
         X = pd.DataFrame({"feature1": self.feature1, "feature2": self.feature2})
-        tree = PropensityImbalanceStratification(min_split_size=1200).fit(X, self.a)
+        tree = BalancingTree(min_split_size=1200).fit(X, self.a)
         self.assertIsNone(tree.subtree_)
 
     def test_stopping_min_leaf_size(self):
         X = pd.DataFrame({"feature1": self.feature1, "feature2": self.feature2})
-        tree = PropensityImbalanceStratification(min_leaf_size=1200).fit(X, self.a)
+        tree = BalancingTree(min_leaf_size=1200).fit(X, self.a)
         self.assertIsNone(tree.subtree_)
 
     def test_stopping_min_treat_group_size(self):
         X = pd.DataFrame({"feature1": self.feature1, "feature2": self.feature2})
-        tree = PropensityImbalanceStratification(min_treat_group_size=1200).fit(X, self.a)
+        tree = BalancingTree(min_treat_group_size=1200).fit(X, self.a)
         self.assertIsNone(tree.subtree_)
 
     def test_stopping_asmd_threshold(self):
         X = pd.DataFrame({"feature1": self.feature1, "feature2": self.feature2})
-        tree = PropensityImbalanceStratification(asmd_violation_threshold=10 ** 4).fit(X, self.a)
+        tree = BalancingTree(asmd_violation_threshold=10 ** 4).fit(X, self.a)
         self.assertIsNone(tree.subtree_)
 
     def test_stopping_custom_function(self):
@@ -112,14 +108,12 @@ class TestBICauseTreeDataStructure(_BaseTestBICauseTree):
             return True
 
         X = pd.DataFrame({"feature1": self.feature1, "feature2": self.feature2})
-        tree = PropensityImbalanceStratification(
-            stopping_criterion=function_stop_immediately
-        ).fit(X, self.a)
+        tree = BalancingTree(stopping_criterion=function_stop_immediately).fit(X, self.a)
         self.assertIsNone(tree.subtree_)
 
     def test_prevalence_symmetric(self):
         X = pd.DataFrame({"feature1": self.feature1, "feature2": self.feature2})
-        tree = PropensityImbalanceStratification().fit(X, self.a)
+        tree = BalancingTree().fit(X, self.a)
         node_idx = tree._find_non_positivity_violating_leaves(
             prevalence_symmetric,
             positivity_filtering_kwargs={'alpha': 0.5}
@@ -127,63 +121,63 @@ class TestBICauseTreeDataStructure(_BaseTestBICauseTree):
         self.assertEqual(len(node_idx), 0)
 
     def test_multiple_hypothesis_bonferroni(self):
-        tree = PropensityImbalanceStratification()
-        tree.pval_ = 0.01
+        tree = BalancingTree()
+        tree.p_value_ = 0.01
         tree.subtree_ = []
-        tree.subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[0].pval_ = 0.03
-        tree.subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[1].pval_ = 0.02
+        tree.subtree_.append(BalancingTree())
+        tree.subtree_[0].p_value_ = 0.03
+        tree.subtree_.append(BalancingTree())
+        tree.subtree_[1].p_value_ = 0.02
         tree.subtree_[0].subtree_ = []
-        tree.subtree_[0].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[0].subtree_[0].pval_ = 0.04
-        tree.subtree_[0].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[0].subtree_[1].pval_ = 0.07
+        tree.subtree_[0].subtree_.append(BalancingTree())
+        tree.subtree_[0].subtree_[0].p_value_ = 0.04
+        tree.subtree_[0].subtree_.append(BalancingTree())
+        tree.subtree_[0].subtree_[1].p_value_ = 0.07
         tree._enumerate_nodes()
         set_node_attributes_helper(tree)
         corrected_non_leaf_summary = tree._multiple_hypothesis_correction(
             alpha=0.1, method='bonferroni'
         )
-        tree._mark_nodes_post_multiple_hyp(corrected_non_leaf_summary)
-        self.assertEqual(tree.corrected_pval_, 0.02)
-        self.assertEqual(tree.subtree_[0].corrected_pval_, 0.06)
-        self.assertTrue(tree.is_split_significant_corrected_)
-        self.assertTrue(tree.subtree_[0].is_split_significant_corrected_)
+        tree._set_corrected_p_value_to_nodes(corrected_non_leaf_summary)
+        self.assertEqual(tree.corrected_p_value_, 0.02)
+        self.assertEqual(tree.subtree_[0].corrected_p_value_, 0.06)
+        self.assertTrue(tree.corrected_p_value_is_significant_)
+        self.assertTrue(tree.subtree_[0].corrected_p_value_is_significant_)
 
     def test_multiple_hypothesis_holm(self):
-        tree = PropensityImbalanceStratification()
-        tree.pval_ = 0.01
+        tree = BalancingTree()
+        tree.p_value_ = 0.01
         tree.subtree_ = []
-        tree.subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[0].pval_ = 0.005
-        tree.subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[1].pval_ = 0.02
+        tree.subtree_.append(BalancingTree())
+        tree.subtree_[0].p_value_ = 0.005
+        tree.subtree_.append(BalancingTree())
+        tree.subtree_[1].p_value_ = 0.02
         tree.subtree_[0].subtree_ = []
-        tree.subtree_[0].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[0].subtree_[0].pval_ = 0.03
-        tree.subtree_[0].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[0].subtree_[1].pval_ = 0.001
+        tree.subtree_[0].subtree_.append(BalancingTree())
+        tree.subtree_[0].subtree_[0].p_value_ = 0.03
+        tree.subtree_[0].subtree_.append(BalancingTree())
+        tree.subtree_[0].subtree_[1].p_value_ = 0.001
         tree.subtree_[1].subtree_ = []
-        tree.subtree_[1].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[1].subtree_[0].pval_ = 0.009
-        tree.subtree_[1].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[1].subtree_[1].pval_ = 0.018
+        tree.subtree_[1].subtree_.append(BalancingTree())
+        tree.subtree_[1].subtree_[0].p_value_ = 0.009
+        tree.subtree_[1].subtree_.append(BalancingTree())
+        tree.subtree_[1].subtree_[1].p_value_ = 0.018
         tree._enumerate_nodes()
         set_node_attributes_helper(tree)
         corrected_non_leaf_summary = tree._multiple_hypothesis_correction(
             alpha=0.1, method='holm'
         )
-        tree._mark_nodes_post_multiple_hyp(corrected_non_leaf_summary)
-        self.assertEqual(tree.corrected_pval_, 0.02)
-        self.assertEqual(tree.subtree_[0].corrected_pval_, 0.015)
-        self.assertEqual(tree.subtree_[1].corrected_pval_, 0.02)
-        self.assertTrue(tree.is_split_significant_corrected_)
-        self.assertTrue(tree.subtree_[0].is_split_significant_corrected_)
-        self.assertTrue(tree.subtree_[1].is_split_significant_corrected_)
+        tree._set_corrected_p_value_to_nodes(corrected_non_leaf_summary)
+        self.assertEqual(tree.corrected_p_value_, 0.02)
+        self.assertEqual(tree.subtree_[0].corrected_p_value_, 0.015)
+        self.assertEqual(tree.subtree_[1].corrected_p_value_, 0.02)
+        self.assertTrue(tree.corrected_p_value_is_significant_)
+        self.assertTrue(tree.subtree_[0].corrected_p_value_is_significant_)
+        self.assertTrue(tree.subtree_[1].corrected_p_value_is_significant_)
 
     def test_pruning_single_root_node(self):
-        tree = PropensityImbalanceStratification()
-        tree.is_split_significant_corrected_ = False
+        tree = BalancingTree()
+        tree.corrected_p_value_is_significant_ = False
         tree._parent_ = None
         tree.subtree_ = None
 
@@ -196,29 +190,29 @@ class TestBICauseTreeDataStructure(_BaseTestBICauseTree):
             self.assertIsNone(tree.subtree_)
 
     def test_no_pruning_needed(self):
-        tree = PropensityImbalanceStratification()
+        tree = BalancingTree()
         tree._parent_ = None
-        tree.is_split_significant_corrected_ = False
+        tree.corrected_p_value_is_significant_ = False
         tree.subtree_ = []
 
-        tree.subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[0].is_split_significant_corrected_ = True
+        tree.subtree_.append(BalancingTree())
+        tree.subtree_[0].corrected_p_value_is_significant_ = True
         tree.subtree_[0].subtree_ = []
-        tree.subtree_[0].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[0].subtree_[0].is_split_significant_corrected_ = None
+        tree.subtree_[0].subtree_.append(BalancingTree())
+        tree.subtree_[0].subtree_[0].corrected_p_value_is_significant_ = None
         tree.subtree_[0].subtree_[0].subtree_ = None
-        tree.subtree_[0].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[0].subtree_[1].is_split_significant_corrected_ = None
+        tree.subtree_[0].subtree_.append(BalancingTree())
+        tree.subtree_[0].subtree_[1].corrected_p_value_is_significant_ = None
         tree.subtree_[0].subtree_[1].subtree_ = None
 
-        tree.subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[1].is_split_significant_corrected_ = False
+        tree.subtree_.append(BalancingTree())
+        tree.subtree_[1].corrected_p_value_is_significant_ = False
         tree.subtree_[1].subtree_ = []
-        tree.subtree_[1].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[1].subtree_[0].is_split_significant_corrected_ = None
+        tree.subtree_[1].subtree_.append(BalancingTree())
+        tree.subtree_[1].subtree_[0].corrected_p_value_is_significant_ = None
         tree.subtree_[1].subtree_[0].subtree_ = None
-        tree.subtree_[1].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[1].subtree_[1].is_split_significant_corrected_ = None
+        tree.subtree_[1].subtree_.append(BalancingTree())
+        tree.subtree_[1].subtree_[1].corrected_p_value_is_significant_ = None
         tree.subtree_[1].subtree_[1].subtree_ = None
 
         tree._enumerate_nodes()
@@ -243,30 +237,30 @@ class TestBICauseTreeDataStructure(_BaseTestBICauseTree):
             self.assertIsNone(tree.subtree_[0].subtree_[1].subtree_)
             self.assertIsNone(tree.subtree_[1].subtree_)
 
-    def test_all_insignificant_pvals(self):
-        tree = PropensityImbalanceStratification()
+    def test_all_insignificant_p_values(self):
+        tree = BalancingTree()
         tree._parent_ = None
-        tree.is_split_significant_corrected_ = False
+        tree.corrected_p_value_is_significant_ = False
         tree.subtree_ = []
 
-        tree.subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[0].is_split_significant_corrected_ = False
+        tree.subtree_.append(BalancingTree())
+        tree.subtree_[0].corrected_p_value_is_significant_ = False
         tree.subtree_[0].subtree_ = []
-        tree.subtree_[0].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[0].subtree_[0].is_split_significant_corrected_ = None
+        tree.subtree_[0].subtree_.append(BalancingTree())
+        tree.subtree_[0].subtree_[0].corrected_p_value_is_significant_ = None
         tree.subtree_[0].subtree_[0].subtree_ = None
-        tree.subtree_[0].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[0].subtree_[1].is_split_significant_corrected_ = None
+        tree.subtree_[0].subtree_.append(BalancingTree())
+        tree.subtree_[0].subtree_[1].corrected_p_value_is_significant_ = None
         tree.subtree_[0].subtree_[1].subtree_ = None
 
-        tree.subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[1].is_split_significant_corrected_ = False
+        tree.subtree_.append(BalancingTree())
+        tree.subtree_[1].corrected_p_value_is_significant_ = False
         tree.subtree_[1].subtree_ = []
-        tree.subtree_[1].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[1].subtree_[0].is_split_significant_corrected_ = None
+        tree.subtree_[1].subtree_.append(BalancingTree())
+        tree.subtree_[1].subtree_[0].corrected_p_value_is_significant_ = None
         tree.subtree_[1].subtree_[0].subtree_ = None
-        tree.subtree_[1].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[1].subtree_[1].is_split_significant_corrected_ = None
+        tree.subtree_[1].subtree_.append(BalancingTree())
+        tree.subtree_[1].subtree_[1].corrected_p_value_is_significant_ = None
         tree.subtree_[1].subtree_[1].subtree_ = None
 
         tree._enumerate_nodes()
@@ -291,30 +285,30 @@ class TestBICauseTreeDataStructure(_BaseTestBICauseTree):
             tree._delete_post_pruning()
             self.assertIsNone(tree.subtree_)
 
-    def test_all_significant_pvals(self):
-        tree = PropensityImbalanceStratification()
+    def test_all_significant_p_values(self):
+        tree = BalancingTree()
         tree._parent_ = None
-        tree.is_split_significant_corrected_ = True
+        tree.corrected_p_value_is_significant_ = True
         tree.subtree_ = []
 
-        tree.subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[0].is_split_significant_corrected_ = True
+        tree.subtree_.append(BalancingTree())
+        tree.subtree_[0].corrected_p_value_is_significant_ = True
         tree.subtree_[0].subtree_ = []
-        tree.subtree_[0].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[0].subtree_[0].is_split_significant_corrected_ = None
+        tree.subtree_[0].subtree_.append(BalancingTree())
+        tree.subtree_[0].subtree_[0].corrected_p_value_is_significant_ = None
         tree.subtree_[0].subtree_[0].subtree_ = None
-        tree.subtree_[0].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[0].subtree_[1].is_split_significant_corrected_ = None
+        tree.subtree_[0].subtree_.append(BalancingTree())
+        tree.subtree_[0].subtree_[1].corrected_p_value_is_significant_ = None
         tree.subtree_[0].subtree_[1].subtree_ = None
 
-        tree.subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[1].is_split_significant_corrected_ = True
+        tree.subtree_.append(BalancingTree())
+        tree.subtree_[1].corrected_p_value_is_significant_ = True
         tree.subtree_[1].subtree_ = []
-        tree.subtree_[1].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[1].subtree_[0].is_split_significant_corrected_ = None
+        tree.subtree_[1].subtree_.append(BalancingTree())
+        tree.subtree_[1].subtree_[0].corrected_p_value_is_significant_ = None
         tree.subtree_[1].subtree_[0].subtree_ = None
-        tree.subtree_[1].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[1].subtree_[1].is_split_significant_corrected_ = None
+        tree.subtree_[1].subtree_.append(BalancingTree())
+        tree.subtree_[1].subtree_[1].corrected_p_value_is_significant_ = None
         tree.subtree_[1].subtree_[1].subtree_ = None
 
         tree._enumerate_nodes()
@@ -343,29 +337,29 @@ class TestBICauseTreeDataStructure(_BaseTestBICauseTree):
             self.assertIsNone(tree.subtree_[1].subtree_[1].subtree_)
 
     def test_mark_as_keep_and_prune1(self):
-        tree = PropensityImbalanceStratification()
+        tree = BalancingTree()
         tree._parent_ = None
-        tree.is_split_significant_corrected_ = True
+        tree.corrected_p_value_is_significant_ = True
         tree.subtree_ = []
 
-        tree.subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[0].is_split_significant_corrected_ = False
+        tree.subtree_.append(BalancingTree())
+        tree.subtree_[0].corrected_p_value_is_significant_ = False
         tree.subtree_[0].subtree_ = []
-        tree.subtree_[0].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[0].subtree_[0].is_split_significant_corrected_ = None
+        tree.subtree_[0].subtree_.append(BalancingTree())
+        tree.subtree_[0].subtree_[0].corrected_p_value_is_significant_ = None
         tree.subtree_[0].subtree_[0].subtree_ = None
-        tree.subtree_[0].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[0].subtree_[1].is_split_significant_corrected_ = None
+        tree.subtree_[0].subtree_.append(BalancingTree())
+        tree.subtree_[0].subtree_[1].corrected_p_value_is_significant_ = None
         tree.subtree_[0].subtree_[1].subtree_ = None
 
-        tree.subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[1].is_split_significant_corrected_ = False
+        tree.subtree_.append(BalancingTree())
+        tree.subtree_[1].corrected_p_value_is_significant_ = False
         tree.subtree_[1].subtree_ = []
-        tree.subtree_[1].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[1].subtree_[0].is_split_significant_corrected_ = None
+        tree.subtree_[1].subtree_.append(BalancingTree())
+        tree.subtree_[1].subtree_[0].corrected_p_value_is_significant_ = None
         tree.subtree_[1].subtree_[0].subtree_ = None
-        tree.subtree_[1].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[1].subtree_[1].is_split_significant_corrected_ = None
+        tree.subtree_[1].subtree_.append(BalancingTree())
+        tree.subtree_[1].subtree_[1].corrected_p_value_is_significant_ = None
         tree.subtree_[1].subtree_[1].subtree_ = None
 
         tree._enumerate_nodes()
@@ -392,38 +386,38 @@ class TestBICauseTreeDataStructure(_BaseTestBICauseTree):
             self.assertIsNone(tree.subtree_[1].subtree_)
 
     def test_mark_as_keep_and_prune2(self):
-        tree = PropensityImbalanceStratification()
-        tree.is_split_significant_corrected_ = False
+        tree = BalancingTree()
+        tree.corrected_p_value_is_significant_ = False
         tree._parent_ = None
         tree.subtree_ = []
 
-        tree.subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[0].is_split_significant_corrected_ = False
-        tree.subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[1].is_split_significant_corrected_ = False
+        tree.subtree_.append(BalancingTree())
+        tree.subtree_[0].corrected_p_value_is_significant_ = False
+        tree.subtree_.append(BalancingTree())
+        tree.subtree_[1].corrected_p_value_is_significant_ = False
 
         tree.subtree_[0].subtree_ = []
-        tree.subtree_[0].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[0].subtree_[0].is_split_significant_corrected_ = True
+        tree.subtree_[0].subtree_.append(BalancingTree())
+        tree.subtree_[0].subtree_[0].corrected_p_value_is_significant_ = True
 
         tree.subtree_[0].subtree_[0].subtree_ = []
-        tree.subtree_[0].subtree_[0].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[0].subtree_[0].subtree_[0].is_split_significant_corrected_ = None
+        tree.subtree_[0].subtree_[0].subtree_.append(BalancingTree())
+        tree.subtree_[0].subtree_[0].subtree_[0].corrected_p_value_is_significant_ = None
         tree.subtree_[0].subtree_[0].subtree_[0].subtree_ = None
-        tree.subtree_[0].subtree_[0].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[0].subtree_[0].subtree_[1].is_split_significant_corrected_ = None
+        tree.subtree_[0].subtree_[0].subtree_.append(BalancingTree())
+        tree.subtree_[0].subtree_[0].subtree_[1].corrected_p_value_is_significant_ = None
         tree.subtree_[0].subtree_[0].subtree_[1].subtree_ = None
 
-        tree.subtree_[0].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[0].subtree_[1].is_split_significant_corrected_ = None
+        tree.subtree_[0].subtree_.append(BalancingTree())
+        tree.subtree_[0].subtree_[1].corrected_p_value_is_significant_ = None
         tree.subtree_[0].subtree_[1].subtree_ = None
 
         tree.subtree_[1].subtree_ = []
-        tree.subtree_[1].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[1].subtree_[0].is_split_significant_corrected_ = None
+        tree.subtree_[1].subtree_.append(BalancingTree())
+        tree.subtree_[1].subtree_[0].corrected_p_value_is_significant_ = None
         tree.subtree_[1].subtree_[0].subtree_ = None
-        tree.subtree_[1].subtree_.append(PropensityImbalanceStratification())
-        tree.subtree_[1].subtree_[1].is_split_significant_corrected_ = None
+        tree.subtree_[1].subtree_.append(BalancingTree())
+        tree.subtree_[1].subtree_[1].corrected_p_value_is_significant_ = None
         tree.subtree_[1].subtree_[1].subtree_ = None
 
         tree._enumerate_nodes()
@@ -470,8 +464,7 @@ class TestBICauseTree(_BaseTestBICauseTree):
         ]
         for learner in learners:
             learner_name = str(learner).split("(", maxsplit=1)[0]
-            with self.subTest(f"Test fit using {learner_name}"), \
-                 warnings.catch_warnings():
+            with self.subTest(f"Test fit using {learner_name}"), warnings.catch_warnings():
                 warnings.simplefilter('ignore', category=ConvergenceWarning)
                 tree = BICauseTree(learner)
                 tree.fit(X, self.a, self.y)
@@ -491,6 +484,7 @@ class TestBICauseTree(_BaseTestBICauseTree):
             individual=True
         )
         tree.fit(X, a, y)
+        outcomes = tree.estimate_individual_outcome(X, a)  # y=None
         outcomes = tree.estimate_individual_outcome(X, a, y)
         leaf_count = len(tree.node_models_.keys())
         num_unique_predictions = outcomes.nunique(dropna=False)[0]
@@ -505,6 +499,7 @@ class TestBICauseTree(_BaseTestBICauseTree):
             individual=False
         )
         tree.fit(X, a, y)
+        outcomes = tree.estimate_individual_outcome(X, a)  # y=None
         outcomes = tree.estimate_individual_outcome(X, a, y)
         num_unique_predictions = outcomes.nunique(dropna=False)[0]
         leaf_count = len(tree.node_models_.keys())
@@ -525,6 +520,10 @@ class TestBICauseTree(_BaseTestBICauseTree):
         num_unique_predictions = outcomes.nunique(dropna=False)[0]
         leaf_count = len(tree.node_models_.keys())
         self.assertEqual(num_unique_predictions, leaf_count)
+
+        with self.subTest("Not providing an outcome to pop-out-est raises an exception"):
+            with self.assertRaises(TypeError):
+                tree.estimate_individual_outcome(X, a, y=None)
 
     def test_weight_model_in_nodes_with_individual_prediction(self):
         # IPW + individual -> raise exception
@@ -574,8 +573,8 @@ class TestBICauseTree(_BaseTestBICauseTree):
         tree = BICauseTree().fit(X, self.a, self.y)
         outcomes = tree.estimate_population_outcome(X, self.a, self.y)
         self.assertListEqual(list([outcomes[0], outcomes[1]]), [0, 1])
-        self.assertIsNone(tree.tree.split_feature_)
-        np.testing.assert_equal(tree.tree.split_value_, np.nan)
+        self.assertFalse(hasattr(tree.tree, "split_feature_"))
+        self.assertFalse(hasattr(tree.tree, "split_value_"))
 
     def test_parameter_propagation(self):
         from causallib.contrib.bicause_tree.overlap_utils import crump
@@ -589,7 +588,7 @@ class TestBICauseTree(_BaseTestBICauseTree):
             min_treat_group_size=5,
             asmd_violation_threshold=0.3,
             max_depth=5,
-            n_values=80,
+            max_splitting_values=80,
             multiple_hypothesis_test_alpha=0.05,
             multiple_hypothesis_test_method='bonferroni',
             positivity_filtering_kwargs=dict(segments=500),
@@ -617,7 +616,7 @@ class TestPropensityBICauseTree(_BaseTestBICauseTree):
             min_treat_group_size=5,
             asmd_violation_threshold=0.3,
             max_depth=5,
-            n_values=80,
+            max_splitting_values=80,
             multiple_hypothesis_test_alpha=0.05,
             multiple_hypothesis_test_method='bonferroni',
             positivity_filtering_kwargs=dict(segments=500),
@@ -706,7 +705,7 @@ def set_node_attributes_helper(node, default_val=0):
     while queue:
         node = queue.popleft()
         node.node_sample_size_ = default_val
-        node.propensity_score_ = default_val
+        node.treatment_prevalence_ = default_val
         node.potential_outcomes_ = pd.Series([default_val, default_val])
         if node.subtree_ is not None:
             queue.extend(node.subtree_)
