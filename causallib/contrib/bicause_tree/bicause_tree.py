@@ -22,74 +22,14 @@ import numpy as np
 import pandas as pd
 from statsmodels.stats.multitest import multipletests
 from scipy.stats import fisher_exact, chi2_contingency
-import warnings
 from sklearn.dummy import DummyClassifier
 
+from causallib.contrib.bicause_tree.overlap_utils import prevalence_symmetric, OverlapViolationEstimator
 from causallib.utils.general_tools import get_iterable_treatment_values
 from causallib.estimation.base_estimator import PopulationOutcomeEstimator, IndividualOutcomeEstimator
 from causallib.estimation import MarginalOutcomeEstimator
 from causallib.metrics.weight_metrics import calculate_covariate_balance
 
-
-def prevalence_symmetric_cutoff(prob, mu, alpha=0.1):
-    """
-    Computes a lower/upper cutoff based on the prevalence of
-    treatment in the cohort. Treatment should be binary.
-
-    Args:
-        mu (float): observed prevalence of treatment in the cohort
-        prob (pd.DataFrame): probability to be assigned to a group
-                          (n_samples, 2)
-                          For binary treatment each row is (1-p, p)
-        alpha (float): the fixed cutoff to be transformed, should be
-        strictly between 0 and 1
-
-    Returns: Tuple[float, float]: upper and lower cutoff
-    """
-    if prob.shape[1] > 2:
-        raise ValueError('This threshold selection method is applicable only '
-                         'for binary treatment assignment')
-    if not 0 < alpha < 1:
-        raise ValueError(f"`alpha` value should be in the open interval (0, 1). Got {alpha} instead.")
-    upper_cutoff = (1 - alpha)*mu / ((1-alpha)*mu + alpha*(1 - mu))
-    lower_cutoff = alpha*mu / (alpha*mu + (1 - alpha)*(1 - mu))
-    return lower_cutoff, upper_cutoff
-
-
-def crump_cutoff(prob, segments=10000 ):
-    """
-    A systematic approach to find the optimal trimming cutoff, based on the
-    marginal distribution of the propensity score,
-    and according to a variance minimization criterion.
-    "Crump, R. K., Hotz, V. J., Imbens, G. W., & Mitnik, O. A. (2009).
-    Dealing with limited overlap in estimation of average treatment effects."
-    Treatment should be binary.
-    Args:
-        prob (pd.DataFrame): probability to be assigned to a group
-                          (n_samples, 2)
-        segments (int): number of exclusive segments of the interval (0, 0.5].
-                        more segments results with more precise cutoff
-    Returns:
-        float: the optimal cutoff,
-               i.e. the smallest value that satisfies the criterion.
-    """
-    # TODO: rethink input - probability_matrix, propensity_vector, or model + data
-    if prob.shape[1] > 2:
-        raise ValueError('This threshold selection method is applicable only '
-                         'for binary treatment assignment')
-    else:
-        propensities = prob.iloc[:, 1]
-
-    alphas = np.linspace(1e-7, 0.5, segments)
-    alphas_weights = alphas * (1 - alphas)
-    overlap_weights = propensities * (1 - propensities)
-    for i in range(segments):
-        obs_meets_criterion = overlap_weights >= alphas_weights[i]
-        criterion = 2 * (np.sum(obs_meets_criterion / overlap_weights) /
-                         np.maximum(np.sum(obs_meets_criterion), 1e-7))
-        if (1 / alphas_weights[i]) <= criterion:
-            return alphas[i], 1-alphas[i]
-    return None, None #no overlap
 
 def default_stopping_criterion(tree, X: pd.DataFrame, a: pd.Series):
     """
@@ -106,7 +46,7 @@ def default_stopping_criterion(tree, X: pd.DataFrame, a: pd.Series):
     #asmds can be NaN if the standard deviation is null
     if no_exploitable_asmds:
         return True
-    _is_asmd_threshold_reached = asmds.max() <= tree.asmd_threshold_split
+    _is_asmd_threshold_reached = asmds.max() <= tree.asmd_violation_threshold
     _is_min_treat_group_size_reached = min(a.value_counts()) <= tree.min_treat_group_size
     _is_min_split_size_reached = X.shape[0] <= tree.min_split_size
     _is_max_depth_tree_reached = tree.max_depth <= 1
@@ -116,118 +56,6 @@ def default_stopping_criterion(tree, X: pd.DataFrame, a: pd.Series):
          _is_max_depth_tree_reached])
 
     return criteria
-
-def prevalence_symmetric(tree, alpha=0.1):
-
-    """
-    Computes the symmetric lower/upper cutoff based on prevalence and a fixed cutoff alpha
-    with p the original propensity score and mu the prevalence in the cohort
-    Returns the list of non violating nodes for these cutoffs
-
-    Args:
-        tree (PropensityImbalanceStratification): the splitting tree
-        alpha (float): the fixed cutoff to be transformed
-
-    Checks for the default stopping criterion, which is:
-    is the ASMD threshold reached
-    OR is the minimum treatment group size reached
-    OR is the minimum leaf size reached
-    OR is the maximum depth of the tree reached
-    Returns: (list) The node indices of non-violating leaves
-    """
-    leaf_summary = tree.generate_leaf_summary()
-    ps_singles_list = leaf_summary['pscore'].values
-    repetition_numbers = leaf_summary['sample_size'].values.tolist()
-    ps_list = ps_singles_list.repeat(repetition_numbers)
-    ps_vect = pd.DataFrame(np.column_stack((1 - ps_list, ps_list)))
-    mu=tree.node_prevalence_ #overall prevalence of treatment
-    cutoffs=prevalence_symmetric_cutoff(ps_vect, mu, alpha)
-    lower_cutoff, upper_cutoff= cutoffs[0], cutoffs[1]
-    non_violating_nodes = leaf_summary.loc[leaf_summary['pscore'].between(lower_cutoff, upper_cutoff), 'node_index'].tolist()
-
-    return non_violating_nodes
-
-
-def crump(tree, segments=10000):
-    """
-    Generates a list of non positivity violating node indices according to the crump cutoff
-    i.e. nodes with propensity scores in [cutoff, 1-cutoff]
-
-    Crump is a systematic approach to find the optimal trimming cutoff see
-    "Crump, R. K., Hotz, V. J., Imbens, G. W., & Mitnik, O. A. (2009).
-    Dealing with limited overlap in estimation of average treatment effects."
-
-    Args:
-        tree (class): the splitting tree
-        segments (int): number of portions used for computing the crump cutoff
-
-
-    Returns: (list) The node indices of non-violating leaves
-    """
-    # TODO: add data to signature once we remove the saved data attributes from leaves.
-
-    leaf_summary = tree.generate_leaf_summary()
-    ps_singles_list =  leaf_summary['pscore'].values
-    repetition_numbers = leaf_summary['sample_size'].values.tolist()
-    ps_list = ps_singles_list.repeat(repetition_numbers)
-    ps_vect = pd.DataFrame(np.column_stack((1 - ps_list, ps_list)))
-    lower_cutoff, upper_cutoff = crump_cutoff(ps_vect, segments)
-    if lower_cutoff is not None:
-        non_violating_nodes = leaf_summary['node_index'][leaf_summary['pscore'].between(lower_cutoff,upper_cutoff)].tolist()
-        return non_violating_nodes
-    return [] # lower_cutoff=None means all nodes have positivity violations
-
-
-class OverlapViolationEstimator():
-    '''
-    A causallib-compatible model returning NaNs with appropriate format and indexing.
-    Meant to be used when overlap violations are detected.
-    '''
-    def __init__(
-        self,
-        value = None
-    ) -> None:
-        self.value = value
-    def fit(self,X,a,y):
-        '''
-
-        Args:
-            X (pd.DataFrame): The feature matrix of all samples
-            a (pd.Series): The treatment assignments
-            y (pd.Series): The outcome values
-
-        Returns:
-            (class) OverlapViolationEstimator
-
-        '''
-        return self
-    def estimate_population_outcome(self,X,a,y):
-        '''
-
-        Args:
-            X (pd.DataFrame): The feature matrix of all samples
-            a (pd.Series): The treatment assignments
-            y (pd.Series): The outcome values
-
-        Returns:
-            (pd.Series) A vector of NaN population outcomes indexed according to X
-        '''
-        treatment_values = self._get_treatment_index(a)
-        return pd.Series(np.nan, index=treatment_values)
-    def estimate_individual_outcome(self, X, a):
-        '''
-
-        Args:
-            X (pd.DataFrame): The feature matrix of all samples
-            a (pd.Series): The treatment assignments
-
-        Returns:
-            (pd.Series) A vector of NaN individual outcomes indexed according to X
-        '''
-        treatment_values = self._get_treatment_index(a)
-        return pd.DataFrame(np.nan, index=X.index,columns=treatment_values)
-    def _get_treatment_index(self,a):
-        return pd.Index(sorted(a.unique()), name=a.name)
 
 
 class PropensityBICauseTree():
@@ -279,7 +107,7 @@ class PropensityBICauseTree():
 
         assignment = self.tree.apply(X)
         total_nodes = assignment.unique()
-        self.tree._set_positivity_violation_nodes(violating_nodes={})
+        positivity_violating_leaves = self.tree.get_positivity_violation_status()
         self.treatment_values_ = np.unique(a)
 
         node_models = {}
@@ -290,7 +118,7 @@ class PropensityBICauseTree():
 
             current_node_X = X.loc[id]
             current_node_a = a.loc[id]
-            has_positivity_violation = self.tree.is_violating_[node]
+            has_positivity_violation = positivity_violating_leaves[node]
 
             # if not has_positivity_violation:
             # fit model to subset of samples
@@ -347,7 +175,6 @@ class BICauseTree(IndividualOutcomeEstimator):
         self,
         outcome_model: PopulationOutcomeEstimator = None,
         individual=False,
-        asmd_threshold_split=0.1,
         min_leaf_size=0,
         min_split_size=0,
         min_treat_group_size=0,
@@ -356,7 +183,7 @@ class BICauseTree(IndividualOutcomeEstimator):
         n_values=50,
         multiple_hypothesis_test_alpha=0.1,
         multiple_hypothesis_test_method='holm',
-        positivity_filtering_kwargs={'alpha':0.1},
+        positivity_filtering_kwargs=None,
         stopping_criterion=default_stopping_criterion,
         positivity_filtering_method=prevalence_symmetric,
         _parent_=None
@@ -368,15 +195,22 @@ class BICauseTree(IndividualOutcomeEstimator):
         else:
             self.outcome_model = deepcopy(outcome_model)
 
-        self.tree = PropensityImbalanceStratification(stopping_criterion=stopping_criterion,
-                                                        min_split_size=min_split_size,
-                                                        max_depth = max_depth,
-                                                        min_leaf_size=min_leaf_size,
-                                                        min_treat_group_size=min_treat_group_size,
-                                                        asmd_threshold_split=asmd_threshold_split,
-                                                        positivity_filtering_method=positivity_filtering_method,
-                                                        positivity_filtering_kwargs=positivity_filtering_kwargs
-                                                        )
+        if positivity_filtering_kwargs is None:
+            positivity_filtering_kwargs = {'alpha': 0.1}
+
+        self.tree = PropensityImbalanceStratification(
+            stopping_criterion=stopping_criterion,
+            min_split_size=min_split_size,
+            max_depth=max_depth,
+            min_leaf_size=min_leaf_size,
+            min_treat_group_size=min_treat_group_size,
+            asmd_violation_threshold=asmd_violation_threshold,
+            positivity_filtering_method=positivity_filtering_method,
+            positivity_filtering_kwargs=positivity_filtering_kwargs,
+            n_values=n_values,
+            multiple_hypothesis_test_alpha=multiple_hypothesis_test_alpha,
+            multiple_hypothesis_test_method=multiple_hypothesis_test_method,
+        )
         self.individual = individual
 
     def fit(self, X, a, y, sample_weight=None):
@@ -496,14 +330,14 @@ class BICauseTree(IndividualOutcomeEstimator):
         Returns:
             (class) BICauseTree
         '''
-        self.tree._set_positivity_violation_nodes(violating_nodes={})
+        positivity_violating_leaves = self.tree.get_positivity_violation_status()
         assignment = self.tree.apply(X)
         total_nodes = assignment.unique()
 
         node_models = {}
         for node in total_nodes:
 
-            has_positivity_violation = self.tree.is_violating_[node]
+            has_positivity_violation = positivity_violating_leaves[node]
             id = assignment[assignment==node].index
             current_node_X = X.loc[id]
             current_node_a = a.loc[id]
@@ -546,7 +380,6 @@ class BICauseTree(IndividualOutcomeEstimator):
 class PropensityImbalanceStratification():
     def __init__(
         self,
-        asmd_threshold_split=0.1,
         min_leaf_size=0,
         min_split_size=0,
         min_treat_group_size=0,
@@ -559,12 +392,10 @@ class PropensityImbalanceStratification():
         stopping_criterion=default_stopping_criterion,
         positivity_filtering_method=None,
         _parent_=None,
-        violating_nodes= None
     ) -> None:
         '''
 
         Args:
-            asmd_threshold_split:
             min_leaf_size:
             min_split_size:
             min_treat_group_size:
@@ -577,7 +408,6 @@ class PropensityImbalanceStratification():
             stopping_criterion:
             positivity_filtering_method:
             _parent_:
-            violating_nodes:
         '''
         super().__init__()
 
@@ -600,7 +430,6 @@ class PropensityImbalanceStratification():
         self.split_value_ = np.NaN
         self.max_feature_asmd_ = np.NaN
         self.subtree_ = None
-        self.asmd_threshold_split=asmd_threshold_split
         self.asmd_violation_threshold=asmd_violation_threshold
         self.min_leaf_size=min_leaf_size
         self.min_split_size=min_split_size
@@ -673,10 +502,18 @@ class PropensityImbalanceStratification():
     def _calculate_asmds(X: pd.DataFrame, a: pd.Series):
         epsilon = np.finfo(float).resolution
         treatment_values = get_iterable_treatment_values(None, a)
-        if len(treatment_values) == 0:
-            return a.replace(a.index, np.nan)
-        asmds = calculate_covariate_balance(X, a, w=pd.Series(1, index=a.index))
-        return asmds.abs()
+        if len(treatment_values) < 2:
+            return pd.Series(np.nan, index=X.columns)
+        X0 = X.loc[a == treatment_values[0]]
+        X1 = X.loc[a != treatment_values[0]]
+        # The epsilon ensures that if the means are the same the asmd will be zero
+        asmds = (X0.mean() - X1.mean()) / ((np.sqrt(X0.var() + X1.var())) + epsilon)
+        asmds = asmds.abs()
+        # asmds = calculate_covariate_balance(X, a, w=pd.Series(1, index=a.index))
+        # asmds = asmds["unweighted"]
+        # TODO: causallib's implementation return nan for two constant array
+        #       where this returns a very high value.
+        return asmds
 
     def _find_split_value(self, x: pd.Series, a: pd.Series):
         """Find a single split that should reduce imbalance
@@ -950,20 +787,19 @@ class PropensityImbalanceStratification():
         else:
             self.positivity_violation_ = self.node_index_ not in non_positivity_violating_nodes
 
+    def get_positivity_violation_status(self) -> dict:
+        """For each leaf node get whether it is violating positivity or not.
 
-    def _set_positivity_violation_nodes(self, violating_nodes:dict={}):
-        '''
-        Creating a dictionay with all positivity violating nodes in the tree
-        '''
-
-        if not self._is_leaf:
-            self.subtree_[0]._set_positivity_violation_nodes(violating_nodes)
-            self.subtree_[1]._set_positivity_violation_nodes(violating_nodes)
+        Returns:
+            dict: keys are node's index and value is boolean whether the leaf is violating.
+        """
+        if self._is_leaf:
+            result = {self.node_index_: self.positivity_violation_}
         else:
-           violating_nodes[self.node_index_] = self.positivity_violation_
-
-        self.is_violating_ = violating_nodes
-
+            left = self.subtree_[0].get_positivity_violation_status()
+            right = self.subtree_[1].get_positivity_violation_status()
+            result = {**left, **right}
+        return result
 
     def apply(self, X: pd.DataFrame):
         """
