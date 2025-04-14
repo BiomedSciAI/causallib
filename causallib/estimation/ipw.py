@@ -201,7 +201,7 @@ class IPW(PropensityEstimator, PopulationOutcomeEstimator):
 
         return probabilities
 
-    def estimate_population_outcome(self, X, a, y, w=None, treatment_values=None):
+    def estimate_population_outcome(self, X, a, y, ipw_estimator, w=None, treatment_values=None):
         """
         Calculates weighted population outcome for each subgroup stratified by treatment assignment.
 
@@ -209,6 +209,9 @@ class IPW(PropensityEstimator, PopulationOutcomeEstimator):
             X (pd.DataFrame): Covariate matrix of size (num_subjects, num_features).
             a (pd.Series): Treatment assignment of size (num_subjects,).
             y (pd.Series): Observed outcome of size (num_subjects,).
+            ipw_estimator (str): The type of estimator to use for the inverse probability weighting.
+                                   Horvitz-Thompson estimator is unbiased but high variance, while Hajek estimator
+                                   is biased but lower variance.
             w (pd.Series | None): Individual (sample) weights calculated. Used to achieved unbiased average outcome.
                                    If not provided, will be calculated on the data.
             treatment_values (Any): Desired treatment value/s to stratify upon.
@@ -221,8 +224,14 @@ class IPW(PropensityEstimator, PopulationOutcomeEstimator):
         """
         if w is None:
             w = self.compute_weights(X, a)
-        res = self._compute_stratified_weighted_aggregate(y, sample_weight=w, stratify_by=a,
+        if ipw_estimator == 'Horvitz-Thompson':
+            res = self._compute_stratified_weighted_aggregate(y, sample_weight=w, stratify_by=a, normalize=False, treatment_values=treatment_values)
+        elif ipw_estimator == 'Hajek':
+            res = self._compute_stratified_weighted_aggregate(y, sample_weight=w, normalize=True, stratify_by=a,
                                                           treatment_values=treatment_values)
+        else:
+            raise ValueError(f"Unknown ipw_estimator: {ipw_estimator}, not implemented in the current package version.")
+            
         return res
 
     @staticmethod
