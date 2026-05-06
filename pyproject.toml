@@ -1,0 +1,80 @@
+# PEP 517/518: Build system declaration
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# PEP 621: Project metadata
+[project]
+name = "causallib"
+dynamic = ["version"]
+description = "A Python package for flexible and modular causal inference modeling"
+readme = "README.md"
+requires-python = ">=3.8"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+keywords = ["causal inference", "effect estimation", "causality"]
+authors = [
+    {name = "Ehud Karavani"}
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Development Status :: 4 - Beta",
+    "Topic :: Scientific/Engineering",
+    "Intended Audience :: Science/Research",
+]
+
+# Core dependencies
+dependencies = [
+    "pandas>=0.25.2,<3",
+    "scipy>=0.19,<2",
+    "statsmodels>=0.9,<1",
+    "networkx>=1.1,<4",
+    "numpy>=1.13,<3",
+    "scikit-learn>=0.20,<2",
+    "matplotlib>=2.2,<4",
+    "dataclasses>=0.8; python_version < '3.7'",
+]
+
+[project.optional-dependencies]
+# Contrib module dependencies
+# Note: For CPU-only PyTorch, users may want to install with:
+#   pip install causallib[contrib] --extra-index-url https://download.pytorch.org/whl/cpu/
+contrib = [
+    "torch>=1.2.0",
+    "faiss-cpu~=1.7.0; python_version < '3.12'",
+    "faiss-cpu~=1.8.0; python_version >= '3.12'",
+]
+
+# Documentation dependencies
+dev = [
+    # Docs:
+    "sphinx==4.4.0",
+    "m2r2",
+    "sphinx-rtd-theme",
+    # Testing:
+    "pytest", 
+    "coverage",
+    # PyPI Packaging:
+    "build",
+    "twine",
+]
+
+[project.urls]
+Documentation = "https://causallib.readthedocs.io/en/latest/"
+"Source Code" = "https://github.com/BiomedSciAI/causallib"
+"Bug Tracker" = "https://github.com/BiomedSciAI/causallib/issues"
+
+# Setuptools-specific configuration
+[tool.setuptools]
+packages = {find = {}}
+
+[tool.setuptools.dynamic]
+version = {attr = "causallib.__version__"}
+
+[tool.setuptools.package-data]
+causallib = ["datasets/data/*/*.csv"]
