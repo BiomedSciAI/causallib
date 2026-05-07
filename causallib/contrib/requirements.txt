@@ -1,4 +1,0 @@
--f https://download.pytorch.org/whl/cpu/  # To support cpu torch installation
-torch>=1.2.0
-faiss-cpu~=1.7.0;python_version < '3.12'  # Can also use gpu for some Python versions
-faiss-cpu~=1.8.0;python_version >= '3.12'
