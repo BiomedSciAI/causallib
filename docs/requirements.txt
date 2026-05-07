@@ -1,0 +1,13 @@
+# Documentation build requirements for ReadTheDocs
+
+-e .  # causallib
+
+sphinx==9.0.4
+pydata-sphinx-theme==0.17.1
+sphinx-design==0.7.0
+sphinx-copybutton==0.5.2
+myst-nb==1.4.0
+ipykernel==7.2.0
+myst-parser==5.0.0
+sphinx-gallery==0.21.0
+numpydoc==1.10.0

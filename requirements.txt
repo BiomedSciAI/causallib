@@ -9,11 +9,6 @@ numpy==2.3.3
 scikit-learn==1.6.1
 matplotlib==3.10.6
 
-# Documentation dependencies
-sphinx==4.4.0
-m2r2
-sphinx-rtd-theme
-
 # Testing dependencies
 pytest==8.3.5
 coverage==7.7.1
@@ -21,3 +16,5 @@ coverage==7.7.1
 # Packaging dependencies
 build==1.4.4
 twine==6.2.0
+
+# Documentation dependencies at docs/requirements.txt
