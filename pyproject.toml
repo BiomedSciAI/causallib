@@ -62,14 +62,14 @@ dev = [
 
 docs = [
     "sphinx>=9.0.0",
-    "pydata-sphinx-theme>=0.16.0",
-    "sphinx-design>=0.6.0",
+    "pydata-sphinx-theme>=0.17.0",
+    "sphinx-design>=0.7.0",
     "sphinx-copybutton>=0.5.2",
     "myst_nb>=1.4.0",
-    "ipykernel>=6.29.0",
-    "myst-parser>=4.0.0",
-    "sphinx-gallery>=0.18.0",
-    "numpydoc>=1.8.0",
+    "ipykernel>=7.2.0",
+    "myst-parser>=5.0.0",
+    "sphinx-gallery>=0.21.0",
+    "numpydoc>=1.10.0",
 ]
 
 [project.urls]
