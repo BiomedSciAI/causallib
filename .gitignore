@@ -68,6 +68,10 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+docs/source/api/generated/
+# # dynamically copied / generated to be rendered by Sphinx:
+docs/source/examples/*.ipynb  
+docs/source/examples/index.md
 
 # PyBuilder
 target/

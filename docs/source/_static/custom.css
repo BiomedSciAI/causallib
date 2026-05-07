@@ -1,0 +1,12 @@
+
+@media (min-width: 960px) {
+  .bd-page-width {
+    max-width: 110rem;  /*90vw;*/
+  };
+  /* .bd-main .bd-content .bd-article-container {
+    max-width: 70em;
+  }; */
+  /* .bd-sidebar-primary {
+    width: 35%;
+  }; */
+}
