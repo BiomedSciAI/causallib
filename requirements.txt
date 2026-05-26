@@ -10,8 +10,8 @@ scikit-learn==1.6.1
 matplotlib==3.10.6
 
 # Testing dependencies
-pytest==8.3.5
-coverage==7.7.1
+pytest==9.0.3
+coverage==7.14.0
 
 # Packaging dependencies
 build==1.4.4
