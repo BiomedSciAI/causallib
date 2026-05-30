@@ -103,7 +103,7 @@ class WeightEstimator:
         raise NotImplementedError
 
     @staticmethod
-    def _compute_stratified_weighted_aggregate(y, sample_weight=None,
+    def _compute_stratified_weighted_aggregate(y, sample_weight=None, normalize=True,
                                                stratify_by=None, treatment_values=None):
         """
         Calculates aggregation of `y` weighted by `sample_weights` stratified by `stratify_by` variable.
@@ -111,13 +111,14 @@ class WeightEstimator:
         Args:
             y (pd.Series): The variable to aggregate (num_subjects,).
             sample_weight (pd.Series|None): Individual (sample) weights calculated.
-                                            Used to achieved unbiased average outcome.
-                                            If not provided, gives equal weights to every example.
+                                          Used to achieved unbiased average outcome.
+                                          If not provided, gives equal weights to every example.
+            normalize (bool): Whether to normalize the weights to sum to 1 within each strata. 
             stratify_by (pd.Series|None): Categorical variable to stratify according to (num_subjects,).
                                           Namely, aggregate within subgroups sharing the same values.
                                           If not provided, the aggregation is on the entire
             treatment_values (Any): Subset of values to stratify on from `stratify_by`.
-                                    If not supplied, all available stratification values are used.
+                                          If not supplied, all available stratification values are used.
 
         Returns:
             pd.Series[Any, float]: Series which index are treatment values, and the values are numbers - the
@@ -133,10 +134,15 @@ class WeightEstimator:
         res = {}
         for treatment_value in treatment_values:
             subgroup_mask = stratify_by == treatment_value
-            aggregated_value = np.average(y[subgroup_mask], weights=sample_weight[subgroup_mask])
+            if normalize:
+                aggregated_value = np.average(y[subgroup_mask], weights=sample_weight[subgroup_mask])
+            else:
+                aggregated_value = np.sum(y[subgroup_mask] * sample_weight[subgroup_mask])/len(y)
+
             res[treatment_value] = aggregated_value
         res = pd.Series(res)
         return res
+
 
     def evaluate_balancing(self, X, a, y, w):
         pass  # TODO: implement: (1) table one with smd (2) gather lots of metric (ks, kl, smd) (3) plot CDF of each feature
