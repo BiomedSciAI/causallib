@@ -252,7 +252,7 @@ class CorrelationFilter(BaseFeatureSelector):
         # p_vals = computeCorrPvals(X, y)
 
         features_sorted = np.argsort(p_vals)
-        is_removed = np.zeros(X.shape[1], dtype=np.bool)
+        is_removed = np.zeros(X.shape[1], dtype=bool)
         corr_mat = np.corrcoef(X.T)
         for i in features_sorted:  # iterate by p-values to keep the most significant among the highly correlated.
             if is_removed[i]:
